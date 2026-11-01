@@ -501,6 +501,7 @@ inline StudioMesh Editable(const GameObject &o) {
   return o.Modifiers.empty() ? FromObject(o) : o.BaseMesh;
 }
 inline void SetEditable(GameObject &o, StudioMesh m) {
+  if(!o.GeometryNodes.empty())throw std::runtime_error("Bake geometry nodes before mesh or UV editing");
   Check(m);
   Triangulate(m);
   if (o.Modifiers.empty())

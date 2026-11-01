@@ -1,6 +1,28 @@
 #pragma once
 
 static void CheckPatchRegressions() {
+  assert(GamePackage::CRC(nullptr, 0) == 0);
+  const unsigned char known[] = "123456789";
+  assert(GamePackage::CRC(known, 9) == 0xcbf43926u);
+  std::vector<unsigned char> checksumData(1040);
+  uint32_t seed = 73;
+  for (auto &byte : checksumData) {
+    seed = seed * 1664525u + 1013904223u;
+    byte = static_cast<unsigned char>(seed >> 24);
+  }
+  for (size_t offset = 0; offset < 8; ++offset)
+    for (size_t length = 0; length <= 1024; ++length) {
+      uint32_t reference = ~uint32_t(0);
+      for (size_t i = 0; i < length; ++i) {
+        reference ^= checksumData[offset + i];
+        for (int k = 0; k < 8; ++k)
+          reference =
+              (reference >> 1) ^ (0xedb88320u & uint32_t(-int(reference & 1)));
+      }
+      assert(GamePackage::CRC(checksumData.data() + offset, length) ==
+             ~reference);
+    }
+
   CreateSampleGame();
   g_Game.StartupScript = -1;
   const std::string path = "tests/patch-project.lunoryx";

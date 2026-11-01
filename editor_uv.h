@@ -78,9 +78,9 @@ static void RenderUVEditor() {
       g_UVSelection.clear();
     }
     ImGui::BeginDisabled(g_ModelBusy || g_PhysicsRunning ||
-                         !object.Modifiers.empty());
-    if (!object.Modifiers.empty())
-      ImGui::TextUnformatted("Apply modifiers before editing UVs.");
+                         !object.Modifiers.empty() || !object.GeometryNodes.empty());
+    if (!object.Modifiers.empty()||!object.GeometryNodes.empty())
+      ImGui::TextUnformatted("Bake nodes and apply modifiers before editing UVs.");
     if (ImGui::Button("Auto unwrap and pack"))
       QueueSelectedMesh([](GameObject &o) {
         auto m = Model::Editable(o);
@@ -171,7 +171,7 @@ static void RenderUVEditor() {
         }
       }
     if (hover && ImGui::IsMouseDragging(0) && !g_UVSelection.empty() &&
-        !g_PhysicsRunning && object.Modifiers.empty()) {
+        !g_PhysicsRunning && object.Modifiers.empty() && object.GeometryNodes.empty()) {
       auto delta = ImGui::GetIO().MouseDelta;
       for (auto v : g_UVSelection)
         if (v < object.UV.size() / 2) {

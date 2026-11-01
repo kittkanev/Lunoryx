@@ -84,14 +84,29 @@ static void CheckGeometryNodeRegressions() {
   assert(g_ObjectHistory.Undo(g_Objects) && CompleteDocumentHash() == baseline);
   assert(g_ObjectHistory.Redo(g_Objects) &&
          g_Objects[0].GeometryNodes[1].Vector[1] == 2);
+  g_SelectedObjectIndex = 0;
+  g_Modeling.Edit = true;
+  float target[3] = {0, 0, 0};
+  DrawModelSelection(
+      10, 25, -35,
+      target); // Node meshes must exit before touching ImGui/mesh-edit state.
+  g_Modeling.Edit = false;
+  failed = false;
+  try {
+    Model::SetEditable(g_Objects[0], mesh);
+  } catch (const std::runtime_error &) {
+    failed = true;
+  }
+  assert(failed);
   assert(!MakeEditable(g_Objects[0], 1));
   g_Objects[0].GeometryNodes.clear();
   assert(MakeEditable(g_Objects[0], 1));
   const auto before = g_Objects[0].Vertices;
   assert(SculptBrush(g_Objects[0], {0, 0, 0}, 10, .1f, 0) &&
          g_Objects[0].Vertices != before);
-  assert(g_Objects[0].Normals.size()==g_Objects[0].Vertices.size());
-  for(float n:g_Objects[0].Normals)assert(std::isfinite(n));
+  assert(g_Objects[0].Normals.size() == g_Objects[0].Vertices.size());
+  for (float n : g_Objects[0].Normals)
+    assert(std::isfinite(n));
   auto encoded = StudioProjectJson("tests/node-project.lunoryx");
   encoded["objects"][0]["geometry_nodes"] =
       nlohmann::json::array({{{"id", 1}}});
