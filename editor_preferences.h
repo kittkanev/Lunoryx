@@ -6,9 +6,12 @@ struct EditorPreferences {
         ScaleSnap = .1f, MasterVolume = .8f, MoveSnap = .5f;
   bool AdaptiveGrid = true, ShowSettings = false, VSync = true,
        SnapEnabled = false, LocalTransform = false;
-  int Theme = 0;
+  int Theme = 0, RenderQuality = 0;
+  float RenderScale = 1.f, Exposure = 1.f;
+  bool CachedRenderer = true;
 };
 static EditorPreferences g_Preferences;
+static bool g_RenderReport=false;
 static std::string g_PreferencesPath;
 static bool SaveEditorPreferences() {
   if (g_PreferencesPath.empty())
@@ -23,6 +26,10 @@ static bool SaveEditorPreferences() {
                       {"grid", g_ShowGrid},
                       {"axes", g_ShowAxes},
                       {"vsync", g_Preferences.VSync},
+                      {"render_quality",g_Preferences.RenderQuality},
+                      {"render_scale",g_Preferences.RenderScale},
+                      {"exposure",g_Preferences.Exposure},
+                      {"cached_renderer",g_Preferences.CachedRenderer},
                       {"theme", g_Preferences.Theme},
                       {"rotation_snap", g_Preferences.RotationSnap},
                       {"scale_snap", g_Preferences.ScaleSnap},
@@ -79,6 +86,11 @@ static void LoadEditorPreferences() {
     p.LocalTransform = j.value("local_transform", false);
     p.AdaptiveGrid = j.value("adaptive_grid", true);
     p.VSync = j.value("vsync", true);
+    p.RenderQuality = j.value("render_quality",0);
+    if(p.RenderQuality<0||p.RenderQuality>2)throw std::runtime_error("Invalid render quality");
+    p.RenderScale=number("render_scale",p.RenderScale,.5f,1.f);
+    p.Exposure=number("exposure",p.Exposure,.5f,2.f);
+    p.CachedRenderer=j.value("cached_renderer",true);
     p.Theme = j.value("theme", 0);
     if (p.Theme < 0 || p.Theme > 1)
       throw std::runtime_error("Invalid theme");

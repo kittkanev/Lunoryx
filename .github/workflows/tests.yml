@@ -16,8 +16,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y g++ make cmake libsdl2-dev liblua5.4-dev libgl1-mesa-dev libegl1-mesa-dev xvfb xauth ffmpeg
-      - name: Test geometry and scene operations
-        run: make test
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.85.1 --profile minimal
+      - name: Test geometry, Rust ABI and physics equivalence
+        run: make -j2 test test-rust test-kernels test-physics
       - name: Build editor and integration tests
         run: KEEP_TEST_GLB=1 make -j2 engine test-integration
       - name: Test Studio MCP and audio codecs
@@ -25,6 +27,24 @@ jobs:
       - name: Test self-contained game and relocated resources
         run: |
           LUNORYX_GAME_GUI=1 LUNORYX_GAME_SMOKE=1 SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 LUNORYX_CAPTURE_PATH="$PWD/build/game-linux.png" python3 tools/test_game_package.py ./engine
+      - name: Measure portable kernels and physics against 1.0.1
+        run: |
+          make benchmark benchmark-physics benchmark-weld
+          { rustc --version; g++ --version; uname -a; lscpu; } > build/benchmark-linux-environment.txt
+      - name: Test FXAA, viewport state and postprocess cost
+        run: |
+          make test-postprocess test-render test-shadows
+          SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 ./tests/viewport_postprocess_tests --bench > build/render-postprocess-linux.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: performance-linux
+          path: |
+            build/performance-linux.csv
+            build/physics-linux.csv
+            build/weld-linux.csv
+            build/benchmark-linux-environment.txt
+            build/render-postprocess-linux.csv
+            build/render-parity-linux.csv
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -39,6 +59,11 @@ jobs:
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GIZMO_SMOKE=1 LUNORYX_CAPTURE_PATH=build/gizmo-smoke.png ./engine
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/modeling.png ./engine --report-modeling
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/uv.png ./engine --report-uv
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_PRESET=quality LUNORYX_CAPTURE_PATH=build/render-quality.png ./engine --report-rendering
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_PRESET=office LUNORYX_CAPTURE_PATH=build/render-office.png ./engine --report-rendering
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/geometry-nodes.png ./engine --report-nodes
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/sculpt.png ./engine --report-sculpt
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_LEGACY=1 LUNORYX_RENDER_PRESET=office LUNORYX_CAPTURE_PATH=build/render-before.png ./engine --report-rendering
       - uses: actions/upload-artifact@v4
         with:
           name: gltf-validation
@@ -49,10 +74,15 @@ jobs:
             build/modeling.png
             build/uv.png
             build/game-linux.png
+            build/render-quality.png
+            build/render-office.png
+            build/geometry-nodes.png
+            build/sculpt.png
+            build/render-before.png
       - name: Address, undefined behavior and leak checks
         run: |
           make clean
-          make -j2 test-integration EXTRA_CXXFLAGS='-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer' EXTRA_LDFLAGS='-fsanitize=address,undefined'
+          make -j2 test-integration test-kernels test-physics EXTRA_CXXFLAGS='-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer' EXTRA_LDFLAGS='-fsanitize=address,undefined'
         env:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
@@ -63,6 +93,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install cross compiler
         run: sudo apt-get update && sudo apt-get install -y cmake g++-mingw-w64-x86-64
+      - name: Install pinned Rust cross toolchain
+        run: rustup toolchain install 1.85.1 --profile minimal --target x86_64-pc-windows-gnu
       - name: Prepare verified Lua and SDL2 dependencies
         run: bash tools/prepare_mingw.sh
       - name: Build editor and Windows tests
@@ -89,6 +121,10 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force tests | Out-Null
+          & ./rust_kernel_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./physics_differential.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ./modeling_tests.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ./core_tests.exe
@@ -102,9 +138,47 @@ jobs:
           & ./studio_audio_tests.exe tests/tone.wav
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Measure kernels and physics natively on Windows
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          & ./performance.exe | Set-Content -Encoding utf8 build/performance-windows.csv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./physics_benchmark.exe | Set-Content -Encoding utf8 build/physics-windows.csv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./weld_operation.exe | Set-Content -Encoding utf8 build/weld-windows.csv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          @([Environment]::OSVersion.VersionString, (Get-CimInstance Win32_Processor).Name) | Set-Content -Encoding utf8 build/benchmark-windows-environment.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: performance-windows
+          path: |
+            build/performance-windows.csv
+            build/physics-windows.csv
+            build/weld-windows.csv
+            build/benchmark-windows-environment.txt
       - name: Prepare verified software OpenGL for Windows GUI tests
         shell: pwsh
         run: ./tools/prepare_windows_mesa.ps1
+      - name: Test FXAA and viewport state on Windows Mesa
+        shell: pwsh
+        run: |
+          Copy-Item (Join-Path $env:LUNORYX_MESA_DIR '*.dll') . -Force
+          $env:GALLIUM_DRIVER='llvmpipe'
+          & ./render_parity_tests.exe | Set-Content -Encoding utf8 build/render-parity-windows.csv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./scene_shadow_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./viewport_postprocess_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./viewport_postprocess_tests.exe --bench | Set-Content -Encoding utf8 build/render-postprocess-windows.csv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: performance-render-windows
+          path: |
+            build/render-postprocess-windows.csv
+            build/render-parity-windows.csv
       - name: Test native game packaging and complete the level on Windows
         shell: pwsh
         run: |

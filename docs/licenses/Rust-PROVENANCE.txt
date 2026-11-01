@@ -1,0 +1,48 @@
+Rust toolchain notices for Lunoryx experimental kernels
+
+The allocation-free Rust static module is built with Rust 1.85.1. It uses
+core and compiler_builtins, without the full std runtime or Cargo dependencies.
+Unmodified upstream project notices are retained below and embedded in the
+editor's license view. The Rust COPYRIGHT file also covers broader upstream
+components; inclusion does not mean all such components are linked.
+
+Rust 1.85.1 source commit: 4eb161250e340c8f48f66e2b929ef4a5bed7c181
+Pinned library lockfile:
+https://github.com/rust-lang/rust/blob/4eb161250e340c8f48f66e2b929ef4a5bed7c181/library/Cargo.lock
+This lockfile specifies compiler_builtins 0.1.140, not 0.1.151.
+
+Compiler-builtins source crate:
+https://static.crates.io/crates/compiler_builtins/compiler_builtins-0.1.140.crate
+Verified archive SHA256 (matches the pinned library/Cargo.lock):
+df14d41c5d172a886df3753d54238eefb0f61c96cbd8b363c33ccc92c457bee3
+The archive .cargo_vcs_info.json identifies compiler-builtins commit
+ff0ca1f39bd86258fcd9b4d930d139a054f7e82f. LICENSE.txt was extracted from
+that verified archive and compared byte-for-byte with that commit's source.
+It includes MIT, Apache 2.0 with LLVM exceptions, and compiler-rt attribution.
+
+Compiler-builtins' bundled libm submodule revision:
+f4e5b38aee0e0c592a82ed45b21cd068c9b6c89a
+Its LICENSE.txt retains the source-specific Sun/FreeBSD/musl notices as well.
+
+License files (unmodified upstream bytes), immutable source URLs and SHA256:
+
+Rust-MIT.txt
+Source: https://raw.githubusercontent.com/rust-lang/rust/4eb161250e340c8f48f66e2b929ef4a5bed7c181/LICENSE-MIT
+SHA256: 23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3
+
+Rust-Apache-2.0.txt
+Source: https://raw.githubusercontent.com/rust-lang/rust/4eb161250e340c8f48f66e2b929ef4a5bed7c181/LICENSE-APACHE
+SHA256: 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a
+
+Rust-COPYRIGHT.txt
+Source: https://raw.githubusercontent.com/rust-lang/rust/4eb161250e340c8f48f66e2b929ef4a5bed7c181/COPYRIGHT
+SHA256: 252b04f034f7383e09401dc700c8b933e3e38818eaa8b2f09dd247542be92292
+
+Rust-compiler-builtins-0.1.140.txt
+Source: https://raw.githubusercontent.com/rust-lang/compiler-builtins/ff0ca1f39bd86258fcd9b4d930d139a054f7e82f/LICENSE.txt
+SHA256: 789f172b2ebcfdd6ce9f0ef16763615c07d04fd1e0d352f7ce39c927d308de64
+
+Rust-libm.txt
+Source: https://raw.githubusercontent.com/rust-lang/libm/f4e5b38aee0e0c592a82ed45b21cd068c9b6c89a/LICENSE.txt
+SHA256: 3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7
+

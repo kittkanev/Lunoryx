@@ -33,33 +33,85 @@ inline void ObjectMesh(const GameObject& o, std::vector<float>& vertices, std::v
     GeneratePrimitiveMeshData(o.Type, vertices, small);
     indices.assign(small.begin(), small.end());
 }
-inline bool WorldBounds(const GameObject& o, Bounds& b) {
-    Vec3 lo={-.5f,-.5f,-.5f}, hi={.5f,.5f,.5f};
-    if (o.Type==MeshType::Plane && o.Vertices.empty()) lo.y=hi.y=0;
-    if (!o.Vertices.empty()) {
-        lo=hi={o.Vertices[0],o.Vertices[1],o.Vertices[2]};
-        for (size_t i=3;i<o.Vertices.size();i+=3) {
-            lo.x=std::min(lo.x,o.Vertices[i]); hi.x=std::max(hi.x,o.Vertices[i]);
-            lo.y=std::min(lo.y,o.Vertices[i+1]); hi.y=std::max(hi.y,o.Vertices[i+1]);
-            lo.z=std::min(lo.z,o.Vertices[i+2]); hi.z=std::max(hi.z,o.Vertices[i+2]);
-        }
+// Geometry is scanned once; transforms can then be refreshed without touching
+// a large mesh again when AABB contact resolution only moves the object.
+inline void LocalBounds(const GameObject &o, Vec3 &lo, Vec3 &hi) {
+  if (o.Vertices.size() % 3 || o.Vertices.size() / 3 > MAX_EDIT_VERTICES) {
+    const float invalid = std::numeric_limits<float>::quiet_NaN();
+    lo = hi = {invalid, invalid, invalid};
+    return;
+  }
+  lo = {-.5f, -.5f, -.5f};
+  hi = {.5f, .5f, .5f};
+  if (o.Type == MeshType::Plane && o.Vertices.empty())
+    lo.y = hi.y = 0;
+  if (!o.Vertices.empty()) {
+    lo = hi = {o.Vertices[0], o.Vertices[1], o.Vertices[2]};
+    for (size_t i = 3; i < o.Vertices.size(); i += 3) {
+      lo.x = std::min(lo.x, o.Vertices[i]);
+      hi.x = std::max(hi.x, o.Vertices[i]);
+      lo.y = std::min(lo.y, o.Vertices[i + 1]);
+      hi.y = std::max(hi.y, o.Vertices[i + 1]);
+      lo.z = std::min(lo.z, o.Vertices[i + 2]);
+      hi.z = std::max(hi.z, o.Vertices[i + 2]);
     }
-    if(o.Type==MeshType::Plane && hi.y-lo.y<.01f){lo.y-=.005f;hi.y+=.005f;}
-    for(int corner=0;corner<8;++corner) {
-        Vec3 p;
-        if(!TransformPoint(o,{corner&1?hi.x:lo.x,corner&2?hi.y:lo.y,corner&4?hi.z:lo.z},p)) return false;
-        if(corner==0) b.Min=b.Max=p;
-        else {
-            b.Min.x=std::min(b.Min.x,p.x); b.Max.x=std::max(b.Max.x,p.x);
-            b.Min.y=std::min(b.Min.y,p.y); b.Max.y=std::max(b.Max.y,p.y);
-            b.Min.z=std::min(b.Min.z,p.z); b.Max.z=std::max(b.Max.z,p.z);
-        }
+  }
+  if (o.Type == MeshType::Plane && hi.y - lo.y < .01f) {
+    lo.y -= .005f;
+    hi.y += .005f;
+  }
+}
+inline bool WorldBoundsFromLocal(const GameObject &o, Vec3 lo, Vec3 hi,
+                                 Bounds &b) {
+  const double factor = 3.14159265358979323846 / 180.0;
+  const double cz = std::cos(o.Rotation[2] * factor),
+               sz = std::sin(o.Rotation[2] * factor);
+  const double cy = std::cos(o.Rotation[1] * factor),
+               sy = std::sin(o.Rotation[1] * factor);
+  const double cx = std::cos(o.Rotation[0] * factor),
+               sx = std::sin(o.Rotation[0] * factor);
+  for (int corner = 0; corner < 8; ++corner) {
+    double x = double(corner & 1 ? hi.x : lo.x) * o.Scale[0],
+           y = double(corner & 2 ? hi.y : lo.y) * o.Scale[1],
+           z = double(corner & 4 ? hi.z : lo.z) * o.Scale[2];
+    double t = cz * x - sz * y;
+    y = sz * x + cz * y;
+    x = t;
+    t = cy * x + sy * z;
+    z = -sy * x + cy * z;
+    x = t;
+    t = cx * y - sx * z;
+    z = sx * y + cx * z;
+    y = t;
+    x += o.Position[0];
+    y += o.Position[1];
+    z += o.Position[2];
+    const double maximum = std::numeric_limits<float>::max();
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) ||
+        std::abs(x) > maximum || std::abs(y) > maximum || std::abs(z) > maximum)
+      return false;
+    Vec3 p = {float(x), float(y), float(z)};
+    if (corner == 0)
+      b.Min = b.Max = p;
+    else {
+      b.Min.x = std::min(b.Min.x, p.x);
+      b.Max.x = std::max(b.Max.x, p.x);
+      b.Min.y = std::min(b.Min.y, p.y);
+      b.Max.y = std::max(b.Max.y, p.y);
+      b.Min.z = std::min(b.Min.z, p.z);
+      b.Max.z = std::max(b.Max.z, p.z);
     }
-    return true;
+  }
+  return true;
+}
+inline bool WorldBounds(const GameObject &o, Bounds &b) {
+  Vec3 lo, hi;
+  LocalBounds(o, lo, hi);
+  return WorldBoundsFromLocal(o, lo, hi, b);
 }
 
 inline bool MakeEditable(GameObject& object, int subdivisions=0) {
-    if(subdivisions<0 || subdivisions>4 || !object.Modifiers.empty()) return false;
+    if(subdivisions<0 || subdivisions>4 || !object.Modifiers.empty() || !object.GeometryNodes.empty()) return false;
     std::vector<float> vertices, colors=object.VertexColors;
     std::vector<uint32_t> indices;
     ObjectMesh(object,vertices,indices);
@@ -91,7 +143,7 @@ inline bool MakeEditable(GameObject& object, int subdivisions=0) {
 }
 
 // Brush coordinates and radius are object-local. Mode 0=inflate, 1=smooth, 2=flatten Y.
-inline bool SculptBrush(GameObject& object, Vec3 center, float radius, float strength, int mode) {
+inline bool SculptBrush(GameObject& object, Vec3 center, float radius, float strength, int mode, bool symmetry=false) {
     if(!FiniteVec(center)||!std::isfinite(radius)||radius<=0||radius>10000||!std::isfinite(strength)||std::abs(strength)>10||mode<0||mode>2) return false;
     GameObject edited=object;
     if(!MakeEditable(edited)) return false;
@@ -115,6 +167,7 @@ inline bool SculptBrush(GameObject& object, Vec3 center, float radius, float str
     std::vector<float> result=p;
     for(size_t i=0;i<p.size();i+=3) {
         double x=double(p[i])-center.x,y=double(p[i+1])-center.y,z=double(p[i+2])-center.z;
+        if(symmetry&&std::abs(double(p[i])+center.x)<std::abs(x))x=double(p[i])+center.x;
         double distance=std::sqrt(x*x+y*y+z*z); if(distance>=radius) continue;
         double weight=(1.0-distance/radius);weight*=weight;
         double length=std::sqrt(sums[i]*sums[i]+sums[i+1]*sums[i+1]+sums[i+2]*sums[i+2]);
@@ -128,7 +181,21 @@ inline bool SculptBrush(GameObject& object, Vec3 center, float radius, float str
             result[i+k]=float(value);
         }
     }
-    edited.Vertices.swap(result);edited.Normals.clear(); object=std::move(edited);return true;
+    edited.Vertices.swap(result);
+    // Reuse the brush workspace to update smooth normals after deformation.
+    // This keeps sculpted surfaces smooth and lets the indexed renderer reuse vertices.
+    std::fill(sums.begin(),sums.end(),0.0);
+    for(size_t i=0;i<edited.Indices.size();i+=3){
+        uint32_t a=edited.Indices[i],b=edited.Indices[i+1],c=edited.Indices[i+2];double u[3],v[3];
+        for(int k=0;k<3;++k){u[k]=double(p[b*3+k])-p[a*3+k];v[k]=double(p[c*3+k])-p[a*3+k];}
+        double n[3]={u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]};
+        for(auto index:{a,b,c})for(int k=0;k<3;++k)sums[index*3+k]+=n[k];
+    }
+    edited.Normals.resize(p.size());
+    for(size_t i=0;i<p.size();i+=3){double length=std::sqrt(sums[i]*sums[i]+sums[i+1]*sums[i+1]+sums[i+2]*sums[i+2]);
+        for(int k=0;k<3;++k)edited.Normals[i+k]=length>1e-20?float(sums[i+k]/length):(k==1?1.f:0.f);
+    }
+    object=std::move(edited);return true;
 }
 
 inline int MergeObjects(std::vector<GameObject>& objects,const std::vector<int>& selection,const std::string& name) {
@@ -201,37 +268,109 @@ inline int CreateCharacter(std::vector<GameObject>& objects,const std::string& n
 }
 
 struct PhysicsState { double Accumulator=0; float Gravity=-9.81f; bool Ground=true; };
-inline void PhysicsStep(std::vector<GameObject>& objects,float dt,const PhysicsState& state) {
-    for(auto& o:objects) if(o.Dynamic) {
-        o.Grounded=false;
-        o.Velocity[1]+=state.Gravity*dt;
-        for(int k=0;k<3;++k) o.Position[k]=float(std::max(-1000000.0,std::min(1000000.0,double(o.Position[k])+double(o.Velocity[k])*dt)));
-        Bounds b;if(!WorldBounds(o,b))continue;
-        if(state.Ground&&b.Min.y<0) {
-            o.Position[1]-=b.Min.y;
-            if(o.Velocity[1]<0)o.Velocity[1]=-o.Velocity[1]*o.Restitution;
-            o.Grounded=true;
-            float drag=std::max(0.0f,1-o.Friction*dt);o.Velocity[0]*=drag;o.Velocity[2]*=drag;
-        }
+inline void PhysicsStep(std::vector<GameObject> &objects, float dt,
+                        const PhysicsState &state) {
+  std::vector<size_t> dynamic;
+  for (size_t i = 0; i < objects.size(); ++i)
+    if (objects[i].Dynamic)
+      dynamic.push_back(i);
+  if (dynamic.empty())
+    return;
+  struct CachedBounds {
+    Vec3 Lo, Hi;
+    Bounds World;
+    bool LocalReady = false, Ready = false, Valid = false;
+  };
+  std::vector<CachedBounds> cache(objects.size());
+  auto bounds = [&](size_t index, Bounds &result) -> bool {
+    auto &entry = cache[index];
+    if (!entry.LocalReady) {
+      LocalBounds(objects[index], entry.Lo, entry.Hi);
+      entry.LocalReady = true;
     }
-    for(size_t i=0;i<objects.size();++i)for(size_t j=i+1;j<objects.size();++j) {
-        auto& a=objects[i];auto& b=objects[j];if(!a.Dynamic&&!b.Dynamic)continue;
-        Bounds ba,bb;if(!WorldBounds(a,ba)||!WorldBounds(b,bb))continue;
-        float overlap[3]={std::min(ba.Max.x,bb.Max.x)-std::max(ba.Min.x,bb.Min.x),std::min(ba.Max.y,bb.Max.y)-std::max(ba.Min.y,bb.Min.y),std::min(ba.Max.z,bb.Max.z)-std::max(ba.Min.z,bb.Min.z)};
-        if(overlap[0]<=0||overlap[1]<=0||overlap[2]<=0)continue;
-        int axis=overlap[1]<overlap[0]?1:0;if(overlap[2]<overlap[axis])axis=2;
-        const float centersA[3]={ba.Min.x*.5f+ba.Max.x*.5f,ba.Min.y*.5f+ba.Max.y*.5f,ba.Min.z*.5f+ba.Max.z*.5f};
-        const float centersB[3]={bb.Min.x*.5f+bb.Max.x*.5f,bb.Min.y*.5f+bb.Max.y*.5f,bb.Min.z*.5f+bb.Max.z*.5f};
-        float sign=centersA[axis]<centersB[axis]?-1.0f:1.0f;
-        float ia=a.Dynamic?1/std::max(.01f,a.Mass):0,ib=b.Dynamic?1/std::max(.01f,b.Mass):0,total=ia+ib;
-        a.Position[axis]+=sign*overlap[axis]*ia/total;b.Position[axis]-=sign*overlap[axis]*ib/total;
-        float relative=(a.Velocity[axis]-b.Velocity[axis])*sign;
-        if(relative<0) {
-            float impulse=-(1+std::min(a.Restitution,b.Restitution))*relative/total;
-            a.Velocity[axis]+=impulse*sign*ia;b.Velocity[axis]-=impulse*sign*ib;
-        }
-        if(axis==1){if(a.Dynamic&&sign>0)a.Grounded=true;if(b.Dynamic&&sign<0)b.Grounded=true;}
+    if (!entry.Ready) {
+      entry.Valid =
+          WorldBoundsFromLocal(objects[index], entry.Lo, entry.Hi, entry.World);
+      entry.Ready = true;
     }
+    if (entry.Valid)
+      result = entry.World;
+    return entry.Valid;
+  };
+  for (auto index : dynamic) {
+    auto &o = objects[index];
+    o.Grounded = false;
+    o.Velocity[1] += state.Gravity * dt;
+    for (int k = 0; k < 3; ++k)
+      o.Position[k] = float(std::max(
+          -1000000.0, std::min(1000000.0, double(o.Position[k]) +
+                                              double(o.Velocity[k]) * dt)));
+    Bounds b;
+    if (!bounds(index, b))
+      continue;
+    if (state.Ground && b.Min.y < 0) {
+      o.Position[1] -= b.Min.y;
+      cache[index].Ready = false;
+      if (o.Velocity[1] < 0)
+        o.Velocity[1] = -o.Velocity[1] * o.Restitution;
+      o.Grounded = true;
+      float drag = std::max(0.0f, 1 - o.Friction * dt);
+      o.Velocity[0] *= drag;
+      o.Velocity[2] *= drag;
+    }
+  }
+  auto contact = [&](size_t i, size_t j) {
+    auto &a = objects[i];
+    auto &b = objects[j];
+    Bounds ba, bb;
+    if (!bounds(i, ba) || !bounds(j, bb))
+      return;
+    float overlap[3] = {
+        std::min(ba.Max.x, bb.Max.x) - std::max(ba.Min.x, bb.Min.x),
+        std::min(ba.Max.y, bb.Max.y) - std::max(ba.Min.y, bb.Min.y),
+        std::min(ba.Max.z, bb.Max.z) - std::max(ba.Min.z, bb.Min.z)};
+    if (overlap[0] <= 0 || overlap[1] <= 0 || overlap[2] <= 0)
+      return;
+    int axis = overlap[1] < overlap[0] ? 1 : 0;
+    if (overlap[2] < overlap[axis])
+      axis = 2;
+    const float centersA[3] = {ba.Min.x * .5f + ba.Max.x * .5f,
+                               ba.Min.y * .5f + ba.Max.y * .5f,
+                               ba.Min.z * .5f + ba.Max.z * .5f};
+    const float centersB[3] = {bb.Min.x * .5f + bb.Max.x * .5f,
+                               bb.Min.y * .5f + bb.Max.y * .5f,
+                               bb.Min.z * .5f + bb.Max.z * .5f};
+    float sign = centersA[axis] < centersB[axis] ? -1.0f : 1.0f;
+    float ia = a.Dynamic ? 1 / std::max(.01f, a.Mass) : 0,
+          ib = b.Dynamic ? 1 / std::max(.01f, b.Mass) : 0, total = ia + ib;
+    a.Position[axis] += sign * overlap[axis] * ia / total;
+    b.Position[axis] -= sign * overlap[axis] * ib / total;
+    cache[i].Ready = cache[j].Ready = false;
+    float relative = (a.Velocity[axis] - b.Velocity[axis]) * sign;
+    if (relative < 0) {
+      float impulse =
+          -(1 + std::min(a.Restitution, b.Restitution)) * relative / total;
+      a.Velocity[axis] += impulse * sign * ia;
+      b.Velocity[axis] -= impulse * sign * ib;
+    }
+    if (axis == 1) {
+      if (a.Dynamic && sign > 0)
+        a.Grounded = true;
+      if (b.Dynamic && sign < 0)
+        b.Grounded = true;
+    }
+  };
+  // Skip static/static pairs without changing the order of any contact that
+  // the original nested loop resolves (including dynamic/static pairs).
+  for (size_t i = 0; i < objects.size(); ++i) {
+    if (objects[i].Dynamic)
+      for (size_t j = i + 1; j < objects.size(); ++j)
+        contact(i, j);
+    else
+      for (auto at = std::upper_bound(dynamic.begin(), dynamic.end(), i);
+           at != dynamic.end(); ++at)
+        contact(i, *at);
+  }
 }
 inline void AdvancePhysics(std::vector<GameObject>& objects,PhysicsState& state,float frameDt) {
     if(!std::isfinite(frameDt)||frameDt<0||!std::isfinite(state.Gravity))return;

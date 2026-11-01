@@ -13,7 +13,7 @@ struct ScriptDocument {
 struct StudioState {
     bool ShowExplorer=true,ShowProperties=true,ShowTools=true,ShowOutput=true,ShowDocs=false;
     bool FullscreenCode=false,WasFullscreen=false,SceneActive=true,SceneHovered=false;
-    bool SculptEnabled=false,HasSculptUndo=false,BrushHit=false,ResetLayout=false;
+    bool SculptEnabled=false,SculptSymmetry=false,HasSculptUndo=false,BrushHit=false,ResetLayout=false;
     int ActiveScript=0,RequestDocument=-2,RequestTool=-1,BrushMode=0;
     float BrushRadius=.4f,BrushStrength=.1f;
     float Snap=.5f;
@@ -26,6 +26,7 @@ struct StudioState {
 };
 static StudioState g_Studio;
 static bool g_ModelBusy=false;
+static bool g_ShowNodes=false;
 static bool g_ShowUV=false;
 static GameObject g_SculptUndo("Sculpt Undo");
 static GLuint g_LogoTexture=0;
@@ -80,6 +81,7 @@ static void StudioMenu() {
         if(ImGui::MenuItem("Redo scene edit","Ctrl+Y")){if(g_ObjectHistory.Redo(g_Objects)){g_SelectedObjectIndex=-1;g_SimulationRunning=false;}}
         ImGui::EndDisabled();ImGui::EndMenu();
     }
+    if(ImGui::MenuItem("Nodes"))g_ShowNodes=true;
     if(ImGui::MenuItem("UV"))g_ShowUV=true;
     if(ImGui::MenuItem("Audio"))g_ShowAudio=true;
     if(ImGui::MenuItem("Settings"))g_Preferences.ShowSettings=true;
@@ -113,6 +115,7 @@ static Vec3 CameraVector(Vec3 v,float pitch,float yaw) {
     v.z=-s*v.x+c*v.z;v.x=x;return v;
 }
 #include "editor_modeling.h"
+#include "editor_nodes.h"
 #include "editor_uv.h"
 #include "editor_game.h"
 #include "editor_gizmo.h"
@@ -130,15 +133,21 @@ static void SceneInteraction(float distance,float pitch,float yaw,const float ta
     if(g_Studio.SculptEnabled&&g_SelectedObjectIndex>=0&&size_t(g_SelectedObjectIndex)<g_Objects.size()&&!g_PhysicsRunning) {
         auto& object=g_Objects[size_t(g_SelectedObjectIndex)];
         if(object.Vertices.empty()){if(!ImGui::IsMouseDown(0)||!MakeEditable(object))return;}
-        if(!object.Modifiers.empty())return;
+        if(!object.Modifiers.empty()||!object.GeometryNodes.empty())return;
         Vec3 hit;float nearest=10000;
         if(RaycastObject(object,camera,ray,hit,nearest)) {
             g_Studio.BrushHit=TransformPoint(object,hit,g_Studio.BrushWorld);
+            const float worldScale=std::max(std::abs(object.Scale[0]),std::max(std::abs(object.Scale[1]),std::abs(object.Scale[2])));
+            const float dx=g_Studio.BrushWorld.x-camera.x,dy=g_Studio.BrushWorld.y-camera.y,dz=g_Studio.BrushWorld.z-camera.z;
+            const float hitDistance=std::sqrt(dx*dx+dy*dy+dz*dz);
+            const float pixels=g_Studio.BrushRadius*worldScale*g_Studio.SceneSize.y/(2*tangent*std::max(.1f,hitDistance));
+            auto* overlay=ImGui::GetForegroundDrawList();overlay->PushClipRect(g_Studio.SceneMin,ImVec2(g_Studio.SceneMin.x+g_Studio.SceneSize.x,g_Studio.SceneMin.y+g_Studio.SceneSize.y),true);
+            overlay->AddCircle(io.MousePos,std::max(4.f,std::min(500.f,pixels)),IM_COL32(90,225,235,230),48,1.5f);overlay->AddCircleFilled(io.MousePos,2,IM_COL32(255,195,85,255));overlay->PopClipRect();
             if(ImGui::IsMouseClicked(ImGuiMouseButton_Left)){g_SculptUndo=object;g_Studio.HasSculptUndo=true;}
             if(ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
                 float strength=g_Studio.BrushStrength*std::min(dt,.05f)*12;
                 if(io.KeyShift)strength=-strength;
-                if(!SculptBrush(object,hit,g_Studio.BrushRadius,strength,g_Studio.BrushMode))AppendConsole("Sculpt rejected: invalid brush or geometry limit.\n");
+                if(!SculptBrush(object,hit,g_Studio.BrushRadius,strength,g_Studio.BrushMode,g_Studio.SculptSymmetry))AppendConsole("Sculpt rejected: invalid brush or geometry limit.\n");
             }
         }
     } else if(ImGui::IsMouseClicked(ImGuiMouseButton_Left)&&!ImGuizmo::IsOver()&&!ImGuizmo::IsUsing()) {
@@ -321,8 +330,14 @@ static void RenderTools(float& distance,float& pitch,float& yaw,float target[3])
                 ImGui::BeginDisabled(g_PhysicsRunning);
                 ImGui::Checkbox("Enable Surface Brush",&g_Studio.SculptEnabled);
                 const char* brushes[]={"Inflate / Deflate","Smooth","Flatten Y"};ImGui::Combo("Brush",&g_Studio.BrushMode,brushes,3);
+                ImGui::Checkbox("Mirror brush across X",&g_Studio.SculptSymmetry);
                 ImGui::SliderFloat("Radius (local)",&g_Studio.BrushRadius,.02f,5);ImGui::SliderFloat("Strength",&g_Studio.BrushStrength,.01f,1);
-                int i=g_SelectedObjectIndex;bool valid=i>=0&&size_t(i)<g_Objects.size();ImGui::BeginDisabled(!valid);
+                int i=g_SelectedObjectIndex;bool valid=i>=0&&size_t(i)<g_Objects.size();
+                if(valid&&!g_Objects[size_t(i)].GeometryNodes.empty()){
+                  ImGui::TextWrapped("Bake the node result before sculpting. Undo restores the graph.");
+                  if(ImGui::Button("Bake geometry nodes")){g_ObjectHistory.Capture(g_Objects);g_Objects[size_t(i)].GeometryNodes.clear();g_ObjectHistory.Capture(g_Objects);}
+                }
+                bool procedural=valid&&!g_Objects[size_t(i)].GeometryNodes.empty();ImGui::BeginDisabled(!valid||procedural||g_ModelBusy);
                 if(ImGui::Button("Convert / Subdivide")) {
                     g_SculptUndo=g_Objects[size_t(i)];g_Studio.HasSculptUndo=true;
                     if(!MakeEditable(g_Objects[size_t(i)],1))AppendConsole("Subdivision rejected: 200,000 vertex limit.\n");
@@ -382,6 +397,7 @@ static void RenderStudio(float& distance,float& pitch,float& yaw,float target[3]
     RenderWorkspace(distance,pitch,yaw,target,dt);
     RenderEditorSettings();
     RenderUVEditor();
+    RenderGeometryNodes();
     if(!g_Studio.FullscreenCode){RenderExplorer();RenderProperties(target);RenderTools(distance,pitch,yaw,target);RenderOutput();RenderDocs();}
 }
 static void RenderSky() {

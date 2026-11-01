@@ -28,6 +28,7 @@ extern "C" {
 #include "scene_tools.h"
 #include "mesh_modeling.h"
 #include "mesh_uv.h"
+#include "geometry_nodes.h"
 #include "file_output.h"
 #include "asset_io.h"
 #include "engine_version.h"
@@ -873,6 +874,7 @@ static bool ExportGLB(const std::string& filename) {
 #include "editor_audio.h"
 #include "editor_ui.h"
 #include "game_runtime.h"
+#include "render_showcase.h"
 #include "example_game.h"
 #include "studio_mcp.h"
 #include "tests/gizmo_smoke.h"
@@ -975,6 +977,16 @@ int main(int argc, char* argv[]) {
     if(argc>1&&std::strcmp(argv[1],"--report-uv")==0){
         g_Objects.clear();GameObject box("UV checker material");auto mesh=Model::FromObject(box);Model::Unwrap(mesh);Model::ToObject(box,mesh);StudioMaterial material;tinygltf::Image image;image.width=image.height=64;image.component=4;image.bits=8;image.image.resize(64*64*4);for(int y=0;y<64;++y)for(int x=0;x<64;++x){int i=(y*64+x)*4;bool check=(x/8+y/8)%2;image.image[i]=check?40:225;image.image[i+1]=check?150:225;image.image[i+2]=check?180:225;image.image[i+3]=255;}material.Image=EncodeImage(image);box.Materials.push_back(material);box.Color[0]=box.Color[1]=box.Color[2]=1;box.Scale[0]=box.Scale[1]=box.Scale[2]=2;box.Position[1]=1;box.Selected=true;g_Objects.push_back(box);g_SelectedObjectIndex=0;g_ShowUV=true;g_ReportUV=true;ClearConsole();AppendConsole("UV: xatlas automatic charts, packed islands and embedded checker texture.\n");
     }
+    if(argc>1&&std::strcmp(argv[1],"--report-rendering")==0)CreateRenderShowcase();
+    if(argc>1&&std::strcmp(argv[1],"--report-nodes")==0)CreateNodeShowcase();
+    if(argc>1&&std::strcmp(argv[1],"--report-sculpt")==0)CreateSculptShowcase();
+    const char* renderPreset=std::getenv("LUNORYX_RENDER_PRESET");
+    if(renderPreset){
+      if(!std::strcmp(renderPreset,"office")){g_Preferences.RenderQuality=0;g_Preferences.RenderScale=.75f;}
+      else if(!std::strcmp(renderPreset,"balanced")){g_Preferences.RenderQuality=1;g_Preferences.RenderScale=1;}
+      else if(!std::strcmp(renderPreset,"quality")){g_Preferences.RenderQuality=2;g_Preferences.RenderScale=1;}
+    }
+    if(std::getenv("LUNORYX_RENDER_LEGACY"))g_Preferences.CachedRenderer=false;
     const Uint32 start_time = SDL_GetTicks();
     const uint64_t timeout_ms = ParseTestTimeoutMs(std::getenv("TEST_TIMEOUT"));
 
@@ -1025,6 +1037,7 @@ int main(int argc, char* argv[]) {
             if(event.type==SDL_KEYDOWN&&!event.key.repeat) {
                 if(g_PlayerMode&&event.key.keysym.sym==SDLK_ESCAPE)done=true;
                 if(g_PlayerMode&&event.key.keysym.sym==SDLK_r)g_RestartGame=true;
+                if(event.key.keysym.sym==SDLK_F8){g_Preferences.RenderQuality=(g_Preferences.RenderQuality+1)%3;g_Preferences.RenderScale=g_Preferences.RenderQuality==0?.75f:1.f;}
                 if(!g_PlayerMode&&event.key.keysym.sym==SDLK_s&&(event.key.keysym.mod&KMOD_CTRL))SaveCurrentProject();
                 if(!g_PlayerMode&&event.key.keysym.sym==SDLK_F11){g_Studio.FullscreenCode=!g_Studio.FullscreenCode;if(g_Studio.FullscreenCode)g_Studio.RequestDocument=g_Studio.ActiveScript;}
                 if(!g_PlayerMode&&event.key.keysym.sym==SDLK_F5&&g_Studio.Scripts[g_Studio.ActiveScript].Open)ExecuteLuaScript(g_Studio.Scripts[g_Studio.ActiveScript].Code);
@@ -1169,8 +1182,12 @@ int main(int argc, char* argv[]) {
         if(g_Studio.SceneActive) {
         float pixelScaleX=io.DisplayFramebufferScale.x,pixelScaleY=io.DisplayFramebufferScale.y;
         int sceneWidth=std::max(1,int(g_Studio.SceneSize.x*pixelScaleX)),sceneHeight=std::max(1,int(g_Studio.SceneSize.y*pixelScaleY));
-        if(!g_PlayerMode)g_ViewportTarget.Resize(sceneWidth,sceneHeight);
-        g_ViewportTarget.BindFramebuffer(GL_FRAMEBUFFER,g_PlayerMode?0:g_ViewportTarget.Framebuffer);
+        const int displaySceneWidth=sceneWidth,displaySceneHeight=sceneHeight;
+        sceneWidth=std::max(1,int(sceneWidth*g_Preferences.RenderScale));
+        sceneHeight=std::max(1,int(sceneHeight*g_Preferences.RenderScale));
+        g_ViewportTarget.ConfigurePostProcess(g_Preferences.RenderQuality,g_Preferences.Exposure,g_PlayerMode&&g_Preferences.RenderScale<1.f);
+        if(!g_PlayerMode||g_ViewportTarget.PostProcessEnabled()||g_Preferences.RenderScale<1.f)g_ViewportTarget.Resize(sceneWidth,sceneHeight);
+        g_ViewportTarget.BindFramebuffer(GL_FRAMEBUFFER,g_ViewportTarget.SceneFramebuffer(g_PlayerMode));
         glViewport(0,0,sceneWidth,sceneHeight);glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
         RenderSky();
         // Setup 3D Projection Matrix
@@ -1204,7 +1221,27 @@ int main(int argc, char* argv[]) {
             RenderAxesGizmo(1.5f);
         }
 
-        // Render GameObjects
+        // Render GameObjects. Cache lifetime spans the complete scene frame.
+        g_StudioMeshCaching=g_Preferences.CachedRenderer;
+        BeginStudioRenderFrame();
+        bool shadowReady=false;
+        if(g_Preferences.RenderQuality==2&&g_Preferences.CachedRenderer){
+          shadowReady=g_SceneShadows.BeginDepth(cameraTarget,25.f);
+          if(shadowReady){
+            for(const auto& object:g_Objects)if(object.Visible){
+              glPushMatrix();glTranslatef(object.Position[0],object.Position[1],object.Position[2]);
+              glRotatef(object.Rotation[0],1,0,0);glRotatef(object.Rotation[1],0,1,0);glRotatef(object.Rotation[2],0,0,1);
+              glScalef(object.Scale[0],object.Scale[1],object.Scale[2]);RenderLitMesh(object);glPopMatrix();
+            }
+            g_SceneShadows.EndDepth();
+          }
+        }else g_SceneShadows.Disable();
+        float cameraView[16];glGetFloatv(GL_MODELVIEW_MATRIX,cameraView);
+        if(shadowReady)g_SceneShadows.BeginLighting(cameraView);
+        float viewProjection[16]={};
+        for(int column=0;column<4;++column)for(int row=0;row<4;++row)for(int k=0;k<4;++k)
+          viewProjection[column*4+row]+=proj[k*4+row]*cameraView[column*4+k];
+        SetStudioRenderFrustum(viewProjection);
         for (int i = 0; i < (int)g_Objects.size(); ++i) {
             const GameObject& obj = g_Objects[i];
             if (!obj.Visible) continue;
@@ -1221,7 +1258,8 @@ int main(int argc, char* argv[]) {
                 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
             }
 
-            if(!obj.Materials.empty()||!obj.Normals.empty())RenderLitMesh(obj);
+            if(g_Preferences.CachedRenderer)RenderLitMesh(obj);
+            else if(!obj.Materials.empty()||!obj.Normals.empty())RenderLitMeshLegacy(obj);
             else if(!obj.Vertices.empty())RenderEditableMesh(obj);
             else switch (obj.Type) {
                 case MeshType::Cube:     RenderCube(obj.Color);     break;
@@ -1236,6 +1274,7 @@ int main(int argc, char* argv[]) {
             }
 
             if (!g_PlayerMode&&(obj.Selected || i == g_SelectedObjectIndex)) {
+                if(shadowReady)g_SceneShadows.EndLighting();
                 if(obj.Vertices.empty())RenderSelectionBox();
                 else {
                     float lo[3]={obj.Vertices[0],obj.Vertices[1],obj.Vertices[2]},hi[3]={lo[0],lo[1],lo[2]};
@@ -1243,12 +1282,16 @@ int main(int argc, char* argv[]) {
                     glPushMatrix();glTranslatef((lo[0]+hi[0])*.5f,(lo[1]+hi[1])*.5f,(lo[2]+hi[2])*.5f);glScalef(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2]);RenderSelectionBox();glPopMatrix();
                 }
                 RenderAxesGizmo(0.8f);
+                if(shadowReady)g_SceneShadows.BeginLighting(cameraView);
             }
 
             glPopMatrix();
         }
 
+        g_SceneShadows.EndLighting();
+        EndStudioRenderFrame();
         if(g_Studio.BrushHit){glDisable(GL_DEPTH_TEST);glPointSize(10);glColor3f(1,.75f,.25f);glBegin(GL_POINTS);glVertex3f(g_Studio.BrushWorld.x,g_Studio.BrushWorld.y,g_Studio.BrushWorld.z);glEnd();glPointSize(1);glEnable(GL_DEPTH_TEST);}
+        g_ViewportTarget.FinishScene(g_PlayerMode,displaySceneWidth,displaySceneHeight);
         }
         g_ViewportTarget.BindFramebuffer(GL_FRAMEBUFFER,0);
         glViewport(0,0,fb_width,fb_height);
@@ -1273,6 +1316,7 @@ int main(int argc, char* argv[]) {
     ShutdownLuaState();
     studio_audio_shutdown();
     ClearStudioTextures();
+    g_SceneShadows.Destroy();
     if(g_LogoTexture)glDeleteTextures(1,&g_LogoTexture);
     g_ViewportTarget.Destroy();
     ImGui_ImplOpenGL3_Shutdown();
