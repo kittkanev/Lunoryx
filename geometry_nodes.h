@@ -1,5 +1,4 @@
 #pragma once
-#include <functional>
 namespace GeometryNodes {
 inline const char *Name(StudioGeometryNode::Kind kind) {
   static const char *names[] = {"Box",   "Sphere", "Cylinder", "Transform",
@@ -56,26 +55,22 @@ inline void Validate(const std::vector<StudioGeometryNode> &nodes) {
   }
   if (outputs != 1)
     throw std::runtime_error("Geometry graph needs exactly one Output");
-  std::vector<int> state(nodes.size(), 0);
-  std::function<void(size_t)> visit = [&](size_t i) {
-    if (state[i] == 1)
-      throw std::runtime_error("Geometry graph contains a cycle");
-    if (state[i] == 2)
-      return;
-    state[i] = 1;
-    const auto &n = nodes[i];
-    if (n.Type > StudioGeometryNode::Cylinder) {
-      auto found = ids.find(n.Input);
+  // A graph is small and has one input per node. Iterative walks also avoid
+  // recursive callbacks crossing MinGW's DLL-visibility boundaries.
+  for (size_t start = 0; start < nodes.size(); ++start) {
+    std::set<size_t> path;
+    size_t i = start;
+    while (nodes[i].Type > StudioGeometryNode::Cylinder) {
+      if (!path.insert(i).second)
+        throw std::runtime_error("Geometry graph contains a cycle");
+      auto found = ids.find(nodes[i].Input);
       if (found == ids.end())
         throw std::runtime_error("Connect every geometry input");
       if (nodes[found->second].Type == StudioGeometryNode::Output)
         throw std::runtime_error("Output cannot feed another node");
-      visit(found->second);
+      i = found->second;
     }
-    state[i] = 2;
-  };
-  for (size_t i = 0; i < nodes.size(); ++i)
-    visit(i);
+  }
 }
 inline StudioMesh Evaluate(const std::vector<StudioGeometryNode> &nodes) {
   Validate(nodes);
