@@ -50,6 +50,6 @@ int main() {
         auto reference=source,optimized=source;
         Model::ReferenceWeld(reference,selected,.00001f);Model::Weld(optimized,selected,.00001f);Same(reference,optimized);
         assert(optimized.Positions.size()/3==side*side);
-        for(bool fast:{false,true})std::cout<<"two_layers_"<<side<<"x"<<side<<","<<(fast?"rust_grid_plus_cpp_topology":"cpp_1.0.1")<<","<<selected.size()<<","<<std::fixed<<std::setprecision(6)<<Measure(source,selected,fast)<<"\n";
+        for(bool fast:{false,true})std::cout<<"two_layers_"<<side<<"x"<<side<<","<<(fast?"adaptive_weld":"cpp_1.0.1")<<","<<selected.size()<<","<<std::fixed<<std::setprecision(6)<<Measure(source,selected,fast)<<"\n";
     }
 }

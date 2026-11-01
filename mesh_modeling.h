@@ -585,7 +585,7 @@ inline void Weld(StudioMesh &m, const std::set<uint32_t> &selected,
   // Keep small selections and extreme coordinate/tolerance ratios on the
   // reference path. The spatial Rust kernel benefits larger selections.
   bool mapped = false;
-  if (selected.size() >= 512 && selected.size() <= MAX_EDIT_VERTICES) {
+  if (selected.size() >= 2048 && selected.size() <= MAX_EDIT_VERTICES) {
     std::vector<uint32_t> selection(selected.begin(), selected.end());
     std::vector<uint32_t> output(selection.size());
     std::vector<LunoryxWeldCell> workspace(selection.size());
