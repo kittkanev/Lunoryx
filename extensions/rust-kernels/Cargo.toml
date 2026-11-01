@@ -1,0 +1,21 @@
+[package]
+name = "lunoryx-kernels"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85.1"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+doctest = false
+
+[features]
+bench = []
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+overflow-checks = true

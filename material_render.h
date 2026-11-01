@@ -1,4 +1,17 @@
 #pragma once
+#include <cstddef>
+#include <memory>
+#ifndef LUNORYX_RENDER_PARITY_TEST
+#include "scene_shadows.h"
+#endif
+struct StudioRenderStats {
+  size_t DrawCalls = 0, Triangles = 0, CacheHits = 0, CacheMisses = 0;
+  size_t UploadedBytes = 0, CacheBytes = 0, CulledObjects = 0;
+  bool VBO = false;
+};
+static StudioRenderStats g_StudioRenderStats;
+static bool g_StudioMeshCaching = true;
+static void ClearStudioGeometry();
 struct CachedStudioTexture {
   GLuint Id = 0;
   std::string Error;
@@ -48,13 +61,14 @@ static GLuint StudioTexture(const StudioMaterial &material) {
   return value.Id;
 }
 static void ClearStudioTextures() {
+  ClearStudioGeometry();
   for (const auto &t : g_TextureCache)
     if (t.second.Id)
       glDeleteTextures(1, &t.second.Id);
   g_TextureCache.clear();
   ++g_TextureGeneration;
 }
-static void RenderLitMesh(const GameObject &object) {
+static void RenderLitMeshLegacy(const GameObject &object) {
   static StudioMesh primitives[5];
   const StudioMesh *primitive = nullptr;
   if (object.Vertices.empty()) {
@@ -106,9 +120,13 @@ static void RenderLitMesh(const GameObject &object) {
     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
     glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS,
                 std::max(1.f, (1 - material.Roughness) * 100));
+    g_SceneShadows.Material(texture != 0, material.Metallic,
+                            material.Roughness);
+    ++g_StudioRenderStats.DrawCalls;
     glBegin(GL_TRIANGLES);
     size_t triangles = faces.empty() ? 1 : faces[face].size() - 2;
     for (size_t t = 0; t < triangles; ++t, ++triangle) {
+      ++g_StudioRenderStats.Triangles;
       Vec3 normal = {0, 1, 0};
       if (normals.size() != positions.size()) {
         auto a = indices[triangle * 3] * 3, b = indices[triangle * 3 + 1] * 3,
@@ -137,6 +155,129 @@ static void RenderLitMesh(const GameObject &object) {
       }
     }
     glEnd();
+  }
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glDisable(GL_TEXTURE_2D);
+  glDisable(GL_COLOR_MATERIAL);
+  glDisable(GL_NORMALIZE);
+  glDisable(GL_LIGHT0);
+  glDisable(GL_LIGHTING);
+}
+
+#include "render_geometry.h"
+static void RenderLitMesh(const GameObject &object) {
+  if (!g_StudioMeshCaching) {
+    RenderLitMeshLegacy(object);
+    return;
+  }
+  static StudioMesh primitives[5];
+  const StudioMesh *primitive = nullptr;
+  if (object.Vertices.empty()) {
+    int type = int(object.Type);
+    if (type < 0 || type >= 5)
+      return;
+    auto &mesh = primitives[type];
+    if (mesh.Positions.empty()) {
+      GameObject shape("Primitive", object.Type);
+      mesh = Model::FromObject(shape);
+      Model::Triangulate(mesh);
+    }
+    primitive = &mesh;
+  }
+  const StudioGeometry::MeshView view = {
+      primitive ? primitive->Positions : object.Vertices,
+      primitive ? primitive->Normals : object.Normals,
+      primitive ? primitive->Colors : object.VertexColors,
+      primitive ? primitive->UV : object.UV,
+      primitive ? primitive->Indices : object.Indices,
+      primitive ? primitive->FaceMaterials : object.FaceMaterials,
+      primitive ? primitive->Faces : object.Faces};
+  StudioGeometry::Entry *entry = nullptr;
+  try {
+    entry = StudioGeometry::Get(object, view);
+  } catch (const std::exception &error) {
+    AppendConsole(std::string("Mesh cache: ") + error.what() + "\n");
+  }
+  if (!entry) {
+    RenderLitMeshLegacy(object);
+    return;
+  }
+  if (!StudioGeometry::Visible(*entry, object)) {
+    ++g_StudioRenderStats.CulledObjects;
+    return;
+  }
+  glEnable(GL_LIGHTING);
+  glEnable(GL_LIGHT0);
+  glEnable(GL_NORMALIZE);
+  glEnable(GL_COLOR_MATERIAL);
+  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+  GLfloat light[] = {-.4f, .8f, 1, 0}, ambient[] = {.25f, .25f, .3f, 1},
+          diffuse[] = {.85f, .85f, .85f, 1};
+  glLightfv(GL_LIGHT0, GL_POSITION, light);
+  glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
+  glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+  auto &functions = StudioGeometry::g_Functions;
+  if (functions.ClientTexture)
+    functions.ClientTexture(GL_TEXTURE0);
+  const bool vbo = entry->VertexBuffer != 0;
+  if (functions.Bind) {
+    functions.Bind(GL_ARRAY_BUFFER, vbo ? entry->VertexBuffer : 0);
+    functions.Bind(GL_ELEMENT_ARRAY_BUFFER, vbo ? entry->IndexBuffer : 0);
+  }
+  const unsigned char *pointer =
+      vbo ? nullptr
+          : reinterpret_cast<const unsigned char *>(entry->Vertices.data());
+  const auto offset = [&](size_t bytes) -> const void * {
+    return vbo ? reinterpret_cast<const void *>(bytes) : pointer + bytes;
+  };
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_NORMAL_ARRAY);
+  glEnableClientState(GL_COLOR_ARRAY);
+  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+  glVertexPointer(3, GL_FLOAT, sizeof(StudioGeometry::Vertex),
+                  offset(offsetof(StudioGeometry::Vertex, Position)));
+  glNormalPointer(GL_FLOAT, sizeof(StudioGeometry::Vertex),
+                  offset(offsetof(StudioGeometry::Vertex, Normal)));
+  glColorPointer(3, GL_FLOAT, sizeof(StudioGeometry::Vertex),
+                 offset(offsetof(StudioGeometry::Vertex, Color)));
+  glTexCoordPointer(2, GL_FLOAT, sizeof(StudioGeometry::Vertex),
+                    offset(offsetof(StudioGeometry::Vertex, UV)));
+  StudioMaterial fallback;
+  fallback.Metallic = object.Metallic;
+  fallback.Roughness = object.Roughness;
+  for (const auto &batch : entry->Batches) {
+    const auto &material = batch.Material < object.Materials.size()
+                               ? object.Materials[batch.Material]
+                               : fallback;
+    GLuint texture = StudioTexture(material);
+    if (texture) {
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, texture);
+    } else
+      glDisable(GL_TEXTURE_2D);
+    GLfloat specular[] = {.04f + material.Metallic * .7f,
+                          .04f + material.Metallic * .7f,
+                          .04f + material.Metallic * .7f, 1};
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
+    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS,
+                std::max(1.f, (1 - material.Roughness) * 100));
+    g_SceneShadows.Material(texture != 0, material.Metallic,
+                            material.Roughness);
+    const void *elements =
+        vbo ? reinterpret_cast<const void *>(batch.Offset * sizeof(uint32_t))
+            : entry->Elements.data() + batch.Offset;
+    glDrawElements(GL_TRIANGLES, GLsizei(batch.Count), GL_UNSIGNED_INT,
+                   elements);
+    ++g_StudioRenderStats.DrawCalls;
+    g_StudioRenderStats.Triangles += batch.Count / 3;
+  }
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glDisableClientState(GL_NORMAL_ARRAY);
+  glDisableClientState(GL_COLOR_ARRAY);
+  glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+  if (functions.Bind) {
+    functions.Bind(GL_ARRAY_BUFFER, 0);
+    functions.Bind(GL_ELEMENT_ARRAY_BUFFER, 0);
   }
   glBindTexture(GL_TEXTURE_2D, 0);
   glDisable(GL_TEXTURE_2D);

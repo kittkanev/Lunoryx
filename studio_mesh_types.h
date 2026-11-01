@@ -17,3 +17,10 @@ struct StudioModifier {
   int Axis = 0, Count = 2, Levels = 1;
   float Amount = .1f, Offset[3] = {1, 0, 0};
 };
+struct StudioGeometryNode {
+  enum Kind { Box, Sphere, Cylinder, Transform, Noise, Array, Mirror, Output } Type=Box;
+  uint32_t Id=1, Input=0;
+  float Vector[3]={1,1,1}, Amount=1, Frequency=1, Angle=0;
+  int Count=2, Axis=0;
+  float X=0, Y=0;
+};

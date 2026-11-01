@@ -94,6 +94,12 @@ static StudioMesh ReadModelMesh(const nlohmann::json &j) {
 }
 static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::string& path){
     j["id"]=o.Id;
+    if(!o.GeometryNodes.empty()){
+      GeometryNodes::Validate(o.GeometryNodes);
+      j["geometry_nodes"]=nlohmann::json::array();
+      for(const auto& n:o.GeometryNodes)j["geometry_nodes"].push_back({{"id",n.Id},{"input",n.Input},{"type",int(n.Type)},
+        {"vector",SaveVector(n.Vector)},{"amount",n.Amount},{"frequency",n.Frequency},{"angle",n.Angle},{"count",n.Count},{"axis",n.Axis},{"x",n.X},{"y",n.Y}});
+    }
     if(!o.Vertices.empty())j["mesh"]=SaveModelMesh(Model::FromObject(o));
     j["modifiers"]=nlohmann::json::array();
     for(const auto& m:o.Modifiers)j["modifiers"].push_back({{"type",int(m.Type)},{"enabled",m.Enabled},{"axis",m.Axis},{"count",m.Count},{"levels",m.Levels},{"amount",m.Amount},{"offset",SaveVector(m.Offset)}});
@@ -106,6 +112,16 @@ static void ReadModelFields(const nlohmann::json& j,GameObject& o,const std::str
     if(j.contains("modifiers")){if(!j["modifiers"].is_array()||j["modifiers"].size()>16)throw std::runtime_error("Too many modifiers");for(const auto& v:j["modifiers"]){StudioModifier m;int type=ReadInteger(v.at("type"),0,3);if(type<0||type>3)throw std::runtime_error("Invalid modifier type");m.Type=StudioModifier::Kind(type);m.Enabled=v.at("enabled").get<bool>();m.Axis=ReadInteger(v.at("axis"),0,2);m.Count=ReadInteger(v.at("count"),2,64);m.Levels=ReadInteger(v.at("levels"),1,4);m.Amount=ReadRange(v.at("amount"),.00001f,1000);ReadVector(v.at("offset"),m.Offset);o.Modifiers.push_back(m);}}
     if(!o.Modifiers.empty()){o.BaseMesh=ReadModelMesh(j.at("base_mesh"));Model::Evaluate(o);}
     if(j.contains("materials")){if(!j["materials"].is_array()||j["materials"].size()>64)throw std::runtime_error("Material limit exceeded");for(const auto& v:j["materials"]){StudioMaterial m;m.Name=v.at("name").get<std::string>();m.Texture=v.at("texture").get<std::string>();if(v.contains("image"))m.Image=ReadUnsignedArray<unsigned char>(v.at("image"),16*1024*1024);if(m.Image.size()>16*1024*1024)throw std::runtime_error("Embedded image exceeds limit");if(m.Name.size()>255||m.Texture.size()>511||m.Texture.find('\0')!=std::string::npos)throw std::runtime_error("Invalid material resource");ReadVector(v.at("color"),m.Color,true);m.Metallic=ReadRange(v.at("metallic"),0,1);m.Roughness=ReadRange(v.at("roughness"),0,1);if(!m.Texture.empty()&&!AbsolutePath(m.Texture))m.Texture=NormalizePath(PathDirectory(AbsoluteAssetPath(path))+"/"+m.Texture);o.Materials.push_back(m);}}
+    if(j.contains("geometry_nodes")){
+      const auto& graph=j.at("geometry_nodes");if(!graph.is_array()||graph.size()>32)throw std::runtime_error("Invalid geometry graph size");
+      for(const auto& value:graph){StudioGeometryNode n;n.Id=uint32_t(ReadUnsigned(value.at("id"),1000000));n.Input=uint32_t(ReadUnsigned(value.at("input"),1000000));
+        n.Type=StudioGeometryNode::Kind(ReadInteger(value.at("type"),0,7));ReadVector(value.at("vector"),n.Vector);
+        n.Amount=ReadRange(value.at("amount"),-1000,1000);n.Frequency=ReadRange(value.at("frequency"),.001f,1000);n.Angle=ReadRange(value.at("angle"),-36000,36000);
+        n.Count=ReadInteger(value.at("count"),2,32);n.Axis=ReadInteger(value.at("axis"),0,2);n.X=ReadRange(value.at("x"),-16384,16384);n.Y=ReadRange(value.at("y"),-16384,16384);o.GeometryNodes.push_back(n);
+      }
+      GeometryNodes::Validate(o.GeometryNodes);
+      if(!o.Modifiers.empty())throw std::runtime_error("Bake geometry nodes before using modifiers");
+    }
     if(!o.FaceMaterials.empty()){if(o.FaceMaterials.size()!=o.Faces.size())throw std::runtime_error("Invalid face material count");for(auto slot:o.FaceMaterials)if(slot>=o.Materials.size())throw std::runtime_error("Invalid material slot");}
 }
 static nlohmann::json StudioProjectJson(const std::string& path){

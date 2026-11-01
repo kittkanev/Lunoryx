@@ -175,6 +175,11 @@ inline uint64_t StudioSceneFingerprint(const std::vector<GameObject> &objects) {
     for(const auto& f:o.Faces){size_t n=f.size();bytes(&n,sizeof(n));bytes(f.data(),f.size()*4);}
     for(const auto& m:o.Materials){bytes(m.Image.data(),m.Image.size());bytes(m.Name.data(),m.Name.size());bytes(m.Texture.data(),m.Texture.size());bytes(m.Color,sizeof(m.Color));bytes(&m.Metallic,sizeof(float));bytes(&m.Roughness,sizeof(float));}
     for(const auto& m:o.Modifiers){bytes(&m.Type,sizeof(m.Type));bytes(&m.Enabled,sizeof(bool));bytes(&m.Axis,sizeof(int));bytes(&m.Count,sizeof(int));bytes(&m.Levels,sizeof(int));bytes(&m.Amount,sizeof(float));bytes(m.Offset,sizeof(m.Offset));}
+    for(const auto& node:o.GeometryNodes){
+      bytes(&node.Type,sizeof(node.Type));bytes(&node.Id,sizeof(node.Id));bytes(&node.Input,sizeof(node.Input));
+      bytes(node.Vector,sizeof(node.Vector));bytes(&node.Amount,sizeof(float));bytes(&node.Frequency,sizeof(float));bytes(&node.Angle,sizeof(float));
+      bytes(&node.Count,sizeof(int));bytes(&node.Axis,sizeof(int));bytes(&node.X,sizeof(float));bytes(&node.Y,sizeof(float));
+    }
     for (const auto &p : o.Properties) {
       bytes(p.first.data(), p.first.size());
       bytes(&p.second.Type, sizeof(p.second.Type));

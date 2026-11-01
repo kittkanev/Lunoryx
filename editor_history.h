@@ -48,6 +48,7 @@ struct StudioHistory {
     size_t n = StudioObjectHistory::Size(s.Objects) +
                s.Sounds.size() * sizeof(StudioSound);
     for (const auto &o : s.Objects) {
+      n += o.GeometryNodes.size()*sizeof(StudioGeometryNode);
       n += o.Name.size() + o.UV.size() * 4 + o.Normals.size() * 4 +
            o.BaseMesh.Positions.size() * 4 + o.BaseMesh.Indices.size() * 4 +
            o.BaseMesh.UV.size() * 4;

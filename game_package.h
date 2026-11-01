@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <sys/stat.h>
 namespace GamePackage {
 static const size_t MaxPayload = 512 * 1024 * 1024;
@@ -24,12 +25,36 @@ inline uint64_t NumberAt(const std::vector<unsigned char> &data, size_t offset,
   return value;
 }
 inline uint32_t CRC(const unsigned char *data, size_t size) {
+  // Portable IEEE CRC32, slicing by eight. Same container checksum as 1.0.1;
+  // the benchmark's equivalent C++ kernel outperformed the Rust candidate.
+  static const auto tables = []() {
+    std::array<std::array<uint32_t, 256>, 8> t = {};
+    for (uint32_t i = 0; i < 256; ++i) {
+      uint32_t c = i;
+      for (int k = 0; k < 8; ++k)
+        c = (c >> 1) ^ (0xedb88320u & uint32_t(-int(c & 1)));
+      t[0][i] = c;
+    }
+    for (int k = 1; k < 8; ++k)
+      for (int i = 0; i < 256; ++i) {
+        auto c = t[k - 1][i];
+        t[k][i] = (c >> 8) ^ t[0][c & 255];
+      }
+    return t;
+  }();
   uint32_t crc = ~uint32_t(0);
-  for (size_t i = 0; i < size; ++i) {
-    crc ^= data[i];
-    for (int k = 0; k < 8; ++k)
-      crc = (crc >> 1) ^ (0xedb88320u & uint32_t(-int(crc & 1)));
+  size_t at = 0;
+  for (; size - at >= 8; at += 8) {
+    uint32_t a = crc ^ uint32_t(data[at]) ^ (uint32_t(data[at + 1]) << 8) ^
+                 (uint32_t(data[at + 2]) << 16) ^
+                 (uint32_t(data[at + 3]) << 24);
+    crc = tables[7][a & 255] ^ tables[6][(a >> 8) & 255] ^
+          tables[5][(a >> 16) & 255] ^ tables[4][a >> 24] ^
+          tables[3][data[at + 4]] ^ tables[2][data[at + 5]] ^
+          tables[1][data[at + 6]] ^ tables[0][data[at + 7]];
   }
+  for (; at < size; ++at)
+    crc = (crc >> 8) ^ tables[0][(crc ^ data[at]) & 255];
   return ~crc;
 }
 inline std::string ExecutablePath() {

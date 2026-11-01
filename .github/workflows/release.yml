@@ -67,14 +67,22 @@ jobs:
           gh run download "$SOURCE_RUN" --name lunoryx-game-demo --dir build/game
           cp build/game/GemTrail.exe build/release/GemTrail.exe
           cp build/game/game-windows.png build/release/game-windows.png
-          (cd build/release && sha256sum GemTrail.exe REPORT.md *.png >> SHA256SUMS.txt)
+      - name: Attach reproducible performance evidence
+        if: steps.state.outputs.published != 'true'
+        run: |
+          gh run download "$SOURCE_RUN" --name performance-linux --dir build/perf-linux
+          gh run download "$SOURCE_RUN" --name performance-windows --dir build/perf-windows
+          gh run download "$SOURCE_RUN" --name performance-render-windows --dir build/perf-render
+          find build/perf-linux build/perf-windows build/perf-render -type f \( -name '*.csv' -o -name '*.txt' \) -exec cp {} build/release/ \;
+          cp docs/PERFORMANCE-experimental.md build/release/PERFORMANCE.md
+          (cd build/release && sha256sum GemTrail.exe REPORT.md PERFORMANCE.md *.png *.csv benchmark-*-environment.txt >> SHA256SUMS.txt)
       - name: Create draft and upload verified files
         if: steps.state.outputs.published != 'true'
         run: |
           if [ '${{ steps.state.outputs.draft }}' != true ]; then
             gh release create "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --prerelease --draft
           fi
-          gh release upload "$RELEASE_TAG" build/release/*.zip build/release/*.exe build/release/*.txt build/release/*.md build/release/*.png --clobber
+          gh release upload "$RELEASE_TAG" build/release/*.zip build/release/*.exe build/release/*.txt build/release/*.md build/release/*.png build/release/*.csv --clobber
           prerelease=true; latest=false
           if [[ "$RELEASE_TAG" != *-* ]]; then prerelease=false; latest=true; fi
           gh release edit "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --draft=false --prerelease="$prerelease" --latest="$latest"

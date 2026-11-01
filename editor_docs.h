@@ -2,8 +2,14 @@
 #include "embedded_licenses.h"
 #include "extension_licenses.h"
 #include "modeling_licenses.h"
+#include "rust_licenses.h"
 struct ApiTopic {const char* Title;const char* Text;};
 static const ApiTopic kApiTopics[]={
+{"Geometry Nodes",R"DOC(Nodes > New node mesh creates a procedural object. Connect an output pin to a geometry input; drag node headers, MMB pans. Generators: Box, Sphere, Cylinder. Operations: Transform, Noise, Array, Mirror. Exactly one Output is required; cycles and geometry over budget are rejected.
+Preview / Commit validates the draft, evaluates it in the background and saves the graph in the object. Revert draft restores the committed graph. Graphs and evaluated meshes are saved in schema 2 projects and covered by scene Undo/Redo. Draft edits are not saved until Preview / Commit. Bake keeps the mesh for sculpting, UV editing and modifiers; Undo restores the graph. Up to 32 nodes, one geometry input per node. Material/logic nodes are future work.)DOC"},
+{"Rendering / performance",R"DOC(Settings > Render preset: Office uses direct colour and reduced 3D resolution; Balanced adds FXAA; Quality adds FXAA, LDR colour grading and directional PCF shadows. F8 cycles presets in editor and game. UI stays at window resolution. Effects are optional and cost GPU time. Initial settings keep full resolution with effects off.
+Cached mesh renderer batches by material, uses VBOs where supported and conservatively culls meshes outside the camera. Unsupported buffers use client arrays. Shader/shadow failures fall back to direct rendering. Quality shadows cover a bounded 25-unit region with a fixed sun, not HDR/full PBR.
+Sculpt has Inflate/Deflate, Smooth, Flatten, X symmetry, brush-radius feedback and updated smooth normals. Bake node results/apply modifiers first. Shift reverses Inflate.)DOC"},
 {"Getting started",R"DOC(LUNORYX STUDIO
 Scene tab: orbit with RMB, pan with MMB, zoom with the wheel.
 Q/W/E/R: Select/Move/Rotate/Scale. Drag gizmo axes or planes to transform objects.
@@ -136,6 +142,7 @@ Lua: input_key('W') returns a key state; follow_camera(index, distance, pitch) f
 MCP --mcp retains stable object IDs. Lua object indices remain zero-based and shift after removal. mesh_operation(index, action, options_json) supports modifier/apply/boolean/polygonize/extrude/weld/delete/normals/unwrap. Invalid operations leave the original mesh intact.
 
 Modeling limits: Bevel needs a closed oriented mesh; apply modifiers before sculpt or UV editing. GLB import is static and reports unsupported features. Viewport lighting is a simple compatibility-OpenGL preview; physics uses AABBs.)DOC"}
+,{"Rust kernel licenses",kRustLicenses}
 ,{"Modeling licenses",kModelingLicenses}
 ,{"Additional licenses",kExtensionLicenses}
 ,{"Third-party licenses",kEmbeddedLicenses}

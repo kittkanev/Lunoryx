@@ -28,3 +28,10 @@ __pycache__/
 
 /tests/textured.glb
 /tests/texture.png
+
+/tests/rust_kernel_tests
+/tests/physics_differential
+/tests/viewport_postprocess_tests
+
+/tests/render_parity_tests
+/tests/scene_shadow_tests

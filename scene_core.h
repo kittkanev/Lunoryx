@@ -90,6 +90,7 @@ struct GameObject {
     std::vector<uint64_t> Seams;
     std::vector<StudioMaterial> Materials;
     std::vector<StudioModifier> Modifiers;
+    std::vector<StudioGeometryNode> GeometryNodes;
 
 
     GameObject(const std::string& name, MeshType type = MeshType::Cube)

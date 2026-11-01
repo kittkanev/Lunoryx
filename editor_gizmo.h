@@ -56,8 +56,10 @@ static void PersistStudioPreferences() {
 static void RenderEditorSettings() {
   if (!g_Preferences.ShowSettings)
     return;
-  ImGui::SetNextWindowSize(ImVec2(490, 570), ImGuiCond_FirstUseEver);
+  if(g_RenderReport)ImGui::SetNextWindowPos(ImVec2(1015,55),ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowSize(g_RenderReport?ImVec2(335,700):ImVec2(490, 570), ImGuiCond_FirstUseEver);
   if (ImGui::Begin("Settings", &g_Preferences.ShowSettings)) {
+    if(g_RenderReport)ImGui::PushItemWidth(145);
     ImGui::TextUnformatted("Camera");
     ImGui::SliderFloat("Orbit sensitivity", &g_Preferences.OrbitSensitivity,
                        .01f, 3);
@@ -78,6 +80,24 @@ static void RenderEditorSettings() {
     ImGui::DragFloat("Move snap", &g_Studio.Snap, .01f, .01f, 1000);
     ImGui::DragFloat("Rotation snap", &g_Preferences.RotationSnap, 1, .1f, 180);
     ImGui::DragFloat("Scale snap", &g_Preferences.ScaleSnap, .01f, .001f, 10);
+    ImGui::SeparatorText("Rendering");
+    const char* presets[]={"Office PC","Balanced","Quality"};
+    int preset=g_Preferences.RenderQuality;
+    if(ImGui::Combo("Render preset",&preset,presets,3)){
+      g_Preferences.RenderQuality=preset;
+      g_Preferences.RenderScale=preset==0?.75f:1.f;
+      g_Preferences.Exposure=1.f;
+      g_Preferences.CachedRenderer=true;
+    }
+    ImGui::SliderFloat("Resolution scale",&g_Preferences.RenderScale,.5f,1.f,"%.2f");
+    if(g_Preferences.RenderQuality==2)ImGui::SliderFloat("Exposure",&g_Preferences.Exposure,.5f,2.f);
+    ImGui::Checkbox("Cached mesh renderer",&g_Preferences.CachedRenderer);
+    ImGui::TextWrapped("Office: reduced resolution, direct colour. Balanced: FXAA. Quality: FXAA and filmic colour. UI stays sharp.");
+    if(!g_SceneShadows.Error.empty())ImGui::TextWrapped("%s",g_SceneShadows.Error.c_str());
+    if(!g_ViewportTarget.PostProcessError().empty())ImGui::TextWrapped("%s",g_ViewportTarget.PostProcessError().c_str());
+    ImGui::Text("Scene draw calls: %zu | Triangles: %zu",g_StudioRenderStats.DrawCalls,g_StudioRenderStats.Triangles);
+    ImGui::Text("Culled objects: %zu",g_StudioRenderStats.CulledObjects);
+    ImGui::Text("Mesh cache: %.1f MiB | %s",g_StudioRenderStats.CacheBytes/(1024.f*1024.f),g_StudioRenderStats.VBO?"VBO":"compatibility");
     ImGui::SeparatorText("Editor");
     const char *themes[] = {"Dark", "Light"};
     if (ImGui::Combo("Theme", &g_Preferences.Theme, themes, 2)) {
@@ -106,6 +126,7 @@ static void RenderEditorSettings() {
       SDL_GL_SetSwapInterval(1);
       ImGui::StyleColorsDark();
     }
+    if(g_RenderReport)ImGui::PopItemWidth();
   }
   ImGui::End();
 }

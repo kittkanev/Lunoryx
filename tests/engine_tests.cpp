@@ -5,6 +5,8 @@
 #include <fstream>
 #include <stdexcept>
 #include "patch_regressions.h"
+#include "render_cache_regressions.h"
+#include "geometry_node_tests.h"
 
 static void CheckLua(const char* script) {
     const int top = lua_gettop(g_LuaState);
@@ -209,6 +211,8 @@ int main() {
     std::map<std::string,std::vector<unsigned char>> tooManyResources;for(int i=0;i<257;++i)tooManyResources["asset"+std::to_string(i)]={};bool budgetRejected=false;try{GamePackage::Write("unused","unused",tooManyResources);}catch(const std::runtime_error& e){budgetRejected=std::string(e.what()).find("255")!=std::string::npos;}assert(budgetRejected);
     std::promise<void> gate;auto ready=gate.get_future().share();uint64_t beforeJob=StudioSceneFingerprint(g_Objects);QueueModelJob([ready](std::vector<GameObject>& objects){ready.wait();objects[0].Name="Stale worker result";});g_Game.StartupScript=-1;StartSimulation();gate.set_value();g_ModelJob.wait();PollModelJob();assert(!g_ModelBusy&&StudioSceneFingerprint(g_Objects)==beforeJob);StopSimulation();
     CheckPatchRegressions();
+    CheckRenderCacheRegressions();
+    CheckGeometryNodeRegressions();
     ShutdownLuaState();
     std::cout << "PASS: Lua bounds, stack recovery, hostile metamethods, GLB buffer round trip\n";
 }

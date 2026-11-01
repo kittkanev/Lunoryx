@@ -106,7 +106,9 @@ static void RenderModelTools() {
                               ImGuiTreeNodeFlags_DefaultOpen)) {
     ImGui::TextWrapped("Modeling uses the selected mesh. Heavy operations run "
                        "in the background.");
-    ImGui::BeginDisabled(g_ModelBusy || g_PhysicsRunning ||
+    bool nodeMesh=g_SelectedObjectIndex>=0&&size_t(g_SelectedObjectIndex)<g_Objects.size()&&!g_Objects[size_t(g_SelectedObjectIndex)].GeometryNodes.empty();
+    if(nodeMesh)ImGui::TextWrapped("Bake geometry nodes before editing topology or modifiers.");
+    ImGui::BeginDisabled(g_ModelBusy || g_PhysicsRunning || nodeMesh ||
                          g_SelectedObjectIndex < 0);
     if (ImGui::Checkbox("Edit mesh", &g_Modeling.Edit)) {
       g_Modeling.Selected.clear();
@@ -302,6 +304,7 @@ static void DrawModelSelection(float distance, float pitch, float yaw,
       size_t(g_SelectedObjectIndex) >= g_Objects.size() || g_PhysicsRunning)
     return;
   auto &o = g_Objects[size_t(g_SelectedObjectIndex)];
+  if(!o.GeometryNodes.empty()){g_Modeling.Edit=false;g_Modeling.Selected.clear();return;}
   if (g_Modeling.Object != o.Id) {
     g_Modeling.Object = o.Id;
     g_Modeling.Selected.clear();

@@ -1,5 +1,6 @@
 #pragma once
 #include "extensions/modeling/boolean_adapter.h"
+#include "extensions/rust-kernels/kernels.h"
 #include <array>
 #include <map>
 #include <set>
@@ -480,6 +481,7 @@ inline void Evaluate(GameObject &o) {
   ToObject(o, m);
 }
 inline void AddModifier(GameObject &o, const StudioModifier &mod) {
+  if(!o.GeometryNodes.empty())throw std::runtime_error("Bake geometry nodes before adding modifiers");
   ValidateModifier(mod);
   if (o.Modifiers.size() >= 16)
     throw std::runtime_error("At most 16 modifiers");
@@ -495,9 +497,11 @@ inline void ApplyModifiers(GameObject &o) {
   o.BaseMesh = StudioMesh();
 }
 inline StudioMesh Editable(const GameObject &o) {
+  if(!o.GeometryNodes.empty())throw std::runtime_error("Bake geometry nodes before mesh or UV editing");
   return o.Modifiers.empty() ? FromObject(o) : o.BaseMesh;
 }
 inline void SetEditable(GameObject &o, StudioMesh m) {
+  if(!o.GeometryNodes.empty())throw std::runtime_error("Bake geometry nodes before mesh or UV editing");
   Check(m);
   Triangulate(m);
   if (o.Modifiers.empty())
@@ -575,7 +579,25 @@ inline void Weld(StudioMesh &m, const std::set<uint32_t> &selected,
   if (selected.size() < 2 || !std::isfinite(tolerance) || tolerance <= 0)
     throw std::runtime_error(
         "Select at least two vertices and a positive weld distance");
+  if (m.Positions.size()%3 || m.Positions.size()/3>MAX_EDIT_VERTICES)
+    throw std::runtime_error("Invalid mesh size");
   std::map<uint32_t, uint32_t> remap;
+  // Keep small selections and extreme coordinate/tolerance ratios on the
+  // reference path. The spatial Rust kernel benefits larger selections.
+  bool mapped = false;
+  if (selected.size() >= 2048 && selected.size() <= MAX_EDIT_VERTICES) {
+    std::vector<uint32_t> selection(selected.begin(), selected.end());
+    std::vector<uint32_t> output(selection.size());
+    std::vector<LunoryxWeldCell> workspace(selection.size());
+    int status = lunoryx_weld_map(m.Positions.data(), m.Positions.size() / 3,
+        selection.data(), selection.size(), tolerance, workspace.data(), output.data());
+    if (status == 1) throw std::runtime_error("Invalid vertex selection");
+    if (status == 0) {
+      for (size_t i = 0; i < selection.size(); ++i) remap[selection[i]] = output[i];
+      mapped = true;
+    }
+  }
+  if (!mapped) {
   for (auto v : selected) {
     if (v >= m.Positions.size() / 3)
       throw std::runtime_error("Invalid vertex selection");
@@ -588,6 +610,7 @@ inline void Weld(StudioMesh &m, const std::set<uint32_t> &selected,
           break;
         }
       }
+  }
   }
   std::vector<std::vector<uint32_t>> faces;
   std::vector<uint32_t> materials;
