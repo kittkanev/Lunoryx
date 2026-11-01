@@ -1,4 +1,4 @@
-LUNORYX STUDIO 1.0.0 — FIRST STABLE RELEASE
+LUNORYX STUDIO 1.0.1 — STABILITY PATCH
 
 Запустите Lunoryx.exe. Отдельная SDL/Lua/audio DLL и консоль не нужны.
 Требуются Windows x64, OpenGL 2.1 compatibility и framebuffer objects.
@@ -7,6 +7,7 @@ LUNORYX STUDIO 1.0.0 — FIRST STABLE RELEASE
 Tools > Character > Game / Build > New third-person example.
 Play Simulation: WASD — движение, Space — прыжок, R — перезапуск.
 Stop Simulation восстанавливает сцену редактора.
+Перед сохранением остановите Play Simulation.
 File > Save Project / Save Project As сохраняет редактируемый .lunoryx.
 Build standalone Game.exe упаковывает проект и импортированные ресурсы.
 Готовый Game.exe не требует редактора, компилятора или файлов проекта.

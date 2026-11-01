@@ -3,9 +3,9 @@
   <br/><strong>LUNORYX STUDIO</strong>
 </p>
 
-**1.0.0 — первый стабильный выпуск.** Создавай 3D-сцены, редактируй модели, пиши Lua и собирай игру в один EXE. Сохранены прежняя тема Studio, докинг, Explorer, Properties, Tools и вкладки кода.
+**1.0.1 — патч надёжности.** Создавай 3D-сцены, редактируй модели, пиши Lua и собирай игру в один EXE. Сохранены прежняя тема Studio, докинг, Explorer, Properties, Tools и вкладки кода.
 
-[Скачать Lunoryx.exe](https://github.com/kittkanev/Lunoryx/releases/download/v1.0.0/Lunoryx.exe) · [Все файлы и визуальный отчёт](https://github.com/kittkanev/Lunoryx/releases/tag/v1.0.0) · [Сообщить об ошибке](https://github.com/kittkanev/Lunoryx/issues)
+[Скачать Lunoryx.exe](https://github.com/kittkanev/Lunoryx/releases/download/v1.0.1/Lunoryx.exe) · [Все файлы и визуальный отчёт](https://github.com/kittkanev/Lunoryx/releases/tag/v1.0.1) · [Сообщить об ошибке](https://github.com/kittkanev/Lunoryx/issues)
 
 Нужны Windows x64 и OpenGL 2.1 compatibility с framebuffer objects. Редактор работает без отдельной SDL/Lua/audio DLL и без окна консоли. ZIP добавляет примеры, инструкции и лицензии. `GemTrail.exe` в релизе — самостоятельный игровой пример.
 
@@ -23,7 +23,7 @@
 | Проекты | Schema 2 с чтением schema 1, атомарное сохранение, Save As, защита несохранённых изменений, история операций |
 | Автоматизация | MCP stdio: сцена, стабильные ID, проекты, GLB, Lua, аудио и моделирование |
 
-<img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.0.0/uv.png" alt="Работающий UV-редактор Lunoryx" width="900" />
+<img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.0.1/uv.png" alt="Работающий UV-редактор Lunoryx" width="900" />
 
 ## Первая игра
 
@@ -36,7 +36,7 @@
 
 Для собственного проекта выбери стартовый скрипт и объект камеры. По умолчанию стартовый скрипт не назначен. В сборку входят ресурсы, импортированные в проект; произвольные обращения Lua к файлам и процессам не упаковываются автоматически.
 
-<img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.0.0/game-windows.png" alt="Автоматически пройденный уровень в Windows" width="900" />
+<img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.0.1/game-windows.png" alt="Автоматически пройденный уровень в Windows" width="900" />
 
 ## Работа в редакторе
 
@@ -45,7 +45,7 @@
 - **Sculpt:** сначала применить стек модификаторов; подразделить меш; рисовать ЛКМ, Shift меняет знак Inflate.
 - **UV:** применить модификаторы, отметить рёбра как швы, Auto unwrap and pack. Click выбирает остров, Ctrl добавляет; drag перемещает. Доступны числовые offset/rotation/scale.
 - **Properties → Materials / Texture:** создать слот, назначить PNG/JPEG и при необходимости применить слот к выбранным граням.
-- **File:** Save Project, Save As, Load Project, Import static GLB и Export GLB. GLB также можно перетащить в окно.
+- **File:** Save Project, Save As, Load Project, Import static GLB и Export GLB. Перед сохранением останови Play Simulation. GLB также можно перетащить в окно.
 - **Код:** + Script, F5 — Run, F11 — полный экран; закрытые вкладки доступны в Explorer. Текст имеет собственную отмену; Edit → Undo/Redo управляет операциями сцены, звука и окружения.
 - **Audio:** WAV/WAVE/W64/RF64, MP3, FLAC, OGG/OGA Vorbis; preview, volume, pitch, loop, autoplay и 3D-позиция. В редактируемом проекте внешние пути относительны файлу `.lunoryx`; отсутствующий файл можно заменить.
 
