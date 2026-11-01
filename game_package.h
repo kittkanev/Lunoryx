@@ -2,6 +2,14 @@
 #include <sys/stat.h>
 namespace GamePackage {
 static const size_t MaxPayload = 512 * 1024 * 1024;
+inline void CheckResourceName(const std::string &name) {
+  if (name.empty() || name == "." || name.size() > 511 ||
+      name.find('\0') != std::string::npos || AbsolutePath(name) ||
+      NormalizePath(name) != name || name == ".." ||
+      name.find("../") != std::string::npos ||
+      name.find(':') != std::string::npos)
+    throw std::runtime_error("Invalid embedded resource path");
+}
 inline void Number(std::vector<unsigned char> &out, uint64_t n, int count) {
   for (int i = 0; i < count; ++i)
     out.push_back(static_cast<unsigned char>(n >> (i * 8)));
@@ -62,21 +70,29 @@ inline bool Read(const std::string &executable,
   uint64_t manifestSize = NumberAt(bytes, size_t(offset), 8);
   if (manifestSize > 4 * 1024 * 1024 || manifestSize > length - 8)
     throw std::runtime_error("Invalid game manifest length");
-  auto manifest = nlohmann::json::parse(bytes.begin() + size_t(offset) + 8,
-                                        bytes.begin() + size_t(offset) + 8 +
-                                            size_t(manifestSize));
+  auto manifest = nlohmann::json::parse(
+      bytes.begin() + size_t(offset) + 8,
+      bytes.begin() + size_t(offset) + 8 + size_t(manifestSize),
+      [](int depth, nlohmann::json::parse_event_t, nlohmann::json &) {
+        if (depth > 64)
+          throw std::runtime_error("Game manifest nesting exceeds limit");
+        return true;
+      });
   if (!manifest.is_array() || manifest.size() > 256)
     throw std::runtime_error("Invalid game manifest");
   size_t base = size_t(offset) + 8 + size_t(manifestSize),
          available = footer - base;
   std::map<std::string, std::vector<unsigned char>> parsed;
+  struct Resource {
+    std::string Key;
+    size_t Start, Size;
+  };
+  std::vector<Resource> resources;
+  std::vector<std::pair<size_t, size_t>> ranges;
+  std::set<std::string> names;
   for (const auto &entry : manifest) {
     std::string name = entry.at("name").get<std::string>();
-    if (name.empty() || name.size() > 511 ||
-        name.find('\0') != std::string::npos || AbsolutePath(name) ||
-        NormalizePath(name) != name || name == ".." ||
-        name.find("../") != std::string::npos)
-      throw std::runtime_error("Invalid embedded resource path");
+    CheckResourceName(name);
     if (!entry.at("offset").is_number_unsigned() ||
         !entry.at("size").is_number_unsigned())
       throw std::runtime_error("Invalid embedded range");
@@ -85,21 +101,37 @@ inline bool Read(const std::string &executable,
     if (start > available || size > available - start)
       throw std::runtime_error("Embedded resource exceeds payload");
     auto key = "/__lunoryx_bundle__/" + name;
-    if (parsed.count(key))
+    if (!names.insert(key).second)
       throw std::runtime_error("Duplicate embedded resource");
-    parsed[key] = std::vector<unsigned char>(
-        bytes.begin() + base + size_t(start),
-        bytes.begin() + base + size_t(start) + size_t(size));
+    resources.push_back({key, size_t(start), size_t(size)});
+    if (size)
+      ranges.push_back({size_t(start), size_t(start + size)});
   }
-  if (!parsed.count("/__lunoryx_bundle__/project.lunoryx"))
+  if (!names.count("/__lunoryx_bundle__/project.lunoryx"))
     throw std::runtime_error("Game project is missing");
+  // Validate the entire manifest before copying any payload. Aliased ranges
+  // could otherwise amplify a bounded input into hundreds of allocations.
+  std::sort(ranges.begin(), ranges.end());
+  for (size_t i = 1; i < ranges.size(); ++i)
+    if (ranges[i].first < ranges[i - 1].second)
+      throw std::runtime_error("Overlapping embedded resource ranges");
+  for (const auto &resource : resources)
+    parsed[resource.Key] = std::vector<unsigned char>(
+        bytes.begin() + base + resource.Start,
+        bytes.begin() + base + resource.Start + resource.Size);
   assets = std::move(parsed);
   return true;
 }
 inline void
 Write(const std::string &runtime, const std::string &destination,
       const std::map<std::string, std::vector<unsigned char>> &assets) {
-  if(assets.size()>256)throw std::runtime_error("Game supports at most 255 packed external resources");
+  if (assets.size() > 256)
+    throw std::runtime_error(
+        "Game supports at most 255 packed external resources");
+  if (!assets.count("project.lunoryx"))
+    throw std::runtime_error("Game project is missing");
+  for (const auto &resource : assets)
+    CheckResourceName(resource.first);
   auto binary = ReadAssetFile(runtime, 128 * 1024 * 1024);
   if (binary.size() > 32 &&
       !std::memcmp(binary.data() + binary.size() - 32, "LNXPCK01", 8))

@@ -29,7 +29,69 @@ static float ReadRange(const nlohmann::json& value,float low,float high) {
     double number=value.get<double>();if(!std::isfinite(number)||number<low||number>high)throw std::runtime_error("Number outside allowed range");return float(number);
 }
 static nlohmann::json SaveModelMesh(const StudioMesh& m){return {{"normals",m.Normals},{"positions",m.Positions},{"indices",m.Indices},{"colors",m.Colors},{"uv",m.UV},{"faces",m.Faces},{"face_materials",m.FaceMaterials},{"seams",m.Seams}};}
-static StudioMesh ReadModelMesh(const nlohmann::json& j){StudioMesh m;m.Positions=j.at("positions").get<std::vector<float>>();m.Indices=j.at("indices").get<std::vector<uint32_t>>();m.Normals=j.value("normals",std::vector<float>());m.Colors=j.value("colors",std::vector<float>());m.UV=j.value("uv",std::vector<float>());m.Faces=j.at("faces").get<std::vector<std::vector<uint32_t>>>();m.FaceMaterials=j.value("face_materials",std::vector<uint32_t>());m.Seams=j.value("seams",std::vector<uint64_t>());Model::Check(m);for(float uv:m.UV)if(!std::isfinite(uv))throw std::runtime_error("Invalid UV value");auto normals=m.Normals;Model::Triangulate(m);if(!normals.empty())m.Normals=std::move(normals);return m;}
+// Validate JSON numbers before narrowing: json::get<uint32_t>() wraps large
+// integers and truncates fractions, which can silently change topology.
+static uint64_t ReadUnsigned(const nlohmann::json &value, uint64_t maximum) {
+  if (!value.is_number_integer() ||
+      (!value.is_number_unsigned() && value.get<int64_t>() < 0))
+    throw std::runtime_error("Expected a nonnegative integer");
+  uint64_t number = value.get<uint64_t>();
+  if (number > maximum)
+    throw std::runtime_error("Integer outside allowed range");
+  return number;
+}
+static int ReadInteger(const nlohmann::json &value, int low, int high) {
+  if (!value.is_number_integer())
+    throw std::runtime_error("Expected an integer");
+  if (value.is_number_unsigned()) {
+    auto number = value.get<uint64_t>();
+    if (number > uint64_t(high) || (low > 0 && number < uint64_t(low)))
+      throw std::runtime_error("Integer outside allowed range");
+    return int(number);
+  }
+  auto number = value.get<int64_t>();
+  if (number < low || number > high)
+    throw std::runtime_error("Integer outside allowed range");
+  return int(number);
+}
+template <typename T>
+static std::vector<T> ReadUnsignedArray(const nlohmann::json &value,
+                                        size_t limit) {
+  if (!value.is_array() || value.size() > limit)
+    throw std::runtime_error("Array exceeds size limit");
+  std::vector<T> result;
+  result.reserve(value.size());
+  for (const auto &item : value)
+    result.push_back(T(ReadUnsigned(item, std::numeric_limits<T>::max())));
+  return result;
+}
+static StudioMesh ReadModelMesh(const nlohmann::json &j) {
+  StudioMesh m;
+  m.Positions = j.at("positions").get<std::vector<float>>();
+  m.Indices = ReadUnsignedArray<uint32_t>(j.at("indices"), MAX_EDIT_INDICES);
+  m.Normals = j.value("normals", std::vector<float>());
+  m.Colors = j.value("colors", std::vector<float>());
+  m.UV = j.value("uv", std::vector<float>());
+  const auto &faces = j.at("faces");
+  if (!faces.is_array() || faces.size() > MAX_EDIT_INDICES / 3)
+    throw std::runtime_error("Face count exceeds limit");
+  for (const auto &face : faces)
+    m.Faces.push_back(ReadUnsignedArray<uint32_t>(face, 4096));
+  if (j.contains("face_materials"))
+    m.FaceMaterials = ReadUnsignedArray<uint32_t>(j.at("face_materials"),
+                                                  MAX_EDIT_INDICES / 3);
+  if (j.contains("seams"))
+    m.Seams = ReadUnsignedArray<uint64_t>(j.at("seams"), MAX_EDIT_INDICES);
+  Model::Check(m);
+  for (auto index : m.Indices)
+    if (index >= m.Positions.size() / 3)
+      throw std::runtime_error("Invalid mesh index");
+  auto normals = m.Normals;
+  Model::Triangulate(m);
+  if (!normals.empty())
+    m.Normals = std::move(normals);
+  return m;
+}
 static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::string& path){
     j["id"]=o.Id;
     if(!o.Vertices.empty())j["mesh"]=SaveModelMesh(Model::FromObject(o));
@@ -39,11 +101,11 @@ static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::str
     j["materials"]=nlohmann::json::array();for(const auto& m:o.Materials)j["materials"].push_back({{"image",m.Image},{"name",m.Name},{"texture",m.Texture.empty()?"":RelativeAssetPath(m.Texture,path)},{"color",SaveVector(m.Color)},{"metallic",m.Metallic},{"roughness",m.Roughness}});
 }
 static void ReadModelFields(const nlohmann::json& j,GameObject& o,const std::string& path){
-    if(j.contains("id")){if(!j.at("id").is_number_unsigned()&&!j.at("id").is_number_integer())throw std::runtime_error("Invalid object ID");auto id=j.at("id").get<int64_t>();if(id<=0)throw std::runtime_error("Invalid object ID");o.Id=uint64_t(id);}
+    if(j.contains("id")){auto id=ReadUnsigned(j.at("id"),uint64_t(std::numeric_limits<int64_t>::max()));if(!id)throw std::runtime_error("Invalid object ID");o.Id=id;}
     if(j.contains("mesh"))Model::ToObject(o,ReadModelMesh(j.at("mesh")));
-    if(j.contains("modifiers")){if(!j["modifiers"].is_array()||j["modifiers"].size()>16)throw std::runtime_error("Too many modifiers");for(const auto& v:j["modifiers"]){StudioModifier m;int type=v.at("type").get<int>();if(type<0||type>3)throw std::runtime_error("Invalid modifier type");m.Type=StudioModifier::Kind(type);m.Enabled=v.at("enabled").get<bool>();m.Axis=int(ReadRange(v.at("axis"),0,2));m.Count=int(ReadRange(v.at("count"),2,64));m.Levels=int(ReadRange(v.at("levels"),1,4));m.Amount=ReadRange(v.at("amount"),.00001f,1000);ReadVector(v.at("offset"),m.Offset);o.Modifiers.push_back(m);}}
+    if(j.contains("modifiers")){if(!j["modifiers"].is_array()||j["modifiers"].size()>16)throw std::runtime_error("Too many modifiers");for(const auto& v:j["modifiers"]){StudioModifier m;int type=ReadInteger(v.at("type"),0,3);if(type<0||type>3)throw std::runtime_error("Invalid modifier type");m.Type=StudioModifier::Kind(type);m.Enabled=v.at("enabled").get<bool>();m.Axis=ReadInteger(v.at("axis"),0,2);m.Count=ReadInteger(v.at("count"),2,64);m.Levels=ReadInteger(v.at("levels"),1,4);m.Amount=ReadRange(v.at("amount"),.00001f,1000);ReadVector(v.at("offset"),m.Offset);o.Modifiers.push_back(m);}}
     if(!o.Modifiers.empty()){o.BaseMesh=ReadModelMesh(j.at("base_mesh"));Model::Evaluate(o);}
-    if(j.contains("materials")){if(!j["materials"].is_array()||j["materials"].size()>64)throw std::runtime_error("Material limit exceeded");for(const auto& v:j["materials"]){StudioMaterial m;m.Name=v.at("name").get<std::string>();m.Texture=v.at("texture").get<std::string>();m.Image=v.value("image",std::vector<unsigned char>());if(m.Image.size()>16*1024*1024)throw std::runtime_error("Embedded image exceeds limit");if(m.Name.size()>255||m.Texture.size()>511||m.Texture.find('\0')!=std::string::npos)throw std::runtime_error("Invalid material resource");ReadVector(v.at("color"),m.Color,true);m.Metallic=ReadRange(v.at("metallic"),0,1);m.Roughness=ReadRange(v.at("roughness"),0,1);if(!m.Texture.empty()&&!AbsolutePath(m.Texture))m.Texture=NormalizePath(PathDirectory(AbsoluteAssetPath(path))+"/"+m.Texture);o.Materials.push_back(m);}}
+    if(j.contains("materials")){if(!j["materials"].is_array()||j["materials"].size()>64)throw std::runtime_error("Material limit exceeded");for(const auto& v:j["materials"]){StudioMaterial m;m.Name=v.at("name").get<std::string>();m.Texture=v.at("texture").get<std::string>();if(v.contains("image"))m.Image=ReadUnsignedArray<unsigned char>(v.at("image"),16*1024*1024);if(m.Image.size()>16*1024*1024)throw std::runtime_error("Embedded image exceeds limit");if(m.Name.size()>255||m.Texture.size()>511||m.Texture.find('\0')!=std::string::npos)throw std::runtime_error("Invalid material resource");ReadVector(v.at("color"),m.Color,true);m.Metallic=ReadRange(v.at("metallic"),0,1);m.Roughness=ReadRange(v.at("roughness"),0,1);if(!m.Texture.empty()&&!AbsolutePath(m.Texture))m.Texture=NormalizePath(PathDirectory(AbsoluteAssetPath(path))+"/"+m.Texture);o.Materials.push_back(m);}}
     if(!o.FaceMaterials.empty()){if(o.FaceMaterials.size()!=o.Faces.size())throw std::runtime_error("Invalid face material count");for(auto slot:o.FaceMaterials)if(slot>=o.Materials.size())throw std::runtime_error("Invalid material slot");}
 }
 static nlohmann::json StudioProjectJson(const std::string& path){
@@ -92,6 +154,8 @@ static nlohmann::json StudioProjectJson(const std::string& path){
     return root;
 }
 static bool SaveStudioProject(const std::string& path){
+    // Never persist the disposable Play world over the editor document.
+    if(g_PhysicsRunning){AppendConsole("Project save failed: stop simulation before saving\n");return false;}
     std::string temporary=path+".tmp";
     try {
         auto root=StudioProjectJson(path);
@@ -110,12 +174,12 @@ static bool LoadStudioProject(const std::string& path) {
         if(path.empty()||path.find('\0')!=std::string::npos)throw std::runtime_error("Invalid project path");
         auto data=ReadAssetFile(path,32*1024*1024);
         nlohmann::json root=nlohmann::json::parse(data.begin(),data.end(),[](int depth,nlohmann::json::parse_event_t,nlohmann::json&){if(depth>128)throw std::runtime_error("Project nesting exceeds limit");return true;});
-        if(root.at("schema").get<int>()!=1&&root.at("schema").get<int>()!=2)throw std::runtime_error("Unsupported project schema");
+        const int schema=ReadInteger(root.at("schema"),1,2);
         const auto& saved=root.at("objects");if(!saved.is_array()||saved.size()>10000)throw std::runtime_error("Invalid object count");
         std::vector<GameObject> objects;objects.reserve(saved.size());size_t totalVertices=0;
         for(const auto& j:saved) {
             std::string name=j.at("name").get<std::string>();if(name.size()>255||name.find('\0')!=std::string::npos)throw std::runtime_error("Object name too long");
-            int type=j.at("type").get<int>();if(type<0||type>4)throw std::runtime_error("Unknown primitive");
+            int type=ReadInteger(j.at("type"),0,4);if(type<0||type>4)throw std::runtime_error("Unknown primitive");
             GameObject o(name,MeshType(type));
             ReadVector(j.at("position"),o.Position);ReadVector(j.at("rotation"),o.Rotation);ReadVector(j.at("scale"),o.Scale);ReadVector(j.at("color"),o.Color,true);ReadVector(j.at("velocity"),o.Velocity);
             for(float v:o.Velocity)if(std::abs(v)>10000)throw std::runtime_error("Velocity outside allowed range");
@@ -123,19 +187,18 @@ static bool LoadStudioProject(const std::string& path) {
             o.Visible=j.at("visible").get<bool>();o.Wireframe=j.at("wireframe").get<bool>();o.Dynamic=j.at("dynamic").get<bool>();o.Character=j.at("character").get<bool>();
             o.Mass=ReadRange(j.at("mass"),.01f,10000);o.Restitution=ReadRange(j.at("bounce"),0,1);o.Friction=ReadRange(j.at("friction"),0,20);o.MoveSpeed=ReadRange(j.at("speed"),0,100);o.JumpSpeed=ReadRange(j.at("jump"),0,100);
             if(!j.at("vertices").is_array()||j.at("vertices").size()>MAX_EDIT_VERTICES*3||!j.at("indices").is_array()||j.at("indices").size()>MAX_EDIT_INDICES)throw std::runtime_error("Mesh exceeds limits");
-            for(const auto& index:j.at("indices"))if(!index.is_number_integer()||index.get<double>()<0||index.get<double>()>4294967295.0)throw std::runtime_error("Invalid mesh index type");
-            o.Vertices=j.at("vertices").get<std::vector<float>>();o.Indices=j.at("indices").get<std::vector<uint32_t>>();o.VertexColors=j.at("vertex_colors").get<std::vector<float>>();
+            o.Vertices=j.at("vertices").get<std::vector<float>>();o.Indices=ReadUnsignedArray<uint32_t>(j.at("indices"),MAX_EDIT_INDICES);o.VertexColors=j.at("vertex_colors").get<std::vector<float>>();
             if(o.Vertices.size()%3||o.Indices.size()%3||(!o.Vertices.empty()&&o.Indices.empty())||(o.Vertices.empty()&&!o.Indices.empty())||(!o.VertexColors.empty()&&o.VertexColors.size()!=o.Vertices.size()))throw std::runtime_error("Malformed mesh");
             for(float v:o.Vertices)if(!std::isfinite(v))throw std::runtime_error("Invalid vertex");
             for(float v:o.VertexColors)if(!std::isfinite(v)||v<0||v>1)throw std::runtime_error("Invalid vertex color");
             for(uint32_t i:o.Indices)if(i>=o.Vertices.size()/3)throw std::runtime_error("Mesh index outside vertex range");
             const auto& properties=j.at("properties");if(!properties.is_object()||properties.size()>256)throw std::runtime_error("Invalid properties");
             for(auto it=properties.begin();it!=properties.end();++it) {
-                ObjectProperty v;int kind=it.value().at("kind").get<int>();if(kind<0||kind>2)throw std::runtime_error("Invalid property kind");
+                ObjectProperty v;int kind=ReadInteger(it.value().at("kind"),0,2);if(kind<0||kind>2)throw std::runtime_error("Invalid property kind");
                 v.Type=ObjectProperty::Kind(kind);v.NumberValue=it.value().at("number").get<double>();v.BoolValue=it.value().at("boolean").get<bool>();v.TextValue=it.value().at("text").get<std::string>();
                 if(!SetProperty(o,it.key(),v))throw std::runtime_error("Invalid property value");
             }
-            if(root.at("schema").get<int>()==2)ReadModelFields(j,o,path);
+            if(schema==2)ReadModelFields(j,o,path);
             totalVertices+=o.Vertices.size()/3;if(totalVertices>1000000)throw std::runtime_error("Project mesh budget exceeded");
             for(const auto& previous:objects)if(previous.Id==o.Id)throw std::runtime_error("Duplicate stable object ID");
             objects.push_back(std::move(o));
@@ -144,18 +207,18 @@ static bool LoadStudioProject(const std::string& path) {
         const auto& docs=root.at("scripts");if(!docs.is_array()||docs.size()>8)throw std::runtime_error("Invalid script count");
         for(size_t i=0;i<docs.size();++i){auto name=docs[i].at("name").get<std::string>(),code=docs[i].at("code").get<std::string>();if(name.size()>63||code.size()>65535||name.find('\0')!=std::string::npos||code.find('\0')!=std::string::npos)throw std::runtime_error("Invalid script document");auto& doc=(*scripts)[i];doc.Allocated=true;doc.Open=docs[i].value("open",true);std::snprintf(doc.Name,sizeof(doc.Name),"%s",name.c_str());std::snprintf(doc.Code,sizeof(doc.Code),"%s",code.c_str());}
         float top[3],bottom[3];ReadVector(root.at("sky_top"),top,true);ReadVector(root.at("sky_bottom"),bottom,true);
-        int preset=root.at("sky_preset").get<int>();if(preset<0||preset>2)throw std::runtime_error("Unknown sky preset");
+        int preset=ReadInteger(root.at("sky_preset"),0,2);if(preset<0||preset>2)throw std::runtime_error("Unknown sky preset");
         float gravity=ReadRange(root.at("gravity"),-30,0);bool ground=root.at("ground").get<bool>();
         for(const auto& o:objects)ReserveObjectId(o.Id);
         std::vector<StudioSound> sounds;
         if(root.contains("sounds")){
             const auto& savedSounds=root.at("sounds");if(!savedSounds.is_array()||savedSounds.size()>64)throw std::runtime_error("Invalid sound count");
-            for(const auto& j:savedSounds){StudioSound sound;sound.Data=j.value("data",std::vector<unsigned char>());if(sound.Data.size()>16*1024*1024)throw std::runtime_error("Embedded audio exceeds budget");sound.Name=j.at("name").get<std::string>();sound.Path=j.at("path").get<std::string>();
+            for(const auto& j:savedSounds){StudioSound sound;if(j.contains("data"))sound.Data=ReadUnsignedArray<unsigned char>(j.at("data"),16*1024*1024);if(sound.Data.size()>16*1024*1024)throw std::runtime_error("Embedded audio exceeds budget");sound.Name=j.at("name").get<std::string>();sound.Path=j.at("path").get<std::string>();
                 if(sound.Name.size()>255||sound.Path.size()>511||sound.Name.find('\0')!=std::string::npos||sound.Path.find('\0')!=std::string::npos)throw std::runtime_error("Invalid audio path or name");
                 ReadVector(j.at("position"),sound.Position);sound.Volume=ReadRange(j.at("volume"),0,2);sound.Pitch=ReadRange(j.at("pitch"),.1f,4);sound.Loop=j.at("loop").get<bool>();sound.Spatial=j.at("spatial").get<bool>();sound.Autoplay=j.at("autoplay").get<bool>();if(!sound.Path.empty()&&!AbsolutePath(sound.Path))sound.Path=NormalizePath(PathDirectory(AbsoluteAssetPath(path))+"/"+sound.Path);sounds.push_back(sound);}
         }
         StudioGameSettings game;
-        if(root.contains("game")){const auto& value=root["game"];game.StartupScript=int(ReadRange(value.at("startup_script"),-1,7));if(!value.at("camera_target").is_number_unsigned()&&!value.at("camera_target").is_number_integer())throw std::runtime_error("Invalid camera target");game.CameraTarget=value.at("camera_target").get<uint64_t>();game.CameraDistance=ReadRange(value.at("camera_distance"),.2f,1000);game.CameraPitch=ReadRange(value.at("camera_pitch"),-85,85);game.CameraYaw=ReadRange(value.at("camera_yaw"),-180,180);game.Title=value.at("title").get<std::string>();if(game.Title.size()>255||game.Title.find('\0')!=std::string::npos)throw std::runtime_error("Invalid game title");}
+        if(root.contains("game")){const auto& value=root["game"];game.StartupScript=ReadInteger(value.at("startup_script"),-1,7);game.CameraTarget=ReadUnsigned(value.at("camera_target"),uint64_t(std::numeric_limits<int64_t>::max()));game.CameraDistance=ReadRange(value.at("camera_distance"),.2f,1000);game.CameraPitch=ReadRange(value.at("camera_pitch"),-85,85);game.CameraYaw=ReadRange(value.at("camera_yaw"),-180,180);game.Title=value.at("title").get<std::string>();if(game.Title.size()>255||game.Title.find('\0')!=std::string::npos)throw std::runtime_error("Invalid game title");}
         // Commit only after the complete document has passed validation. Never execute loaded scripts.
         for(const auto& sound:g_Sounds){studio_audio_unload(sound.Id);}
         g_Sounds.swap(sounds);g_SelectedSound=-1;

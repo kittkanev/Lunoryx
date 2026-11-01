@@ -1105,8 +1105,8 @@ int main(int argc, char* argv[]) {
                 ImGui::InputText("Project path",g_ProjectPath,sizeof(g_ProjectPath));
                 if(ImGui::MenuItem("Import static GLB..."))ImGui::OpenPopup("Import GLB");
                 if(ImGui::BeginPopup("Import GLB")){static char modelPath[512]="model.glb";ImGui::InputText("GLB path",modelPath,sizeof(modelPath));if(ImGui::Button("Import")){ImportStudioGLB(modelPath);ImGui::CloseCurrentPopup();}ImGui::EndPopup();}
-                if(ImGui::MenuItem("Save Project","Ctrl+S"))SaveCurrentProject();
-                if(ImGui::MenuItem("Save Project As..."))g_OpenSaveAs=true;
+                if(ImGui::MenuItem("Save Project","Ctrl+S",false,!g_PhysicsRunning))SaveCurrentProject();
+                if(ImGui::MenuItem("Save Project As...",nullptr,false,!g_PhysicsRunning))g_OpenSaveAs=true;
                 if(ImGui::MenuItem("Load Project"))RequestProjectAction(2,g_ProjectPath);
                 if (ImGui::MenuItem("Export GLB")) {
                     if (ExportGLB("export.glb")) {

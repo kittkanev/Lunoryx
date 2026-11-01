@@ -53,6 +53,13 @@ jobs:
         run: |
           gh run download "$SOURCE_RUN" --name gltf-validation --dir build/visual
           cp "docs/release-notes-${RELEASE_TAG}.md" build/release/REPORT.md
+          python - <<'PYREPORT'
+          import os
+          from pathlib import Path
+          with Path('build/release/REPORT.md').open('a', encoding='utf-8') as report:
+              report.write(f"\n\nПроверенный коммит: `{os.environ['RELEASE_SHA']}`.\n")
+              report.write(f"\n[Успешный CI](https://github.com/{os.environ['GH_REPO']}/actions/runs/{os.environ['SOURCE_RUN']}).\n")
+          PYREPORT
           find build/visual -name '*.png' -exec cp {} build/release/ \;
       - name: Attach the tested standalone sample game
         if: steps.state.outputs.published != 'true'
@@ -65,12 +72,12 @@ jobs:
         if: steps.state.outputs.published != 'true'
         run: |
           if [ '${{ steps.state.outputs.draft }}' != true ]; then
-            gh release create "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file "docs/release-notes-${RELEASE_TAG}.md" --prerelease --draft
+            gh release create "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --prerelease --draft
           fi
           gh release upload "$RELEASE_TAG" build/release/*.zip build/release/*.exe build/release/*.txt build/release/*.md build/release/*.png --clobber
           prerelease=true; latest=false
           if [[ "$RELEASE_TAG" != *-* ]]; then prerelease=false; latest=true; fi
-          gh release edit "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file "docs/release-notes-${RELEASE_TAG}.md" --draft=false --prerelease="$prerelease" --latest="$latest"
+          gh release edit "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --draft=false --prerelease="$prerelease" --latest="$latest"
       - name: Verify published release
         run: |
           gh release view "$RELEASE_TAG" --json url,isDraft,isPrerelease,targetCommitish,assets

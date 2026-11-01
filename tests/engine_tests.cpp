@@ -4,6 +4,7 @@
 #include <cassert>
 #include <fstream>
 #include <stdexcept>
+#include "patch_regressions.h"
 
 static void CheckLua(const char* script) {
     const int top = lua_gettop(g_LuaState);
@@ -207,6 +208,7 @@ int main() {
     {auto savedData=ReadAssetFile("tests/textured.lunoryx");auto oversized=nlohmann::json::parse(savedData.begin(),savedData.end());auto object=oversized["objects"][0];object["modifiers"]=nlohmann::json::array();object["mesh"]["positions"]=std::vector<float>(MAX_EDIT_VERTICES*3,0);object["mesh"]["normals"]=nlohmann::json::array();object["mesh"]["uv"]=nlohmann::json::array();object["mesh"]["colors"]=nlohmann::json::array();oversized["objects"]=nlohmann::json::array();for(int i=0;i<6;++i){object["id"]=100000+i;oversized["objects"].push_back(object);}auto text=oversized.dump();WriteAssetFile("tests/over-budget.lunoryx",text.data(),text.size());auto count=g_Objects.size();size_t logStart=g_ConsoleOutput.size();assert(!LoadStudioProject("tests/over-budget.lunoryx")&&g_Objects.size()==count);assert(g_ConsoleOutput.find("Project mesh budget exceeded",logStart)!=std::string::npos);std::remove("tests/over-budget.lunoryx");}
     std::map<std::string,std::vector<unsigned char>> tooManyResources;for(int i=0;i<257;++i)tooManyResources["asset"+std::to_string(i)]={};bool budgetRejected=false;try{GamePackage::Write("unused","unused",tooManyResources);}catch(const std::runtime_error& e){budgetRejected=std::string(e.what()).find("255")!=std::string::npos;}assert(budgetRejected);
     std::promise<void> gate;auto ready=gate.get_future().share();uint64_t beforeJob=StudioSceneFingerprint(g_Objects);QueueModelJob([ready](std::vector<GameObject>& objects){ready.wait();objects[0].Name="Stale worker result";});g_Game.StartupScript=-1;StartSimulation();gate.set_value();g_ModelJob.wait();PollModelJob();assert(!g_ModelBusy&&StudioSceneFingerprint(g_Objects)==beforeJob);StopSimulation();
+    CheckPatchRegressions();
     ShutdownLuaState();
     std::cout << "PASS: Lua bounds, stack recovery, hostile metamethods, GLB buffer round trip\n";
 }

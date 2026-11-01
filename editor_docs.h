@@ -19,7 +19,7 @@ Stop restores the scene captured at Play. Lua animation has its own Pause button
 Scripts: create tabs with + Script. F5 runs the active script. F11 expands the editor.
 Output is inside the app; the Windows executable opens no console window.
 
-File > Save Project / Load Project uses .lunoryx files for geometry, properties,
+Stop Play Simulation before saving. File > Save Project / Load Project uses .lunoryx files for geometry, properties,
 scripts and environment. Loaded scripts do not run automatically. Run them explicitly.
 GLB is a separate geometry/material export and does not contain editor metadata.
 )DOC"},

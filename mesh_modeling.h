@@ -38,9 +38,13 @@ inline void Check(const StudioMesh &m) {
   for (float x : m.Positions)
     if (!std::isfinite(x) || std::abs(x) > 1e8f)
       throw std::runtime_error("Invalid mesh position");
+  size_t triangles = 0;
   for (const auto &f : m.Faces) {
     if (f.size() < 3 || f.size() > 4096)
       throw std::runtime_error("Invalid polygon");
+    triangles += f.size() - 2;
+    if (triangles > MAX_EDIT_INDICES / 3)
+      throw std::runtime_error("Triangle budget exceeded");
     for (auto i : f)
       if (i >= m.Positions.size() / 3)
         throw std::runtime_error("Invalid vertex index");
@@ -54,8 +58,14 @@ inline void Check(const StudioMesh &m) {
       throw std::runtime_error("Invalid normal value");
   if (!m.UV.empty() && m.UV.size() != m.Positions.size() / 3 * 2)
     throw std::runtime_error("Invalid UV count");
+  for (float uv : m.UV)
+    if (!std::isfinite(uv))
+      throw std::runtime_error("Invalid UV value");
   if (!m.Colors.empty() && m.Colors.size() != m.Positions.size())
     throw std::runtime_error("Invalid color count");
+  for (float color : m.Colors)
+    if (!std::isfinite(color) || color < 0 || color > 1)
+      throw std::runtime_error("Invalid vertex color");
 }
 inline void Triangulate(StudioMesh &m) {
   m.Indices.clear();

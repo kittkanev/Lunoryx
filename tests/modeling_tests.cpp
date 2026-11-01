@@ -17,5 +17,19 @@ int main(){
     auto duplicate=mesh;uint32_t last=uint32_t(duplicate.Positions.size()/3);auto point=Model::Point(duplicate,0);duplicate.Positions.insert(duplicate.Positions.end(),{point.x,point.y,point.z});for(auto& v:duplicate.Faces[0])if(v==0)v=last;Model::Weld(duplicate,{0,last},.001f);assert(duplicate.Positions.size()==mesh.Positions.size());
     GameObject reflected=original;reflected.Scale[0]=-1;assert(std::abs(Volume(Model::Boolean(reflected,other,2))-.5)<1e-5);
     auto rejected=original;StudioModifier invalid;invalid.Count=-1;failed=false;try{Model::AddModifier(rejected,invalid);}catch(const std::exception&){failed=true;}assert(failed&&rejected.Modifiers.empty()&&rejected.Vertices==original.Vertices);
+    // Reject invalid attributes and over-budget polygon output before triangulation.
+    for (int kind = 0; kind < 4; ++kind) {
+        auto bad = mesh;
+        if (kind == 0) bad.Colors.assign(bad.Positions.size(), 2);
+        if (kind == 1) {
+            bad.Colors.assign(bad.Positions.size(), 1);
+            bad.Colors[0] = std::numeric_limits<float>::quiet_NaN();
+        }
+        if (kind == 2) bad.UV.assign(bad.Positions.size() / 3 * 2, std::numeric_limits<float>::infinity());
+        if (kind == 3) bad.Faces.assign(98, std::vector<uint32_t>(4096, 0));
+        failed = false;
+        try { Model::Check(bad); } catch (const std::runtime_error&) { failed = true; }
+        assert(failed);
+    }
     std::cout<<"PASS: polygon topology, modifier base preservation, closed bevel, extrude, Loop subdivision, CSG volumes and invalid input\n";
 }
