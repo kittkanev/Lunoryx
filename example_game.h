@@ -27,6 +27,7 @@ static std::vector<unsigned char> ExampleTone() {
   return wav;
 }
 static void CreateSampleGame() {
+  StopAnimationPreview();
   if (g_PhysicsRunning)
     StopSimulation();
   for (const auto &sound : g_Sounds)
@@ -36,7 +37,7 @@ static void CreateSampleGame() {
   g_Game = StudioGameSettings();
   g_Game.Title = "Lunoryx - Gem Trail";g_Game.StartupScript=0;
   ApplySkyPreset(0);
-  g_Physics = PhysicsState();
+  g_Physics = PhysicsState();g_Physics.Ground=false;
   GameObject floor("Textured Floor");
   auto mesh = Model::FromObject(floor);
   Model::Unwrap(mesh);
@@ -89,8 +90,13 @@ static void CreateSampleGame() {
     property.Type = ObjectProperty::Boolean;
     property.BoolValue = false;
     SetProperty(gem, "Collected", property);
-    g_Objects.push_back(gem);
+    gem.Solid=false;gem.AnimationDuration=6;gem.AnimationAutoplay=true;
+    for(int key=0;key<=3;++key){gem.Rotation[1]=float(key*120);CaptureAnimationKey(gem,float(key*2),0);}
+    gem.Rotation[1]=0;g_Objects.push_back(gem);
   }
+  GameObject kill("Fall Killzone");kill.Trigger=1;kill.Visible=false;kill.Scale[0]=kill.Scale[2]=60;kill.Scale[1]=2;kill.Position[1]=-6;g_Objects.push_back(kill);
+  GameObject hazard("Lava Killzone");hazard.Trigger=1;hazard.Scale[0]=hazard.Scale[2]=2;hazard.Scale[1]=.2f;hazard.Position[0]=5;hazard.Position[1]=.1f;hazard.Color[0]=1;hazard.Color[1]=.15f;hazard.Color[2]=.03f;g_Objects.push_back(hazard);
+  GameObject checkpoint("Checkpoint");checkpoint.Trigger=2;checkpoint.Scale[0]=checkpoint.Scale[2]=1.2f;checkpoint.Scale[1]=.2f;checkpoint.Position[0]=-5;checkpoint.Position[2]=3;checkpoint.Position[1]=.1f;checkpoint.Color[0]=.1f;checkpoint.Color[1]=1;checkpoint.Color[2]=.6f;g_Objects.push_back(checkpoint);
   CharacterConfig character;
   int player = CreateCharacter(g_Objects, "Player", character);
   g_Objects[size_t(player)].Position[2] = 3;

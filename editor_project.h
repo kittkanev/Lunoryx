@@ -7,6 +7,7 @@
 #endif
 #include <windows.h>
 #endif
+static void StopAnimationPreview();
 static char g_ProjectPath[512]="project.lunoryx";
 static std::string g_OpenedProject;
 static uint64_t g_SavedDocumentHash=0;
@@ -88,12 +89,16 @@ static StudioMesh ReadModelMesh(const nlohmann::json &j) {
       throw std::runtime_error("Invalid mesh index");
   auto normals = m.Normals;
   Model::Triangulate(m);
-  if (!normals.empty())
-    m.Normals = std::move(normals);
+  // Empty normals intentionally request flat shading; preserve that contract.
+  m.Normals = std::move(normals);
   return m;
 }
 static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::string& path){
     j["id"]=o.Id;
+    if(!ValidAnimation(o)||o.Trigger<0||o.Trigger>2)throw std::runtime_error("Invalid animation or trigger");
+    j["solid"]=o.Solid;j["trigger"]=o.Trigger;
+    j["animation"]={{"duration",o.AnimationDuration},{"speed",o.AnimationSpeed},{"loop",o.AnimationLoop},{"autoplay",o.AnimationAutoplay},{"keys",nlohmann::json::array()}};
+    for(const auto& k:o.AnimationKeys)j["animation"]["keys"].push_back({{"time",k.Time},{"position",SaveVector(k.Pose.Position)},{"rotation",SaveVector(k.Pose.Rotation)},{"scale",SaveVector(k.Pose.Scale)},{"color",SaveVector(k.Pose.Color)},{"easing",k.Easing}});
     if(!o.GeometryNodes.empty()){
       GeometryNodes::Validate(o.GeometryNodes);
       j["geometry_nodes"]=nlohmann::json::array();
@@ -107,6 +112,15 @@ static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::str
     j["materials"]=nlohmann::json::array();for(const auto& m:o.Materials)j["materials"].push_back({{"image",m.Image},{"name",m.Name},{"texture",m.Texture.empty()?"":RelativeAssetPath(m.Texture,path)},{"color",SaveVector(m.Color)},{"metallic",m.Metallic},{"roughness",m.Roughness}});
 }
 static void ReadModelFields(const nlohmann::json& j,GameObject& o,const std::string& path){
+    o.Solid=j.value("solid",true);if(j.contains("trigger"))o.Trigger=ReadInteger(j.at("trigger"),0,2);
+    if(j.contains("animation")){
+      const auto& a=j.at("animation");o.AnimationDuration=ReadRange(a.at("duration"),.01f,3600);o.AnimationSpeed=ReadRange(a.at("speed"),.01f,100);
+      o.AnimationLoop=a.at("loop").get<bool>();o.AnimationAutoplay=a.at("autoplay").get<bool>();
+      const auto& keys=a.at("keys");if(!keys.is_array()||keys.size()>256)throw std::runtime_error("Invalid animation key count");
+      for(const auto& v:keys){LnxAnimationKey key;key.Time=ReadRange(v.at("time"),0,o.AnimationDuration);key.Easing=ReadInteger(v.at("easing"),0,2);
+        ReadVector(v.at("position"),key.Pose.Position);ReadVector(v.at("rotation"),key.Pose.Rotation);ReadVector(v.at("scale"),key.Pose.Scale);ReadVector(v.at("color"),key.Pose.Color,true);o.AnimationKeys.push_back(key);}
+      if(!ValidAnimation(o))throw std::runtime_error("Invalid animation track");
+    }
     if(j.contains("id")){auto id=ReadUnsigned(j.at("id"),uint64_t(std::numeric_limits<int64_t>::max()));if(!id)throw std::runtime_error("Invalid object ID");o.Id=id;}
     if(j.contains("mesh"))Model::ToObject(o,ReadModelMesh(j.at("mesh")));
     if(j.contains("modifiers")){if(!j["modifiers"].is_array()||j["modifiers"].size()>16)throw std::runtime_error("Too many modifiers");for(const auto& v:j["modifiers"]){StudioModifier m;int type=ReadInteger(v.at("type"),0,3);if(type<0||type>3)throw std::runtime_error("Invalid modifier type");m.Type=StudioModifier::Kind(type);m.Enabled=v.at("enabled").get<bool>();m.Axis=ReadInteger(v.at("axis"),0,2);m.Count=ReadInteger(v.at("count"),2,64);m.Levels=ReadInteger(v.at("levels"),1,4);m.Amount=ReadRange(v.at("amount"),.00001f,1000);ReadVector(v.at("offset"),m.Offset);o.Modifiers.push_back(m);}}
@@ -174,6 +188,7 @@ static bool SaveStudioProject(const std::string& path){
     if(g_PhysicsRunning){AppendConsole("Project save failed: stop simulation before saving\n");return false;}
     std::string temporary=path+".tmp";
     try {
+        StopAnimationPreview();
         auto root=StudioProjectJson(path);
         const std::string document=root.dump(2);
         if(document.size()>32*1024*1024)throw std::runtime_error("Project exceeds 32 MiB limit");
@@ -240,6 +255,7 @@ static bool LoadStudioProject(const std::string& path) {
         g_Sounds.swap(sounds);g_SelectedSound=-1;
         for(const auto& o:objects)ReserveObjectId(o.Id);
         g_Game=game;
+        StopAnimationPreview();ResetAnimationPlayers();g_ActorSpawns.clear();g_DebugPaused=g_DebugStep=false;
         g_Objects.swap(objects);g_Studio.Scripts.swap(*scripts);std::copy(top,top+3,g_SkyTop);std::copy(bottom,bottom+3,g_SkyBottom);g_SkyPreset=preset;
         g_Physics.Gravity=gravity;g_Physics.Ground=ground;g_Physics.Accumulator=0;g_PhysicsRunning=false;g_SimulationRunning=false;g_PlaySnapshot.clear();g_SelectedObjectIndex=-1;
         g_Studio.RequestDocument=-2;g_Studio.ActiveScript=0;g_Studio.HasSculptUndo=false;g_ObjectHistory.Clear();g_ObjectHistory.Capture(g_Objects);

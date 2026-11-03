@@ -1,4 +1,5 @@
 #pragma once
+#include "animation_core.h"
 #include <vector>
 #include <string>
 #include <cmath>
@@ -69,6 +70,11 @@ struct GameObject {
     bool Visible      = true;
     bool Wireframe    = false;
     bool Selected = false;
+    bool Solid = true;
+    int Trigger = 0; // 0 none, 1 killzone, 2 checkpoint. Non-solid AABB volumes.
+    bool AnimationLoop = true, AnimationAutoplay = false;
+    float AnimationDuration = 2, AnimationSpeed = 1;
+    std::vector<LnxAnimationKey> AnimationKeys;
     bool Dynamic = false;
     bool Grounded = false;
     bool Character = false;

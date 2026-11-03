@@ -1,0 +1,64 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Lunoryx — Руководство автора</title><style>*{box-sizing:border-box}body{margin:0;background:#0b111b;color:#dce5ee;font:17px/1.7 system-ui,sans-serif}aside{position:fixed;inset:0 auto 0 0;width:265px;background:#111d2b;padding:32px 24px;overflow:auto;border-right:1px solid #293a4c}aside a{display:block;color:#a7becf;text-decoration:none;margin:12px 0}aside b{font-size:26px;color:#66dfd5}main{max-width:1080px;margin-left:265px;padding:48px 64px}h1{font-size:44px;line-height:1.2;color:#fff}h2{font-size:30px;color:#72e2d8;margin-top:46px}h3{font-size:21px;color:#fff}section{border-top:1px solid #28384a;padding:12px 0 32px}pre{background:#142130;border:1px solid #30485b;border-radius:10px;padding:22px;overflow:auto;color:#b9ede1;font:15px/1.65 ui-monospace,monospace}input{width:100%;padding:10px;background:#0b111b;border:1px solid #3c5568;border-radius:6px;color:white}a{color:#6ed6f1}.badge{color:#68d9ce;letter-spacing:2px;font-size:13px}li{margin:8px 0}footer{color:#92a6b5;border-top:1px solid #293a4c;padding:24px 0}@media(max-width:800px){aside{position:static;width:auto}main{margin:0;padding:24px}h1{font-size:32px}}@media print{aside{display:none}main{margin:0;padding:0}body{background:white;color:black}h1,h2,h3{color:black}pre{white-space:pre-wrap}}</style><aside><b>Lunoryx</b><p>Руководство автора</p><a href="../en/index.html">English / Русский</a><input id="search" placeholder="Search / Поиск"><a href="#s0">01 · Начало работы</a><a href="#s1">02 · Анимации</a><a href="#s2">03 · Киллзоны и контрольные точки</a><a href="#s3">04 · Отладка</a><a href="#s4">05 · Рендер и ресурсы</a><a href="#s5">06 · Lua и выпуск игры</a></aside><main><div class="badge">STUDIO · OFFLINE DOCUMENTATION</div><h1>Руководство автора</h1><p>Создавайте сцены, анимации и игры.</p><section id="s0"><h2>01 · Начало работы</h2><p>Lunoryx сохраняет привычные панели Workspace, Explorer, Properties, Tools и Output. Откройте Window &gt; API Docs для справки. Встроенный шрифт DejaVu Sans поддерживает кириллицу. Размер текста меняется в Settings &gt; Text size; устанавливать шрифты отдельно не нужно.</p>
+<h3>Первая сцена</h3>
+<li>Tools &gt; Build добавляет примитивы. Выбирайте объекты в Explorer или Scene.</li>
+<li>Q — выделение; W — перемещение; E — вращение; R — масштаб. Тяните цветную ось или плоскость.</li>
+<li>Правая кнопка вращает камеру; средняя перемещает; колесо меняет расстояние. Local включает локальные оси, Snap — привязку.</li>
+<li>Ctrl+S сохраняет .lunoryx. Проект содержит данные редактора; GLB экспортирует геометрию и материалы.</li>
+<li>Edit &gt; Undo/Redo отменяет завершённые изменения сцены. F11 разворачивает редактор кода, F5 запускает скрипт.</li>
+<h3>Запуск игры</h3>
+<p>Play Simulation / F6 запускает физику и стартовый Lua-скрипт. Stop возвращает сцену, ресурсы и окружение к состоянию до запуска. Сохраняйте и собирайте игру после остановки. Загруженные скрипты выполняются только по явному запуску или как назначенный стартовый скрипт.</p></section><section id="s1"><h2>02 · Анимации</h2><p>Откройте Window &gt; Animation и выделите объект. У каждого объекта один клип с ключами положения, вращения, масштаба и цвета. Интерполяция написана на C11 и работает в редакторе и отдельной игре.</p>
+<h3>Создание клипа</h3>
+<li>Задайте Duration, Loop и Speed. На времени 0 измените позу в Properties и нажмите Capture current pose.</li>
+<li>Переместите Time, затем нажмите Stop / restore pose для выхода из предпросмотра. Измените позу и запишите ключ на выбранном времени. Ключ с тем же временем заменяется.</li>
+<li>Linear — линейная интерполяция; Smooth — плавный разгон и торможение; Step — резкая смена. Тип относится к отрезку после ключа. Вращение идёт по кратчайшей дуге; для полного оборота нужны промежуточные ключи.</li>
+<li>Preview воспроизводит клип, перемещение Time ставит предпросмотр на паузу. Stop / restore pose возвращает исходную позу.</li>
+<li>Autoplay in game включает клип при запуске игры. Для анимированных объектов отключайте Dynamic: анимация записывает абсолютные трансформации.</li>
+<h3>Пример Lua</h3>
+<pre><code>local box = add_object(&#x27;Animated box&#x27;, &#x27;cube&#x27;)
+animation_config(box, 2, true, 1, true) -- длительность, цикл, скорость, автозапуск
+set_position(box, 0, 1, 0)
+animation_key(box, 0, 1) -- время, кривая: 0 linear / 1 smooth / 2 step
+set_position(box, 4, 1, 0)
+animation_key(box, 2, 1)
+animation_play(box)
+-- animation_stop(box) останавливает в текущей позе</code></pre>
+<p>Ограничения: 256 ключей на объект, длительность 0.01..3600 секунд, скорость 0.01..100. Клип сохраняется в .lunoryx и Game.exe. Это анимация объектов, без skeletal skinning; экспорт GLB пока содержит статичную сцену.</p></section><section id="s2"><h2>03 · Киллзоны и контрольные точки</h2><p>В Properties &gt; Physics / Character появились Solid collider и Trigger. Триггер использует мировой AABB объекта с учётом трансформации и границ меша. Он не отталкивает персонажа даже при включённом Solid. Visible не отключает триггер.</p>
+<li>None — обычный объект, столкновения зависят от Solid.</li>
+<li>Killzone — возвращает динамический объект к исходной точке или последнему чекпоинту и обнуляет скорость.</li>
+<li>Checkpoint — сохраняет точку появления персонажа над контрольной зоной.</li>
+<li>Падение ниже Y=-50 также вызывает респавн. Для уровней с пропастями отключайте Ground at Y=0.</li>
+<h3>Lua</h3>
+<pre><code>local lava = add_object(&#x27;Lava&#x27;, &#x27;cube&#x27;)
+set_position(lava, 5, 0.1, 0)
+set_scale(lava, 2, 0.2, 2)
+set_trigger(lava, 1) -- 0 нет / 1 киллзона / 2 чекпоинт
+set_solid(lava, false)
+-- respawn(player) работает во время Play для динамического объекта</code></pre>
+<p>Точка появления должна находиться вне киллзоны. При пересечении зон смерть имеет приоритет над чекпоинтом. Проверка траектории обнаруживает быстрый пролёт сквозь тонкую зону. Чекпоинт не сбрасывает счёт, Stop/Restart сбрасывает игру целиком. В Gem Trail добавлены лава, зелёный чекпоинт и скрытая зона падения.</p></section><section id="s3"><h2>04 · Отладка</h2><p>Откройте Window &gt; Debugger. Запустите Play и нажмите Pause: Lua, анимации и физика остановятся. Step 1/60 s продвигает эти системы на один кадр, сохраняя паузу. Уже запущенный звук продолжает играть независимо. Это инспектор выполнения, без построчных точек останова.</p>
+<li>Collision / trigger bounds рисует AABB: синие — обычные коллайдеры, красные — киллзоны, зелёные — чекпоинты. Оверлей доступен в редакторе и не попадает в изображение отдельной игры.</li>
+<li>Для выделенного объекта видны ID, положение, скорость и признак grounded.</li>
+<li>Время кадра, draw calls, треугольники, отсечение и кэш помогают найти тяжёлую сцену.</li>
+<li>Last Lua traceback сохраняет последнюю ошибку со стеком вызовов. Предыдущие сообщения остаются в Output. Clear errors очищает запись инспектора.</li>
+<li>Ошибка on_update приостанавливает Lua и Play. Остановите игру либо исправьте скрипт и продолжите выполнение.</li>
+<p>Lua — доверенный код со стандартными библиотеками файлов и процессов. Лимит инструкций сохранён; бесконечный цикл завершается ошибкой вместо зависания редактора.</p></section><section id="s4"><h2>05 · Рендер и ресурсы</h2><p>Плоское затенение сохраняется при загрузке проектов и сборке игр: на блочном персонаже больше не появляются случайные диагональные блики. Текстуры получают полную цепочку mip-уровней и трилинейное уменьшение для снижения ряби вдали. Во время Play скрыты сетка и мировые оси: они больше не мерцают поверх пола. Пресеты качества и FXAA остаются в Settings; F8 переключает пресеты в отдельной игре.</p>
+<li>Статичный GLB импортируется через File или drag/drop. Храните текстуры рядом с проектом либо встраивайте их.</li>
+<li>Поддерживаются WAV/WAVE/W64/RF64, MP3, FLAC, OGG/OGA Vorbis. В Audio доступны прослушивание, повтор, громкость, высота тона и 3D-позиция.</li>
+<li>GLB содержит геометрию, UV, нормали, цвета и материалы. Логика, триггеры и клипы остаются в .lunoryx / Game.exe.</li>
+<li>Join объединяет геометрию; булевы операции доступны в инструментах моделирования. Скульптинг, UV и геометрические ноды сохраняют прежний рабочий процесс.</li>
+<p>Если артефакт сохраняется, сравните Office/Balanced/Quality, запишите видеокарту и драйвер, сделайте снимок с того же ракурса. Рендер использует OpenGL 2.1 compatibility и не является полной современной PBR-системой.</p></section><section id="s5"><h2>06 · Lua и выпуск игры</h2><p>Индексы объектов строго с нуля. После удаления следующие индексы сдвигаются; вызывайте find_object(name) после изменения состава сцены. MCP использует стабильные ID.</p>
+<h3>Основной API</h3>
+<pre><code>local i = add_object(&#x27;Box&#x27;, &#x27;cube&#x27;) -- cube / pyramid / sphere / cylinder / plane
+set_position(i, 0, 1, 0); set_rotation(i, 0, 45, 0) -- градусы
+set_scale(i, 1, 2, 1); set_color(i, 0.2, 0.7, 1)
+set_property(i, &#x27;Health&#x27;, 100)
+set_physics(i, true, 3, 0) -- динамика, масса, отскок
+set_velocity(i, 0, 5, 0)
+local player = add_character(&#x27;Player&#x27;, 2, 0.65, 0.45)
+follow_camera(player, 7, 24)
+function on_update(dt) -- секунды
+    hud_text(&#x27;Running&#x27;); game_score(0)
+end</code></pre>
+<p>Чтение: get_position, get_rotation, get_scale, get_color, get_material, get_velocity, get_property. Объекты: duplicate_object, remove_object, find_object, get_object_count, set_visible, set_wireframe, set_name, clear_scene. Меши: make_editable, sculpt, merge_objects, mesh_operation. Звук: add_sound, play_sound, stop_sound.</p>
+<h3>Отдельная игра</h3>
+<p>В Tools &gt; Game / Build назначьте стартовый скрипт и соберите Game.exe со сценой и ресурсами. Проверьте EXE после переноса, без исходных файлов. Анимации и триггеры используют тот же код, что в редакторе.</p>
+<p>MCP: Lunoryx.exe --mcp, транспорт stdio, отдельная сцена без интерфейса. Сохраните проект через MCP и откройте в Studio; подключение к запущенному редактору не выполняется. Подробная прежняя справка API доступна в разделе API reference этого окна.</p></section><footer>Lunoryx · EN / RU · No network required</footer></main><script>document.querySelector('#search').oninput=e=>{let q=e.target.value.toLowerCase();document.querySelectorAll('section').forEach(s=>s.hidden=!s.textContent.toLowerCase().includes(q));};</script></html>

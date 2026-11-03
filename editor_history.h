@@ -1,4 +1,5 @@
 #pragma once
+static void StopAnimationPreview();
 // Operation snapshots are captured when a gesture finishes, never during Play.
 struct StudioSnapshot {
   std::vector<GameObject> Objects;
@@ -48,6 +49,7 @@ struct StudioHistory {
     size_t n = StudioObjectHistory::Size(s.Objects) +
                s.Sounds.size() * sizeof(StudioSound);
     for (const auto &o : s.Objects) {
+      n += o.AnimationKeys.size()*sizeof(LnxAnimationKey);
       n += o.GeometryNodes.size()*sizeof(StudioGeometryNode);
       n += o.Name.size() + o.UV.size() * 4 + o.Normals.size() * 4 +
            o.BaseMesh.Positions.size() * 4 + o.BaseMesh.Indices.size() * 4 +
@@ -119,14 +121,15 @@ struct StudioHistory {
   bool Undo(std::vector<GameObject> &objects) {
     if (g_PhysicsRunning)
       return false;
-    Capture(objects);
+    StopAnimationPreview();Capture(objects);
     if (States.empty() || !Cursor)
       return false;
     --Cursor;
     Restore();
     return true;
   }
-  bool Redo(std::vector<GameObject> &) {
+  bool Redo(std::vector<GameObject> &objects) {
+    if(!g_PhysicsRunning){StopAnimationPreview();Capture(objects);}
     if (g_PhysicsRunning || States.empty() || Cursor + 1 >= States.size())
       return false;
     ++Cursor;

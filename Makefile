@@ -38,11 +38,12 @@ clean:
 
 .PHONY: all clean test test-integration test-rust test-kernels benchmark
 
-test: tests/core_tests tests/modeling_tests
+test: tests/core_tests tests/modeling_tests tests/animation_tests
+	./tests/animation_tests
 	./tests/core_tests
 	./tests/modeling_tests
 
-tests/core_tests: tests/core_tests.cpp scene_core.h scene_tools.h editor_transform.h
+tests/core_tests: tests/core_tests.cpp scene_core.h scene_tools.h editor_transform.h animation_core.h
 	$(CXX) -std=c++11 -Wall -Wextra -pedantic -Werror -O2 $< -o $@
 
 test-integration: tests/engine_tests
@@ -134,3 +135,6 @@ tests/scene_shadow_tests: tests/scene_shadow_tests.cpp scene_shadows.h viewport_
 .PHONY: test-shadows
 test-shadows: tests/scene_shadow_tests
 	SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 ./tests/scene_shadow_tests
+
+tests/animation_tests: tests/animation_tests.c animation_core.h
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 $< -lm -o $@

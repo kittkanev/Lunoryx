@@ -2,6 +2,7 @@
 #include "imgui_internal.h"
 #include "viewport_target.h"
 #include "editor_docs.h"
+#include "editor_guide_data.h"
 #include <array>
 #include <fstream>
 
@@ -74,6 +75,8 @@ static void BuildStudioLayout(ImGuiID dockspace,const ImGuiViewport* viewport) {
     ImGui::DockBuilderDockWindow("API Docs",bottom);
     ImGui::DockBuilderFinish(dockspace);
 }
+#include "editor_animation.h"
+#include "editor_debug.h"
 static void StudioMenu() {
     if(ImGui::BeginMenu("Edit")) {
         ImGui::BeginDisabled(g_PhysicsRunning);
@@ -86,6 +89,8 @@ static void StudioMenu() {
     if(ImGui::MenuItem("Audio"))g_ShowAudio=true;
     if(ImGui::MenuItem("Settings"))g_Preferences.ShowSettings=true;
     if(ImGui::BeginMenu("Window")) {
+        ImGui::MenuItem("Animation",nullptr,&g_ShowAnimation);
+        ImGui::MenuItem("Debugger",nullptr,&g_ShowDebug);
         ImGui::MenuItem("Explorer",nullptr,&g_Studio.ShowExplorer);
         ImGui::MenuItem("Properties",nullptr,&g_Studio.ShowProperties);
         ImGui::MenuItem("Tools",nullptr,&g_Studio.ShowTools);
@@ -121,6 +126,7 @@ static Vec3 CameraVector(Vec3 v,float pitch,float yaw) {
 #include "editor_gizmo.h"
 
 static void SceneInteraction(float distance,float pitch,float yaw,const float target[3],float dt) {
+    if(g_AnimationPreview)return;
     auto& io=ImGui::GetIO();
     if(!g_Studio.SceneHovered||g_Modeling.Edit)return;
     Vec3 camera=CameraVector({0,0,distance},pitch,yaw);
@@ -180,7 +186,9 @@ static void RenderWorkspace(float distance,float pitch,float yaw,const float tar
                 const char* modes[]={"Select (Q)","Move (W)","Rotate (E)","Scale (R)"};
                 for(int mode=0;mode<4;++mode){if(mode)ImGui::SameLine();if(ImGui::RadioButton(modes[mode],g_Studio.TransformMode==mode)){g_Studio.TransformMode=mode;g_Studio.SculptEnabled=false;}}
                 ImGui::SameLine();ImGui::Checkbox("Local",&g_Studio.LocalTransform);ImGui::SameLine();ImGui::Checkbox("Snap",&g_Studio.TransformSnap);
+                ImGui::PushTextWrapPos(0);
                 ImGui::TextDisabled(g_Studio.SculptEnabled?"SCULPT: LMB brush | Shift: invert | RMB orbit":"LMB select | Ctrl+click multi-select | RMB orbit | MMB pan | Wheel zoom");
+                ImGui::PopTextWrapPos();
                 g_Studio.SceneMin=ImGui::GetCursorScreenPos();g_Studio.SceneSize=ImGui::GetContentRegionAvail();
                 if(g_Studio.SceneSize.x<1) { g_Studio.SceneSize.x=1; }
                 if(g_Studio.SceneSize.y<1) { g_Studio.SceneSize.y=1; }
@@ -261,7 +269,7 @@ static void RenderProperties(float target[3]) {
     if(!g_Studio.ShowProperties)return;
     if(ImGui::Begin("Properties",&g_Studio.ShowProperties)) {
         int index=g_SelectedObjectIndex;
-        if(index>=0&&size_t(index)<g_Objects.size()) {
+        if(index>=0&&size_t(index)<g_Objects.size()&&!g_AnimationPreview) {
             auto& o=g_Objects[size_t(index)];char name[256];std::snprintf(name,sizeof(name),"%s",o.Name.c_str());
             if(ImGui::InputText("Name",name,sizeof(name)))o.Name=name;
             ImGui::TextDisabled("Index %d | %s",index,o.Character?"Character":(o.Vertices.empty()?"Primitive":"Editable Mesh"));
@@ -270,6 +278,10 @@ static void RenderProperties(float target[3]) {
             EditVector3("Scale",o.Scale,.02f,.01f,100);
             EditColor("Base Color",o.Color);EditScalar("Metallic",o.Metallic,0,1);EditScalar("Roughness",o.Roughness,0,1);
             if(ImGui::CollapsingHeader("Physics / Character",ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::Checkbox("Solid collider",&o.Solid);
+                const char* triggers[]={"None","Killzone","Checkpoint"};
+                if(ImGui::Combo("Trigger",&o.Trigger,triggers,3)&&o.Trigger)o.Dynamic=false;
+                ImGui::TextWrapped("Triggers are non-solid AABB volumes. Killzones respawn dynamic actors; checkpoints update the character spawn.");
                 ImGui::Checkbox("Dynamic",&o.Dynamic);
                 if(ImGui::Checkbox("Character Controller",&o.Character)&&o.Character){o.Dynamic=true;o.Restitution=0;}EditScalar("Mass",o.Mass,.01f,10000);
                 EditScalar("Bounce",o.Restitution,0,1);EditScalar("Friction",o.Friction,0,20);
@@ -299,7 +311,7 @@ static void RenderProperties(float target[3]) {
             ImGui::SameLine();
             if(ImGui::Button("Duplicate")){int copy=DuplicateObject(g_Objects,index,o.Name+" Copy");SelectObject(copy);}
             ImGui::SameLine();if(ImGui::Button("Delete")){g_Objects.erase(g_Objects.begin()+index);g_SelectedObjectIndex=-1;}
-        } else ImGui::TextWrapped("Select an object in Explorer or click it in the Scene tab.");
+        } else ImGui::TextWrapped("%s",g_AnimationPreview?"Stop Animation preview to edit properties.":"Select an object in Explorer or click it in the Scene tab.");
     }
     ImGui::End();
 }
@@ -378,24 +390,41 @@ static void RenderOutput() {
     }
     ImGui::End();
 }
+static void DrawGuideText(const char* text) {
+    std::string document(text);std::istringstream lines(document);std::string line;bool code=false;
+    while(std::getline(lines,line)){
+      if(line.compare(0,3,"```")==0){code=!code;ImGui::Spacing();continue;}
+      if(line.empty()){ImGui::Spacing();continue;}
+      if(line.compare(0,4,"### ")==0){ImGui::Spacing();ImGui::SeparatorText(line.c_str()+4);}
+      else if(code){ImGui::PushStyleColor(ImGuiCol_Text,ImVec4(.65f,.9f,.82f,1));ImGui::TextUnformatted(line.c_str());ImGui::PopStyleColor();}
+      else if(line.compare(0,2,"- ")==0){ImGui::Bullet();ImGui::SameLine();ImGui::TextWrapped("%s",line.c_str()+2);}
+      else ImGui::TextWrapped("%s",line.c_str());
+    }
+}
 static void RenderDocs() {
     if(!g_Studio.ShowDocs)return;
+    ImGui::SetNextWindowSize(ImVec2(980,640),ImGuiCond_FirstUseEver);
     if(ImGui::Begin("API Docs",&g_Studio.ShowDocs)) {
-        if(g_LogoTexture){ImGui::Image(ImTextureID(g_LogoTexture),ImVec2(64,64));ImGui::SameLine();}
-        ImGui::Text("Lunoryx Studio %s",LUNORYX_VERSION);
-        static int topic=0;static char search[128]="";
-        ImGui::InputTextWithHint("##DocSearch","Search API topics...",search,sizeof(search));
-        for(int i=0;i<int(sizeof(kApiTopics)/sizeof(kApiTopics[0]));++i) {
-            if(search[0]&&!std::strstr(kApiTopics[i].Title,search)&&!std::strstr(kApiTopics[i].Text,search))continue;
-            ImGui::PushID(i);if(ImGui::Selectable(kApiTopics[i].Title,topic==i))topic=i;ImGui::PopID();
-        }
-        ImGui::Separator();ImGui::BeginChild("DocText");ImGui::TextWrapped("%s",kApiTopics[topic].Text);ImGui::EndChild();
-    }
-    ImGui::End();
+        ImGui::TextColored(ImVec4(.4f,.88f,.84f,1),"LUNORYX  /  CREATOR HANDBOOK");
+        ImGui::SameLine();ImGui::TextDisabled("%s",LUNORYX_VERSION);
+        const char* languages[]={"English","Русский"};ImGui::SetNextItemWidth(145);ImGui::Combo("Language",&g_Preferences.DocsLanguage,languages,2);
+        static int topic=0;static char search[128]="";static bool reference=false;
+        ImGui::SameLine();ImGui::Checkbox("API reference (EN)",&reference);
+        ImGui::InputTextWithHint("##DocSearch","Search / Поиск",search,sizeof(search));
+        ImGui::BeginChild("Topics",ImVec2(245,0),true);
+        int language=g_Preferences.DocsLanguage,count=reference?int(sizeof(kApiTopics)/sizeof(kApiTopics[0])):int(sizeof(kStudioGuide)/sizeof(kStudioGuide[0]));topic=std::max(0,std::min(topic,count-1));
+        for(int i=0;i<count;++i){const char* title=reference?kApiTopics[i].Title:kStudioGuide[i].Title[language];const char* body=reference?kApiTopics[i].Text:kStudioGuide[i].Body[language];
+          if(search[0]&&!std::strstr(title,search)&&!std::strstr(body,search))continue;
+          ImGui::PushID(i);if(ImGui::Selectable(title,topic==i))topic=i;ImGui::PopID();
+        }ImGui::EndChild();ImGui::SameLine();ImGui::BeginChild("Guide",ImVec2(0,0),true);
+        ImGui::TextColored(ImVec4(.4f,.88f,.84f,1),"%s",reference?kApiTopics[topic].Title:kStudioGuide[topic].Title[language]);ImGui::Separator();
+        DrawGuideText(reference?kApiTopics[topic].Text:kStudioGuide[topic].Body[language]);ImGui::EndChild();
+    }ImGui::End();
 }
 static void RenderStudio(float& distance,float& pitch,float& yaw,float target[3],float dt) {
     RenderWorkspace(distance,pitch,yaw,target,dt);
     RenderEditorSettings();
+    RenderAnimationEditor(dt);RenderDebugPanel();
     RenderUVEditor();
     RenderGeometryNodes();
     if(!g_Studio.FullscreenCode){RenderExplorer();RenderProperties(target);RenderTools(distance,pitch,yaw,target);RenderOutput();RenderDocs();}

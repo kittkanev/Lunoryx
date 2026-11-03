@@ -18,6 +18,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y g++ make cmake libsdl2-dev liblua5.4-dev libgl1-mesa-dev libegl1-mesa-dev xvfb xauth ffmpeg
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.85.1 --profile minimal
+      - name: Build bilingual offline manuals
+        run: python tools/build_manual.py && git diff --exit-code -- editor_guide_data.h docs/en docs/ru
       - name: Test geometry, Rust ABI and physics equivalence
         run: make -j2 test test-rust test-kernels test-physics
       - name: Build editor and integration tests
@@ -64,6 +66,8 @@ jobs:
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/geometry-nodes.png ./engine --report-nodes
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/sculpt.png ./engine --report-sculpt
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_LEGACY=1 LUNORYX_RENDER_PRESET=office LUNORYX_CAPTURE_PATH=build/render-before.png ./engine --report-rendering
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=5 LUNORYX_RUNTIME_SMOKE=1 ./engine
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/animation-docs.png ./engine --report-animation
       - uses: actions/upload-artifact@v4
         with:
           name: gltf-validation
@@ -78,6 +82,7 @@ jobs:
             build/render-office.png
             build/geometry-nodes.png
             build/sculpt.png
+            build/animation-docs.png
             build/render-before.png
       - name: Address, undefined behavior and leak checks
         run: |

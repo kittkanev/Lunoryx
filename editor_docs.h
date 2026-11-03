@@ -144,6 +144,7 @@ MCP --mcp retains stable object IDs. Lua object indices remain zero-based and sh
 Modeling limits: Bevel needs a closed oriented mesh; apply modifiers before sculpt or UV editing. GLB import is static and reports unsupported features. Viewport lighting is a simple compatibility-OpenGL preview; physics uses AABBs.)DOC"}
 ,{"Rust kernel licenses",kRustLicenses}
 ,{"Modeling licenses",kModelingLicenses}
+,{"Font license",kFontLicense}
 ,{"Additional licenses",kExtensionLicenses}
 ,{"Third-party licenses",kEmbeddedLicenses}
 };

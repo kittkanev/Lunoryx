@@ -322,6 +322,7 @@ inline void PhysicsStep(std::vector<GameObject> &objects, float dt,
   auto contact = [&](size_t i, size_t j) {
     auto &a = objects[i];
     auto &b = objects[j];
+    if (!a.Solid || !b.Solid || a.Trigger || b.Trigger) return;
     Bounds ba, bb;
     if (!bounds(i, ba) || !bounds(j, bb))
       return;

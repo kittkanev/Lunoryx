@@ -155,6 +155,10 @@ inline uint64_t StudioSceneFingerprint(const std::vector<GameObject> &objects) {
     bytes(o.Rotation, sizeof(o.Rotation));
     bytes(o.Scale, sizeof(o.Scale));
     bytes(o.Color, sizeof(o.Color));
+    bytes(&o.Solid,sizeof(o.Solid));bytes(&o.Trigger,sizeof(o.Trigger));
+    bytes(&o.AnimationLoop,sizeof(o.AnimationLoop));bytes(&o.AnimationAutoplay,sizeof(o.AnimationAutoplay));
+    bytes(&o.AnimationDuration,sizeof(float));bytes(&o.AnimationSpeed,sizeof(float));
+    for(const auto& key:o.AnimationKeys){bytes(&key.Time,sizeof(float));bytes(&key.Pose,sizeof(LnxPose));bytes(&key.Easing,sizeof(int));}
     bytes(&o.Dynamic, sizeof(o.Dynamic));
     bytes(o.Velocity, sizeof(o.Velocity));
     bytes(&o.Mass, sizeof(o.Mass));

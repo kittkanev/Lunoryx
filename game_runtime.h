@@ -2,6 +2,8 @@
 static void StartSimulation() {
   if (g_PhysicsRunning)
     return;
+  StopAnimationPreview();
+  g_DebugPaused=g_DebugStep=false;ResetAnimationPlayers();
   g_PlaySnapshot = g_Objects;
   g_PlaySoundSnapshot = g_Sounds;
   std::copy(g_SkyTop, g_SkyTop + 3, g_PlayTop);
@@ -19,6 +21,7 @@ static void StartSimulation() {
   if (startup >= 0 && startup < 8 &&
       g_Studio.Scripts[size_t(startup)].Allocated)
     ExecuteLuaScript(g_Studio.Scripts[size_t(startup)].Code);
+  ResetGameplay();
   for (const auto &sound : g_Sounds)
     if (sound.Autoplay)
       PlayStudioSound(sound);
@@ -35,6 +38,7 @@ static void StopSimulation() {
     g_Physics = g_PlayPhysics;
     g_Game = g_PlayGame;
   }
+  ResetAnimationPlayers();g_ActorSpawns.clear();g_DebugPaused=g_DebugStep=false;
   studio_audio_stop_all();
   g_PhysicsRunning = false;
   g_SimulationRunning = false;

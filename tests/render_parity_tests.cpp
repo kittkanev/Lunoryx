@@ -78,6 +78,10 @@ static void ForceClientArrays() {
   EndStudioRenderFrame();
 }
 static void ParityTests() {
+  StudioMaterial mip;mip.Texture="mip-test";GLuint texture=StudioTexture(mip);assert(texture);glBindTexture(GL_TEXTURE_2D,texture);
+  GLint filter=0,width=0;glGetTexParameteriv(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,&filter);glGetTexLevelParameteriv(GL_TEXTURE_2D,1,GL_TEXTURE_WIDTH,&width);
+  assert(filter==GL_LINEAR_MIPMAP_LINEAR&&width==1);glBindTexture(GL_TEXTURE_2D,0);
+
   GameObject object("Parity");
   auto mesh = Model::FromObject(object);
   Model::Polygonize(mesh);

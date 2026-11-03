@@ -1,0 +1,64 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Lunoryx — Creator Handbook</title><style>*{box-sizing:border-box}body{margin:0;background:#0b111b;color:#dce5ee;font:17px/1.7 system-ui,sans-serif}aside{position:fixed;inset:0 auto 0 0;width:265px;background:#111d2b;padding:32px 24px;overflow:auto;border-right:1px solid #293a4c}aside a{display:block;color:#a7becf;text-decoration:none;margin:12px 0}aside b{font-size:26px;color:#66dfd5}main{max-width:1080px;margin-left:265px;padding:48px 64px}h1{font-size:44px;line-height:1.2;color:#fff}h2{font-size:30px;color:#72e2d8;margin-top:46px}h3{font-size:21px;color:#fff}section{border-top:1px solid #28384a;padding:12px 0 32px}pre{background:#142130;border:1px solid #30485b;border-radius:10px;padding:22px;overflow:auto;color:#b9ede1;font:15px/1.65 ui-monospace,monospace}input{width:100%;padding:10px;background:#0b111b;border:1px solid #3c5568;border-radius:6px;color:white}a{color:#6ed6f1}.badge{color:#68d9ce;letter-spacing:2px;font-size:13px}li{margin:8px 0}footer{color:#92a6b5;border-top:1px solid #293a4c;padding:24px 0}@media(max-width:800px){aside{position:static;width:auto}main{margin:0;padding:24px}h1{font-size:32px}}@media print{aside{display:none}main{margin:0;padding:0}body{background:white;color:black}h1,h2,h3{color:black}pre{white-space:pre-wrap}}</style><aside><b>Lunoryx</b><p>Creator Handbook</p><a href="../ru/index.html">English / Русский</a><input id="search" placeholder="Search / Поиск"><a href="#s0">01 · Start creating</a><a href="#s1">02 · Animation timeline</a><a href="#s2">03 · Killzones and checkpoints</a><a href="#s3">04 · Debugging</a><a href="#s4">05 · Rendering and assets</a><a href="#s5">06 · Lua reference and shipping</a></aside><main><div class="badge">STUDIO · OFFLINE DOCUMENTATION</div><h1>Creator Handbook</h1><p>Build, animate, test, ship.</p><section id="s0"><h2>01 · Start creating</h2><p>Lunoryx keeps your docked Workspace, Explorer, Properties, Tools and Output. Open Window &gt; API Docs at any time. All text, including Russian, uses the embedded DejaVu Sans font. Change Settings &gt; Text size; no font installation is required.</p>
+<h3>First scene</h3>
+<li>Tools &gt; Build adds primitives. Select in Explorer or in Scene.</li>
+<li>Q selects; W moves; E rotates; R scales. Drag a colored axis or plane.</li>
+<li>Right mouse orbits; middle mouse pans; wheel zooms. Local changes the transform frame, Snap enables quantization.</li>
+<li>Ctrl+S saves .lunoryx. Project files contain scene metadata; GLB exports geometry and materials.</li>
+<li>Edit &gt; Undo/Redo restores completed scene edits. F11 expands the code editor; F5 runs the active script.</li>
+<h3>Play safely</h3>
+<p>Play Simulation / F6 starts the runtime and startup Lua script. Stop restores the editor scene, resources and environment. Saving/building a game is available while stopped. Loaded Lua scripts run only when explicitly started or assigned as the game startup script.</p></section><section id="s1"><h2>02 · Animation timeline</h2><p>Open Window &gt; Animation and select an object. Each object has one clip with position, rotation, scale and color keys. The sampler is written in C11 and runs in both Studio and standalone games.</p>
+<h3>Author a clip</h3>
+<li>Set Duration, Loop and Speed. At time 0, edit the pose in Properties and press Capture current pose.</li>
+<li>Move the Time slider, then Stop / restore pose to leave preview. Edit the new pose and capture it at that time. Existing timestamps are replaced.</li>
+<li>Choose Linear, Smooth (ease in/out) or Step for the segment after each key. Rotation follows the shortest angular path; use intermediate keys for a full revolution.</li>
+<li>Preview plays the selected clip; scrubbing pauses playback. Stop / restore pose restores the initial editor pose.</li>
+<li>Enable Autoplay in game for automatic runtime playback. Keep Dynamic off for animated props and platforms: animation writes absolute transforms.</li>
+<h3>Lua example</h3>
+<pre><code>local box = add_object(&#x27;Animated box&#x27;, &#x27;cube&#x27;)
+animation_config(box, 2, true, 1, true) -- seconds, loop, speed, autoplay
+set_position(box, 0, 1, 0)
+animation_key(box, 0, 1) -- time, easing: 0 linear / 1 smooth / 2 step
+set_position(box, 4, 1, 0)
+animation_key(box, 2, 1)
+animation_play(box)
+-- animation_stop(box) freezes the current pose</code></pre>
+<p>Limits: 256 keys per object; duration 0.01..3600 seconds; speed 0.01..100. Clips are stored in .lunoryx and packed Game.exe. This release animates objects, not skeletal skinning; GLB export remains a static scene.</p></section><section id="s2"><h2>03 · Killzones and checkpoints</h2><p>Properties &gt; Physics / Character now includes Solid collider and Trigger. A trigger uses the object&#x27;s world AABB, including its transform and mesh bounds. It never pushes an actor, even when Solid is checked. Visibility does not disable a trigger.</p>
+<li>None: ordinary object, collision follows Solid.</li>
+<li>Killzone: respawns dynamic actors at their initial spawn or latest checkpoint; clears velocity.</li>
+<li>Checkpoint: updates the character&#x27;s spawn to above the checkpoint.</li>
+<li>Falling below Y=-50 is a fallback death condition. Disable Ground at Y=0 for bottomless levels.</li>
+<h3>Lua</h3>
+<pre><code>local lava = add_object(&#x27;Lava&#x27;, &#x27;cube&#x27;)
+set_position(lava, 5, 0.1, 0)
+set_scale(lava, 2, 0.2, 2)
+set_trigger(lava, 1) -- 0 none / 1 killzone / 2 checkpoint
+set_solid(lava, false)
+-- respawn(player) returns true during Play for a known dynamic actor</code></pre>
+<p>Place spawn points clear of killzones. Killzones win over overlapping checkpoints. Swept trigger checks catch fast actors crossing a thin volume. Checkpoints do not reset score; Stop/Restart resets the entire game. Gem Trail includes a lava tile, a green checkpoint and a hidden fall zone.</p></section><section id="s3"><h2>04 · Debugging</h2><p>Open Window &gt; Debugger. Start Play, then Pause to freeze Lua, animation and physics. Step 1/60 s advances those systems by one fixed frame while remaining paused. Audio already playing continues independently. This is a runtime inspector, not a line-breakpoint debugger.</p>
+<li>Collision / trigger bounds shows collider AABBs: blue ordinary, red killzones, green checkpoints. It is an editor overlay, excluded from standalone rendering.</li>
+<li>Inspect selected object ID, position, velocity and grounded state.</li>
+<li>Frame time, draw calls, triangles, culling and geometry cache counters help isolate slow scenes.</li>
+<li>Last Lua traceback keeps the latest script error with stack frames. Output retains earlier messages. Clear errors clears the inspector entry.</li>
+<li>Runtime callback errors pause Lua and Play; Stop or fix the script and Resume.</li>
+<p>Lua is trusted code with standard file/process libraries. Each call retains its instruction budget. Infinite loops stop with an error instead of hanging Studio.</p></section><section id="s4"><h2>05 · Rendering and assets</h2><p>Flat shading is preserved when reloading projects and building games, preventing unintended diagonal highlights on block characters. Textures now include a complete mip chain and trilinear minification to reduce distant checkerboard shimmer. Editor grid and world axes are hidden during Play to prevent coplanar flicker over level floors. Rendering quality presets and FXAA remain available in Settings; F8 cycles presets in the player.</p>
+<li>Import static GLB through File or drag/drop. Retain textures with the project or embed them.</li>
+<li>Audio supports WAV/WAVE/W64/RF64, MP3, FLAC and OGG/OGA Vorbis; Audio manages preview, loop, volume, pitch and 3D position.</li>
+<li>GLB export includes geometry, UVs, normals, colors and materials. Runtime logic, triggers and animation clips remain in .lunoryx / Game.exe.</li>
+<li>Join combines geometry; boolean operations use the existing modeling tools. Sculpt, UV and geometry nodes keep their existing workflow.</li>
+<p>If an artifact persists, compare Office/Balanced/Quality, note the GPU/driver, and capture the same camera view. The renderer targets OpenGL 2.1 compatibility and is not a full modern PBR pipeline.</p></section><section id="s5"><h2>06 · Lua reference and shipping</h2><p>Object indices are strictly zero-based. Deleting an object shifts later indices; use find_object(name) after changing membership. MCP uses stable IDs instead.</p>
+<h3>Core API</h3>
+<pre><code>local i = add_object(&#x27;Box&#x27;, &#x27;cube&#x27;) -- cube / pyramid / sphere / cylinder / plane
+set_position(i, 0, 1, 0); set_rotation(i, 0, 45, 0) -- degrees
+set_scale(i, 1, 2, 1); set_color(i, 0.2, 0.7, 1)
+set_property(i, &#x27;Health&#x27;, 100)
+set_physics(i, true, 3, 0) -- dynamic, mass, bounce
+set_velocity(i, 0, 5, 0)
+local player = add_character(&#x27;Player&#x27;, 2, 0.65, 0.45)
+follow_camera(player, 7, 24)
+function on_update(dt) -- seconds
+    hud_text(&#x27;Running&#x27;); game_score(0)
+end</code></pre>
+<p>Getters: get_position, get_rotation, get_scale, get_color, get_material, get_velocity, get_property. Object tools: duplicate_object, remove_object, find_object, get_object_count, set_visible, set_wireframe, set_name, clear_scene. Mesh tools: make_editable, sculpt, merge_objects, mesh_operation. Audio: add_sound, play_sound, stop_sound.</p>
+<h3>Standalone</h3>
+<p>Tools &gt; Game / Build assigns the startup script and builds Game.exe with scene/resources. Test the relocated EXE with the source files unavailable. The runtime contains the same animation and trigger systems.</p>
+<p>MCP: Lunoryx.exe --mcp, stdio, separate headless scene. Save a project from MCP and open it in Studio; it does not attach to an already running editor. Detailed legacy API topics remain available under API reference in this window.</p></section><footer>Lunoryx · EN / RU · No network required</footer></main><script>document.querySelector('#search').oninput=e=>{let q=e.target.value.toLowerCase();document.querySelectorAll('section').forEach(s=>s.hidden=!s.textContent.toLowerCase().includes(q));};</script></html>

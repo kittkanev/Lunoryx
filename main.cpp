@@ -58,6 +58,9 @@ std::vector<std::string> g_ConsoleLines;
 std::string g_ConsoleOutput = "";
 
 bool g_PhysicsRunning=false;
+static bool g_AnimationPreview=false,g_PreviewPlaying=false;
+static bool g_ShowDebug=false,g_DebugPaused=false,g_DebugStep=false,g_DebugBounds=false;
+static std::string g_LastLuaError;
 PhysicsState g_Physics;
 std::vector<GameObject> g_PlaySnapshot;
 int g_SkyPreset=0;
@@ -71,6 +74,8 @@ static void ApplySkyPreset(int preset) {
 static void AppendConsole(const std::string& msg);
 #include "studio_sounds.h"
 #include "game_state.h"
+#include "scene_animation.h"
+#include "gameplay_runtime.h"
 #include "editor_history.h"
 static float g_PlayTop[3],g_PlayBottom[3];
 static int g_PlaySky=0;
@@ -536,6 +541,7 @@ static int l_get_material(lua_State* L) {
 #include "scene_bindings.h"
 #include "model_commands.h"
 #include "game_bindings.h"
+#include "animation_bindings.h"
 
 static void InitLuaState() {
     ShutdownLuaState();
@@ -577,6 +583,13 @@ static void InitLuaState() {
     lua_register(g_LuaState, "get_time",         LuaBinding<l_get_time>);
     lua_register(g_LuaState, "export_glb",       LuaBinding<l_export_glb>);
     RegisterSoundBindings(g_LuaState);
+    lua_register(g_LuaState,"animation_key",LuaBinding<l_animation_key>);
+    lua_register(g_LuaState,"animation_config",LuaBinding<l_animation_config>);
+    lua_register(g_LuaState,"animation_play",LuaBinding<l_animation_play>);
+    lua_register(g_LuaState,"animation_stop",LuaBinding<l_animation_stop>);
+    lua_register(g_LuaState,"set_trigger",LuaBinding<l_set_trigger>);
+    lua_register(g_LuaState,"set_solid",LuaBinding<l_set_solid>);
+    lua_register(g_LuaState,"respawn",LuaBinding<l_respawn>);
     lua_register(g_LuaState,"mesh_operation",LuaBinding<l_mesh_operation>);
     lua_register(g_LuaState,"input_key",LuaBinding<l_input_key>);lua_register(g_LuaState,"game_score",LuaBinding<l_game_score>);lua_register(g_LuaState,"hud_text",LuaBinding<l_hud_text>);lua_register(g_LuaState,"follow_camera",LuaBinding<l_follow_camera>);lua_register(g_LuaState,"restart_game",LuaBinding<l_restart_game>);
 }
@@ -589,6 +602,9 @@ static void ShutdownLuaState() {
 }
 
 // Fixes Bug #4 (stack leak on return values) and Bug #5 (crash on non-string Lua error like error({}))
+static int LuaTraceback(lua_State* L) {
+    const char* text=lua_tostring(L,1);luaL_traceback(L,L,text?text:"Non-string Lua error",1);return 1;
+}
 static void ExecuteLuaScript(const char* script) {
     if (!g_LuaState) {
         InitLuaState();
@@ -597,9 +613,13 @@ static void ExecuteLuaScript(const char* script) {
     LuaStackGuard guard(g_LuaState);
     ClearUpdateCallback(g_LuaState);
     LuaExecutionGuard execution(g_LuaState);
-    if (luaL_dostring(g_LuaState, script) != LUA_OK) {
+    lua_pushcfunction(g_LuaState,LuaTraceback);int handler=lua_gettop(g_LuaState);
+    int status=luaL_loadstring(g_LuaState,script);
+    if(status==LUA_OK)status=lua_pcall(g_LuaState,0,LUA_MULTRET,handler);
+    if (status != LUA_OK) {
         ClearUpdateCallback(g_LuaState);
         const std::string err = LuaErrorText(g_LuaState);
+        g_LastLuaError=err;if(g_PhysicsRunning){g_DebugPaused=true;g_SimulationRunning=false;}
         AppendConsole(std::string("Lua Error: ") + err + "\n");
     }
 }
@@ -607,13 +627,15 @@ static void ExecuteLuaScript(const char* script) {
 static void UpdateLuaScript(float dt) {
     if (!g_LuaState || !g_SimulationRunning) return;
     LuaStackGuard guard(g_LuaState);
+    lua_pushcfunction(g_LuaState,LuaTraceback);int handler=lua_gettop(g_LuaState);
     PushUpdateCallback(g_LuaState);
     if (lua_isfunction(g_LuaState, -1)) {
         LuaExecutionGuard execution(g_LuaState);
         lua_pushnumber(g_LuaState, dt);
-        if (lua_pcall(g_LuaState, 1, 0, 0) != LUA_OK) {
+        if (lua_pcall(g_LuaState, 1, 0, handler) != LUA_OK) {
             const std::string err = LuaErrorText(g_LuaState);
             AppendConsole(std::string("Lua on_update Error: ") + err + "\n");
+            g_LastLuaError=err;if(g_PhysicsRunning)g_DebugPaused=true;
             g_SimulationRunning = false; // pause on runtime error to prevent log spam
         }
     }
@@ -879,7 +901,9 @@ static bool ExportGLB(const std::string& filename) {
 #include "studio_mcp.h"
 #include "tests/gizmo_smoke.h"
 #include "tests/game_smoke.h"
+#include "tests/runtime_smoke.h"
 #include "assets/logo_data.h"
+#include "editor_font.h"
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
@@ -891,6 +915,7 @@ int main(int argc, char* argv[]) {
     if(!g_PlayerMode&&argc>=4&&std::strcmp(argv[1],"--build-game")==0){InitializeStudio();InitLuaState();bool ok=LoadStudioProject(argv[2])&&BuildStudioGame(argv[3],argc>4?argv[4]:"");if(!ok)std::cerr<<g_ConsoleOutput;ShutdownLuaState();return ok?0:1;}
 
     if(argc>1&&std::strcmp(argv[1],"--mcp")==0)return RunStudioMcp();
+    SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS","permonitorv2");
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Lunoryx - SDL initialization failed",SDL_GetError(),nullptr);
@@ -977,6 +1002,7 @@ int main(int argc, char* argv[]) {
     if(argc>1&&std::strcmp(argv[1],"--report-uv")==0){
         g_Objects.clear();GameObject box("UV checker material");auto mesh=Model::FromObject(box);Model::Unwrap(mesh);Model::ToObject(box,mesh);StudioMaterial material;tinygltf::Image image;image.width=image.height=64;image.component=4;image.bits=8;image.image.resize(64*64*4);for(int y=0;y<64;++y)for(int x=0;x<64;++x){int i=(y*64+x)*4;bool check=(x/8+y/8)%2;image.image[i]=check?40:225;image.image[i+1]=check?150:225;image.image[i+2]=check?180:225;image.image[i+3]=255;}material.Image=EncodeImage(image);box.Materials.push_back(material);box.Color[0]=box.Color[1]=box.Color[2]=1;box.Scale[0]=box.Scale[1]=box.Scale[2]=2;box.Position[1]=1;box.Selected=true;g_Objects.push_back(box);g_SelectedObjectIndex=0;g_ShowUV=true;g_ReportUV=true;ClearConsole();AppendConsole("UV: xatlas automatic charts, packed islands and embedded checker texture.\n");
     }
+    if(argc>1&&std::strcmp(argv[1],"--report-animation")==0){CreateSampleGame();g_ShowAnimation=true;g_ShowDebug=true;g_Studio.ShowDocs=true;g_Preferences.DocsLanguage=1;}
     if(argc>1&&std::strcmp(argv[1],"--report-rendering")==0)CreateRenderShowcase();
     if(argc>1&&std::strcmp(argv[1],"--report-nodes")==0)CreateNodeShowcase();
     if(argc>1&&std::strcmp(argv[1],"--report-sculpt")==0)CreateSculptShowcase();
@@ -999,6 +1025,7 @@ int main(int argc, char* argv[]) {
     float cameraAngleY = -35.0f;
     float cameraTarget[3] = {0.0f, 1.0f, 0.0f};
 
+    RuntimeSmoke runtimeSmoke;runtimeSmoke.Enabled=std::getenv("LUNORYX_RUNTIME_SMOKE")!=nullptr;
     GameSmokeTest gameSmoke;gameSmoke.Enabled=std::getenv("LUNORYX_GAME_SMOKE")!=nullptr;
     GizmoSmokeTest gizmoSmoke;gizmoSmoke.Enabled=std::getenv("LUNORYX_GIZMO_SMOKE")!=nullptr;gizmoSmoke.Initialize();
     Uint32 lastTicks = SDL_GetTicks();
@@ -1067,8 +1094,10 @@ int main(int argc, char* argv[]) {
         }
 
         if(g_RestartGame){g_RestartGame=false;StopSimulation();StartSimulation();}
-        UpdateLuaScript(dt);
-        if(g_PhysicsRunning) {
+        runtimeSmoke.BeforeTick(done);
+        float runtimeDt=(g_PhysicsRunning&&g_DebugPaused)?(g_DebugStep?1.f/60:0.f):dt;g_DebugStep=false;
+        if(runtimeDt>0){UpdateLuaScript(runtimeDt);if(g_PhysicsRunning)AdvanceAnimations(runtimeDt);}
+        if(g_PhysicsRunning&&runtimeDt>0) {
             if((g_PlayerMode||g_Studio.SceneActive)&&!io.WantTextInput) {
                 const Uint8* keys=SDL_GetKeyboardState(nullptr);
                 for(auto& object:g_Objects)if(object.Character&&object.Dynamic) {
@@ -1081,9 +1110,11 @@ int main(int argc, char* argv[]) {
                     if(jump&&object.Grounded)object.Velocity[1]=object.JumpSpeed;
                 }
             }
-            AdvancePhysics(g_Objects,g_Physics,dt);
+            AdvancePhysics(g_Objects,g_Physics,runtimeDt);
+            UpdateGameplay();
         }
 
+        UpdateStudioFont(window);
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         gizmoSmoke.Input(cameraDistance,cameraAngleX,cameraAngleY,cameraTarget);
@@ -1158,7 +1189,7 @@ int main(int argc, char* argv[]) {
         gizmoSmoke.Check();if(gizmoSmoke.Done)done=true;
         RenderStudioAudio();
 
-        if(historyPending&&!g_PhysicsRunning&&!ImGui::IsAnyItemActive()&&!ImGuizmo::IsUsing()&&!ImGui::IsMouseDown(ImGuiMouseButton_Left)){g_ObjectHistory.Capture(g_Objects);shownDirty=ProjectDirty();historyPending=false;}
+        if(historyPending&&!g_PhysicsRunning&&!g_AnimationPreview&&!ImGui::IsAnyItemActive()&&!ImGuizmo::IsUsing()&&!ImGui::IsMouseDown(ImGuiMouseButton_Left)){g_ObjectHistory.Capture(g_Objects);shownDirty=ProjectDirty();historyPending=false;}
 
 
         }else{g_Studio.SceneActive=true;g_Studio.SceneMin=ImVec2(0,0);g_Studio.SceneSize=io.DisplaySize;}
@@ -1214,10 +1245,10 @@ int main(int argc, char* argv[]) {
         glRotatef(cameraAngleY, 0.0f, 1.0f, 0.0f);
         glTranslatef(-cameraTarget[0], -cameraTarget[1], -cameraTarget[2]);
 
-        if (g_ShowGrid&&!g_PlayerMode) {
+        if (g_ShowGrid&&!g_PlayerMode&&!g_PhysicsRunning) {
             RenderGrid(cameraDistance,cameraTarget);
         }
-        if (g_ShowAxes&&!g_PlayerMode) {
+        if (g_ShowAxes&&!g_PlayerMode&&!g_PhysicsRunning) {
             RenderAxesGizmo(1.5f);
         }
 
@@ -1289,6 +1320,7 @@ int main(int argc, char* argv[]) {
         }
 
         g_SceneShadows.EndLighting();
+        RenderDebugBounds();
         EndStudioRenderFrame();
         if(g_Studio.BrushHit){glDisable(GL_DEPTH_TEST);glPointSize(10);glColor3f(1,.75f,.25f);glBegin(GL_POINTS);glVertex3f(g_Studio.BrushWorld.x,g_Studio.BrushWorld.y,g_Studio.BrushWorld.z);glEnd();glPointSize(1);glEnable(GL_DEPTH_TEST);}
         g_ViewportTarget.FinishScene(g_PlayerMode,displaySceneWidth,displaySceneHeight);
@@ -1327,5 +1359,5 @@ int main(int argc, char* argv[]) {
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-    return (gizmoSmoke.Enabled&&!gizmoSmoke.Passed)||(gameSmoke.Enabled&&!gameSmoke.Passed)?1:0;
+    return (runtimeSmoke.Enabled&&!runtimeSmoke.Passed)||(gizmoSmoke.Enabled&&!gizmoSmoke.Passed)||(gameSmoke.Enabled&&!gameSmoke.Passed)?1:0;
 }

@@ -1,3 +1,9 @@
+> **1.2.0-beta.1** — Animation timeline, killzones/checkpoints, runtime debugger,
+> smooth Cyrillic fonts, mipmapped textures and EN/RU offline manuals.
+> [Download this beta](https://github.com/kittkanev/Lunoryx/releases/tag/v1.2.0-beta.1).
+> [English handbook](docs/en/README.md) · [Руководство](docs/ru/README.md).
+> Open `docs/en/index.html` / `docs/ru/index.html` for the styled offline edition.
+
 <p align="center">
   <img src="assets/lunoryx-logo.png" alt="Lunoryx Studio" width="160" />
   <br/><strong>LUNORYX STUDIO</strong>

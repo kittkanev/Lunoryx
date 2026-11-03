@@ -9,6 +9,8 @@ struct EditorPreferences {
   int Theme = 0, RenderQuality = 0;
   float RenderScale = 1.f, Exposure = 1.f;
   bool CachedRenderer = true;
+  float FontSize=17;
+  int DocsLanguage=0;
 };
 static EditorPreferences g_Preferences;
 static bool g_RenderReport=false;
@@ -16,7 +18,8 @@ static std::string g_PreferencesPath;
 static bool SaveEditorPreferences() {
   if (g_PreferencesPath.empty())
     return false;
-  nlohmann::json j = {{"orbit", g_Preferences.OrbitSensitivity},
+  nlohmann::json j = {{"font_size",g_Preferences.FontSize},{"docs_language",g_Preferences.DocsLanguage},
+                      {"orbit", g_Preferences.OrbitSensitivity},
                       {"pan", g_Preferences.PanSensitivity},
                       {"zoom", g_Preferences.ZoomSensitivity},
                       {"fov", g_Preferences.Fov},
@@ -38,29 +41,16 @@ static bool SaveEditorPreferences() {
                       {"snap_enabled", g_Preferences.SnapEnabled},
                       {"local_transform", g_Preferences.LocalTransform}};
   std::string temporary = g_PreferencesPath + ".tmp";
-  std::ofstream f(temporary, std::ios::binary | std::ios::trunc);
-  std::string text = j.dump(2);
-  f.write(text.data(), std::streamsize(text.size()));
-  f.close();
-  if (!f)
-    return false;
-#ifdef _WIN32
-  if (!MoveFileExA(temporary.c_str(), g_PreferencesPath.c_str(),
-                   MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
-    return false;
-#else
-  if (std::rename(temporary.c_str(), g_PreferencesPath.c_str()))
-    return false;
-#endif
+  try {
+    std::string text=j.dump(2);WriteAssetFile(temporary,text.data(),text.size());ReplaceAssetFile(temporary,g_PreferencesPath);
+  } catch(const std::exception&) { return false; }
   return true;
 }
 static void LoadEditorPreferences() {
   try {
-    std::ifstream f(g_PreferencesPath);
-    if (!f)
-      return;
-    nlohmann::json j;
-    f >> j;
+    FILE* file=AssetOpen(g_PreferencesPath,"rb");if(!file)return;std::fclose(file);
+    auto data=ReadAssetFile(g_PreferencesPath,1024*1024);
+    nlohmann::json j=nlohmann::json::parse(data.begin(),data.end());
     EditorPreferences p = g_Preferences;
     auto number = [&](const char *key, float fallback, float lo, float hi) {
       if (!j.contains(key))
@@ -72,6 +62,8 @@ static void LoadEditorPreferences() {
         throw std::runtime_error("Invalid setting range");
       return float(n);
     };
+    p.FontSize=number("font_size",17,13,26);
+    p.DocsLanguage=j.value("docs_language",0);if(p.DocsLanguage<0||p.DocsLanguage>1)throw std::runtime_error("Invalid docs language");
     p.OrbitSensitivity = number("orbit", p.OrbitSensitivity, .01f, 3);
     p.PanSensitivity = number("pan", p.PanSensitivity, .0001f, 2);
     p.ZoomSensitivity = number("zoom", p.ZoomSensitivity, .01f, 100);

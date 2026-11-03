@@ -43,13 +43,26 @@ static GLuint StudioTexture(const StudioMaterial &material) {
     auto image = DecodeMaterialImage(material);
     glGenTextures(1, &value.Id);
     glBindTexture(GL_TEXTURE_2D, value.Id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, image.image.data());
+    // Build every mip level, including NPOT images, on OpenGL 2.1 drivers.
+    int width=image.width,height=image.height,level=0;
+    std::vector<unsigned char> previous=image.image;
+    while(width>1||height>1){
+      int w=std::max(1,width/2),h=std::max(1,height/2);std::vector<unsigned char> next(size_t(w)*h*4);
+      for(int y=0;y<h;++y)for(int x=0;x<w;++x)for(int c=0;c<4;++c){
+        unsigned sum=0,count=0;
+        int x0=x*width/w,x1=(x+1)*width/w,y0=y*height/h,y1=(y+1)*height/h;
+        for(int sy=y0;sy<y1;++sy)for(int sx=x0;sx<x1;++sx){sum+=previous[(size_t(sy)*width+sx)*4+c];++count;}
+        next[(size_t(y)*w+x)*4+c]=static_cast<unsigned char>((sum+count/2)/count);
+      }
+      glTexImage2D(GL_TEXTURE_2D,++level,GL_RGBA,w,h,0,GL_RGBA,GL_UNSIGNED_BYTE,next.data());previous.swap(next);width=w;height=h;
+    }
     glBindTexture(GL_TEXTURE_2D, 0);
   } catch (const std::exception &e) {
     value.Error = e.what();
@@ -77,6 +90,7 @@ static void RenderLitMeshLegacy(const GameObject &object) {
       GameObject shape("Primitive", object.Type);
       mesh = Model::FromObject(shape);
       Model::Triangulate(mesh);
+      if(object.Type==MeshType::Cube||object.Type==MeshType::Pyramid||object.Type==MeshType::Plane)mesh.Normals.clear();
     }
     primitive = &mesh;
   }
@@ -181,6 +195,7 @@ static void RenderLitMesh(const GameObject &object) {
       GameObject shape("Primitive", object.Type);
       mesh = Model::FromObject(shape);
       Model::Triangulate(mesh);
+      if(object.Type==MeshType::Cube||object.Type==MeshType::Pyramid||object.Type==MeshType::Plane)mesh.Normals.clear();
     }
     primitive = &mesh;
   }

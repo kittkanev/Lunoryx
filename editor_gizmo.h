@@ -1,7 +1,7 @@
 #pragma once
 static void RenderTransformGizmo(float distance, float pitch, float yaw,
                                  const float target[3]) {
-  if (g_Studio.SculptEnabled || g_PhysicsRunning ||
+  if (g_AnimationPreview || g_Studio.SculptEnabled || g_PhysicsRunning ||
       g_Studio.TransformMode == 0 || g_SelectedObjectIndex < 0 ||
       size_t(g_SelectedObjectIndex) >= g_Objects.size())
     return;
@@ -99,6 +99,7 @@ static void RenderEditorSettings() {
     ImGui::Text("Culled objects: %zu",g_StudioRenderStats.CulledObjects);
     ImGui::Text("Mesh cache: %.1f MiB | %s",g_StudioRenderStats.CacheBytes/(1024.f*1024.f),g_StudioRenderStats.VBO?"VBO":"compatibility");
     ImGui::SeparatorText("Editor");
+    ImGui::SliderFloat("Text size",&g_Preferences.FontSize,13,26,"%.0f px");
     const char *themes[] = {"Dark", "Light"};
     if (ImGui::Combo("Theme", &g_Preferences.Theme, themes, 2)) {
       if (g_Preferences.Theme == 0)

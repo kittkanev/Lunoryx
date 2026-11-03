@@ -14,7 +14,7 @@ function on_update(dt)
         local index = find_object('Gem ' .. gem)
         if index >= 0 and not get_property(index, 'Collected') then
             local x, y, z = get_position(index)
-            set_rotation(index, 0, elapsed * 70, 0)
+            -- Gem rotation is authored in the Animation timeline.
             if (px-x)^2 + (py-y+0.7)^2 + (pz-z)^2 < 1.25^2 then
                 set_property(index, 'Collected', true)
                 set_visible(index, false)
