@@ -55,6 +55,7 @@ static int ReadInteger(const nlohmann::json &value, int low, int high) {
     throw std::runtime_error("Integer outside allowed range");
   return int(number);
 }
+#include "game_project.h"
 template <typename T>
 static std::vector<T> ReadUnsignedArray(const nlohmann::json &value,
                                         size_t limit) {
@@ -95,7 +96,7 @@ static StudioMesh ReadModelMesh(const nlohmann::json &j) {
 }
 static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::string& path){
     j["id"]=o.Id;
-    if(!ValidAnimation(o)||o.Trigger<0||o.Trigger>2)throw std::runtime_error("Invalid animation or trigger");
+    if(!ValidAnimation(o)||o.Trigger<0||o.Trigger>3)throw std::runtime_error("Invalid animation or trigger");
     j["solid"]=o.Solid;j["trigger"]=o.Trigger;
     j["animation"]={{"duration",o.AnimationDuration},{"speed",o.AnimationSpeed},{"loop",o.AnimationLoop},{"autoplay",o.AnimationAutoplay},{"keys",nlohmann::json::array()}};
     for(const auto& k:o.AnimationKeys)j["animation"]["keys"].push_back({{"time",k.Time},{"position",SaveVector(k.Pose.Position)},{"rotation",SaveVector(k.Pose.Rotation)},{"scale",SaveVector(k.Pose.Scale)},{"color",SaveVector(k.Pose.Color)},{"easing",k.Easing}});
@@ -112,7 +113,7 @@ static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::str
     j["materials"]=nlohmann::json::array();for(const auto& m:o.Materials)j["materials"].push_back({{"image",m.Image},{"name",m.Name},{"texture",m.Texture.empty()?"":RelativeAssetPath(m.Texture,path)},{"color",SaveVector(m.Color)},{"metallic",m.Metallic},{"roughness",m.Roughness}});
 }
 static void ReadModelFields(const nlohmann::json& j,GameObject& o,const std::string& path){
-    o.Solid=j.value("solid",true);if(j.contains("trigger"))o.Trigger=ReadInteger(j.at("trigger"),0,2);
+    o.Solid=j.value("solid",true);if(j.contains("trigger"))o.Trigger=ReadInteger(j.at("trigger"),0,3);
     if(j.contains("animation")){
       const auto& a=j.at("animation");o.AnimationDuration=ReadRange(a.at("duration"),.01f,3600);o.AnimationSpeed=ReadRange(a.at("speed"),.01f,100);
       o.AnimationLoop=a.at("loop").get<bool>();o.AnimationAutoplay=a.at("autoplay").get<bool>();
@@ -180,7 +181,9 @@ static nlohmann::json StudioProjectJson(const std::string& path){
         for(const auto& script:g_Studio.Scripts)if(script.Allocated)root["scripts"].push_back({{"name",script.Name},{"code",script.Code},{"open",script.Open}});
 
     int startup=-1,allocated=0;for(int i=0;i<8;++i)if(g_Studio.Scripts[size_t(i)].Allocated){if(i==g_Game.StartupScript)startup=allocated;++allocated;}
-    root["game"]={{"startup_script",startup},{"camera_target",g_Game.CameraTarget},{"camera_distance",g_Game.CameraDistance},{"camera_pitch",g_Game.CameraPitch},{"camera_yaw",g_Game.CameraYaw},{"title",g_Game.Title}};
+    root["game"]=SaveGameSettings(g_Game,path);
+    root["game"]["startup_script"]=startup;
+    ReadGameSettings(root["game"],path); // Validate editor data before persisting.
     return root;
 }
 static bool SaveStudioProject(const std::string& path){
@@ -249,7 +252,7 @@ static bool LoadStudioProject(const std::string& path) {
                 ReadVector(j.at("position"),sound.Position);sound.Volume=ReadRange(j.at("volume"),0,2);sound.Pitch=ReadRange(j.at("pitch"),.1f,4);sound.Loop=j.at("loop").get<bool>();sound.Spatial=j.at("spatial").get<bool>();sound.Autoplay=j.at("autoplay").get<bool>();if(!sound.Path.empty()&&!AbsolutePath(sound.Path))sound.Path=NormalizePath(PathDirectory(AbsoluteAssetPath(path))+"/"+sound.Path);sounds.push_back(sound);}
         }
         StudioGameSettings game;
-        if(root.contains("game")){const auto& value=root["game"];game.StartupScript=ReadInteger(value.at("startup_script"),-1,7);game.CameraTarget=ReadUnsigned(value.at("camera_target"),uint64_t(std::numeric_limits<int64_t>::max()));game.CameraDistance=ReadRange(value.at("camera_distance"),.2f,1000);game.CameraPitch=ReadRange(value.at("camera_pitch"),-85,85);game.CameraYaw=ReadRange(value.at("camera_yaw"),-180,180);game.Title=value.at("title").get<std::string>();if(game.Title.size()>255||game.Title.find('\0')!=std::string::npos)throw std::runtime_error("Invalid game title");}
+        if(root.contains("game"))game=ReadGameSettings(root["game"],path);
         // Commit only after the complete document has passed validation. Never execute loaded scripts.
         for(const auto& sound:g_Sounds){studio_audio_unload(sound.Id);}
         g_Sounds.swap(sounds);g_SelectedSound=-1;

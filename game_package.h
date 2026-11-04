@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <sys/stat.h>
+#include "game_icon.h"
 namespace GamePackage {
 static const size_t MaxPayload = 512 * 1024 * 1024;
 inline void CheckResourceName(const std::string &name) {
@@ -149,7 +150,8 @@ inline bool Read(const std::string &executable,
 }
 inline void
 Write(const std::string &runtime, const std::string &destination,
-      const std::map<std::string, std::vector<unsigned char>> &assets) {
+      const std::map<std::string, std::vector<unsigned char>> &assets,
+      const std::vector<unsigned char>& icon = {}) {
   if (assets.size() > 256)
     throw std::runtime_error(
         "Game supports at most 255 packed external resources");
@@ -157,6 +159,7 @@ Write(const std::string &runtime, const std::string &destination,
     throw std::runtime_error("Game project is missing");
   for (const auto &resource : assets)
     CheckResourceName(resource.first);
+  if(AbsoluteAssetPath(runtime)==AbsoluteAssetPath(destination))throw std::runtime_error("Choose a game output path different from the editor EXE");
   auto binary = ReadAssetFile(runtime, 128 * 1024 * 1024);
   if (binary.size() > 32 &&
       !std::memcmp(binary.data() + binary.size() - 32, "LNXPCK01", 8))
@@ -181,6 +184,15 @@ Write(const std::string &runtime, const std::string &destination,
                    resource.second.end());
   if (payload.size() > MaxPayload)
     throw std::runtime_error("Game package exceeds budget");
+#ifdef _WIN32
+  // Update PE resources BEFORE appending the package: Windows resource updates
+  // are allowed to rewrite sections and would otherwise truncate the overlay.
+  std::string iconTemporary=destination+".icon.tmp";
+  try{WriteAssetFile(iconTemporary,binary.data(),binary.size());ReplaceGameExeIcon(iconTemporary,icon);binary=ReadAssetFile(iconTemporary,128*1024*1024);DeleteFileW(WidePath(iconTemporary).c_str());}
+  catch(...){DeleteFileW(WidePath(iconTemporary).c_str());throw;}
+#else
+  (void)icon;
+#endif
   uint64_t offset = binary.size();
   uint32_t checksum = CRC(payload.data(), payload.size());
   binary.insert(binary.end(), payload.begin(), payload.end());
@@ -224,6 +236,8 @@ static bool BuildStudioGame(const std::string &destination,
           project["objects"][i]["materials"][m]["texture"] = name;
         }
       }
+    auto icon=ReadGameIcon(g_Game.IconPath);
+    if(!icon.empty()){assets["assets/game-icon.png"]=icon;project["game"]["icon"]="assets/game-icon.png";}
     auto text = project.dump();
     if (text.size() > 32 * 1024 * 1024)
       throw std::runtime_error("Game project exceeds 32 MiB budget");
@@ -231,7 +245,7 @@ static bool BuildStudioGame(const std::string &destination,
         std::vector<unsigned char>(text.begin(), text.end());
     GamePackage::Write(runtime.empty() ? GamePackage::ExecutablePath()
                                        : runtime,
-                       destination, assets);
+                       destination, assets, icon);
     AppendConsole("Built standalone game: " + destination + "\n");
     return true;
   } catch (const std::exception &e) {

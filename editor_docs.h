@@ -141,10 +141,22 @@ Lua: input_key('W') returns a key state; follow_camera(index, distance, pitch) f
 
 MCP --mcp retains stable object IDs. Lua object indices remain zero-based and shift after removal. mesh_operation(index, action, options_json) supports modifier/apply/boolean/polygonize/extrude/weld/delete/normals/unwrap. Invalid operations leave the original mesh intact.
 
-Modeling limits: Bevel needs a closed oriented mesh; apply modifiers before sculpt or UV editing. GLB import is static and reports unsupported features. Viewport lighting is a simple compatibility-OpenGL preview; physics uses AABBs.)DOC"}
+Modeling limits: Bevel needs a closed oriented mesh; apply modifiers before sculpt or UV editing. GLB import is static and reports unsupported features. Viewport has GGX PBR shading, HDR tone mapping and PCF sun shadows; physics uses AABBs.)DOC"}
 ,{"Rust kernel licenses",kRustLicenses}
 ,{"Modeling licenses",kModelingLicenses}
 ,{"Font license",kFontLicense}
 ,{"Additional licenses",kExtensionLicenses}
 ,{"Third-party licenses",kEmbeddedLicenses}
+,{"Game GUI / triggers",R"DOC(Build Game: title, PNG icon, window/fullscreen, size, resizable, VSync, startup script.
+Window > GUI Designer: labels, buttons, panels and progress bars; drag to arrange.
+set_trigger(index, kind) -- 0 none, 1 kill, 2 checkpoint, 3 script volume
+trigger_contains(zone, actor) -- current AABB overlap, boolean
+gui_text(id, text), gui_visible(id, bool), gui_value(id, 0.0 ... 1.0) -- boolean
+function on_trigger(event, zone, actor) -- enter / stay / exit; zero-based indices
+end
+function on_gui_click(id)
+    if id == 'restart' then restart_game() end
+end
+Full EN/RU instructions, limits and examples: Creator Handbook sections 08 and 09.
+)DOC"},
 };

@@ -11,7 +11,7 @@ struct StudioSnapshot {
   uint64_t Hash = 0;
 };
 inline uint64_t StudioDocumentHash() {
-  uint64_t h = StudioSceneFingerprint(g_Objects);
+  uint64_t h = StudioSceneFingerprint(g_Objects) ^ GameSettingsFingerprint(g_Game);
   auto bytes = [&](const void *p, size_t n) {
     const unsigned char *b = static_cast<const unsigned char *>(p);
     while (n--)
@@ -46,7 +46,9 @@ struct StudioHistory {
   std::vector<StudioSnapshot> States;
   size_t Cursor = 0, Bytes = 0;
   static size_t Size(const StudioSnapshot &s) {
-    size_t n = StudioObjectHistory::Size(s.Objects) +
+    size_t n = s.Game.IconPath.size()+s.Game.Title.size()+s.Game.Widgets.size()*sizeof(GameWidget);
+    for(const auto& w:s.Game.Widgets)n+=w.Id.size()+w.Text.size();
+    n += StudioObjectHistory::Size(s.Objects) +
                s.Sounds.size() * sizeof(StudioSound);
     for (const auto &o : s.Objects) {
       n += o.AnimationKeys.size()*sizeof(LnxAnimationKey);

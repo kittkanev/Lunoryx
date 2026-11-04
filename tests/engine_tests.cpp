@@ -18,6 +18,7 @@ static void CheckLua(const char* script) {
 }
 #include "animation_gameplay_tests.h"
 #include "patch_121_tests.h"
+#include "game_features_tests.h"
 static int ThrowingBinding(lua_State*) { throw std::runtime_error("test exception"); }
 int main() {
     InitLuaState();
@@ -217,6 +218,7 @@ int main() {
     CheckPatchRegressions();
     CheckRenderCacheRegressions();
     CheckGeometryNodeRegressions();
+    CheckGameBuildGUITriggers();
     ShutdownLuaState();
     std::cout << "PASS: Lua bounds, stack recovery, hostile metamethods, GLB buffer round trip\n";
 }

@@ -12,7 +12,7 @@ static void StartSimulation() {
   g_PlayPhysics = g_Physics;
   g_PlayGame = g_Game;
   g_GameScore = 0;
-  g_GameHud.clear();
+  g_GameHud.clear();g_GuiClicks.clear();g_GuiPressed.clear();
   g_Physics.Accumulator = 0;
   g_PhysicsRunning = true;
   g_SimulationRunning = true;
@@ -38,7 +38,7 @@ static void StopSimulation() {
     g_Physics = g_PlayPhysics;
     g_Game = g_PlayGame;
   }
-  ResetAnimationPlayers();g_ActorSpawns.clear();g_DebugPaused=g_DebugStep=false;
+  ResetAnimationPlayers();g_ActorSpawns.clear();g_TriggerOverlaps.clear();g_TriggerEvents.clear();g_GuiClicks.clear();g_GuiPressed.clear();g_DebugPaused=g_DebugStep=false;
   studio_audio_stop_all();
   g_PhysicsRunning = false;
   g_SimulationRunning = false;
@@ -46,7 +46,7 @@ static void StopSimulation() {
   g_SelectedObjectIndex = -1;
   g_SelectedSound = -1;
   g_GameScore = 0;
-  g_GameHud.clear();
+  g_GameHud.clear();g_GuiClicks.clear();g_GuiPressed.clear();
   InitLuaState();
 }
 static void FollowGameCamera(float &distance, float &pitch, float &yaw,
@@ -73,6 +73,8 @@ static void FollowGameCamera(float &distance, float &pitch, float &yaw,
 static void DrawGameHUD() {
   if (!g_PhysicsRunning)
     return;
+  DrawGameGUI();
+  if(!g_Game.DefaultHUD)return;
   auto *draw = ImGui::GetForegroundDrawList();
   auto pos = g_PlayerMode
                  ? ImVec2(24, 24)

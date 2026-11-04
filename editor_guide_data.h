@@ -5,7 +5,7 @@ static const StudioGuideTopic kStudioGuide[]={
 ### First scene
 - Tools > Build adds primitives. Select in Explorer or in Scene.
 - Q selects; W moves; E rotates; R scales. Drag a colored axis or plane.
-- Right mouse orbits; middle mouse pans; wheel zooms. Local changes the transform frame, Snap enables quantization.
+- Free Fly: hold RMB + WASD, Q/E vertical movement. Disable Free Fly for orbit. Local changes the transform frame, Snap enables quantization.
 - Ctrl+S saves .lunoryx. Project files contain scene metadata; GLB exports geometry and materials.
 - Edit > Undo/Redo restores completed scene edits. F11 expands the code editor; F5 runs the active script.
 ### Play safely
@@ -65,7 +65,7 @@ animation_play(box)
 local lava = add_object('Lava', 'cube')
 set_position(lava, 5, 0.1, 0)
 set_scale(lava, 2, 0.2, 2)
-set_trigger(lava, 1) -- 0 none / 1 killzone / 2 checkpoint
+set_trigger(lava, 1) -- 0 none / 1 killzone / 2 checkpoint / 3 script
 set_solid(lava, false)
 -- respawn(player) returns true during Play for a known dynamic actor
 ```
@@ -79,7 +79,7 @@ Place spawn points clear of killzones. Killzones win over overlapping checkpoint
 local lava = add_object('Lava', 'cube')
 set_position(lava, 5, 0.1, 0)
 set_scale(lava, 2, 0.2, 2)
-set_trigger(lava, 1) -- 0 нет / 1 киллзона / 2 чекпоинт
+set_trigger(lava, 1) -- 0 нет / 1 киллзона / 2 чекпоинт / 3 скрипт
 set_solid(lava, false)
 -- respawn(player) работает во время Play для динамического объекта
 ```
@@ -170,4 +170,86 @@ Lighting is realtime rasterization with a directional sun and an approximate hem
 ### Рендер
 В Scene доступны Wireframe, Solid, Material PBR и Rendered PBR. Material и Rendered используют GGX-освещение metallic/roughness. Balanced/Quality рисуют в линейный RGBA16F-буфер при поддержке видеокартой, затем применяют экспозицию, тональное отображение и FXAA. Quality добавляет направленные PCF-тени. Office использует совместимый прямой вывод.
 Это растровый рендер в реальном времени с направленным солнцем и приближённым освещением полусферы. Трассировка путей и отражения карты окружения не включены. Интерфейс и итоговая текстура сохраняют заданное разрешение.)GUIDE"}},
+{{"08 · Build your game EXE","08 · Сборка своего игрового EXE"},{R"GUIDE(### Your own game identity
+Open Build Game in the top menu (also Tools > Character > Game / Build settings). Stop simulation before building. Give the game its own title; this becomes its window title. Studio branding is not added to the game window.
+Choose a square PNG icon, 16–256 px (256×256 recommended). On Windows, Choose icon opens a file picker; Clear icon uses the system default, not the Lunoryx logo. The PNG is embedded in the package and Windows EXE resources, so both Explorer and the running game use it. Windows may cache an old Explorer icon: try a new output filename.
+### Display and startup
+- Startup display: Windowed or Fullscreen (desktop). Fullscreen uses the current desktop resolution without changing the monitor mode.
+- Window width/height apply to windowed mode: 320–7680 by 200–4320. Resizable window and Game VSync are independent settings.
+- New projects and Gem Trail start fullscreen; old projects keep their saved/legacy windowed behavior until you choose Fullscreen.
+- Built-in score / HUD can be disabled when you make your own GUI.
+- Startup script: choose the Lua tab to execute at launch. Follow selected character and distance/pitch/yaw configure the game camera.
+### Build and test
+Choose output EXE (Windows file picker) or type its path, then Build standalone Game.exe. The builder packages the scene, GUI, scripts, PNG icon, textures and sounds into one executable without a separate compiler. Build errors appear in Output. Save the .lunoryx to keep the settings for the next build.
+Move the game to an empty folder to test it independently. Esc exits; R restarts. Build on Windows to customize Windows EXE resources. Linux builds produce a native Linux game, not a Windows cross-compile.
+)GUIDE",R"GUIDE(### Название и иконка своей игры
+Откройте Build Game в верхнем меню (или Tools > Character > Game / Build settings). Остановите симуляцию перед сборкой. Game title — собственное название окна игры. Оформление Studio в игровое окно не добавляется.
+Выберите квадратную PNG-иконку 16–256 пикселей, рекомендуется 256×256. В Windows кнопка Choose icon открывает выбор файла. Clear icon оставляет системную иконку, без логотипа Lunoryx. Картинка встраивается и в ресурсы Windows EXE для Проводника, и в пакет для окна игры; исходный PNG после сборки не нужен. Windows может кэшировать старую иконку: попробуйте новое имя EXE.
+### Окно и запуск
+- Startup display: Windowed — окно, Fullscreen (desktop) — полный экран в текущем разрешении рабочего стола, без переключения видеорежима монитора.
+- Window width/height задают оконный размер: ширина 320–7680, высота 200–4320. Resizable window разрешает менять размер, Game VSync управляет вертикальной синхронизацией.
+- Новые проекты и Gem Trail запускаются на полном экране. Старые проекты сохраняют прежний оконный запуск; переключите его вручную.
+- Built-in score / HUD можно выключить, если создаёте свой GUI.
+- Startup script выбирает Lua-вкладку для запуска игры. Follow selected character, distance/pitch/yaw настраивают игровую камеру.
+### Сборка и проверка
+Выберите путь через Choose output EXE или введите его вручную, затем Build standalone Game.exe. Сцена, GUI, скрипты, иконка, звуки и текстуры входят в один исполняемый файл; отдельный компилятор не нужен. Ошибки выводятся в Output. Сохраните .lunoryx, чтобы параметры остались для следующих сборок.
+Для проверки перенесите игру в пустую папку. Esc — выход, R — перезапуск. Ресурсы Windows EXE настраиваются при сборке из Windows-редактора. Linux-редактор создаёт игру для Linux, без кросс-компиляции в Windows.
+)GUIDE"}},
+{{"09 · GUI Designer and trigger scripting","09 · GUI Designer и скрипты триггеров"},{R"GUIDE(### Build a game interface
+Window > GUI Designer opens a canvas. Add Label, Button, Panel or Progress. Select a widget in the list or canvas and drag it into place. Edit its unique ID, text, visibility, background/text/fill colors, X/Y, width/height and progress value. Move layer up places it above the next widget. Hidden widgets remain editable in the designer. Delete widget removes the selected one; Edit > Undo/Redo restores GUI edits while stopped.
+Coordinates and sizes are fractions of the viewport (0–1). The GUI scales with the game window; content outside the viewport is clipped. A maximum of 128 widgets is supported, IDs are unique (1–63 bytes), text up to 1024 UTF-8 bytes. Labels/buttons support multiline text; progress values are 0–1. This is a flat 2D overlay, without HTML, nesting or text-input widgets.
+### Lua GUI API
+- gui_text(id, text): change a label/button's text.
+- gui_visible(id, boolean): show or hide a widget.
+- gui_value(id, number): set progress (clamped 0–1).
+Each returns true if the ID exists, otherwise false. Define on_gui_click(id) for button clicks. Create the widgets first in GUI Designer. Clicks are delivered on the next simulation tick; callbacks stop while the debugger is paused. Stop restores the original GUI; restart resets it.
+### Trigger building and events
+Tools > Build has Killzone, Checkpoint and Script trigger presets. Move/scale them like other objects. Properties > Trigger can change any object into a zone; Debugger > Collision / trigger bounds displays their volumes. Triggers are world-axis-aligned, non-solid boxes even if Solid is checked.
+set_trigger(objectIndex, kind): 0 none, 1 killzone, 2 checkpoint, 3 script trigger. Returns false for an invalid index/kind. A trigger is made static. Killzones respawn dynamic actors; checkpoints update character spawns; script triggers only emit events.
+Define on_trigger(event, zoneIndex, actorIndex). Events are enter, stay (once per runtime tick, not per physics substep), exit. Sensors track dynamic non-trigger actors, including characters; trigger_contains(zoneIndex, actorIndex) directly tests current overlap for any object. A thin zone crossed in one frame emits enter then exit. Kill/respawn is applied before callbacks. Overlap limits: 8192 active pairs, 4096 queued events per tick. Keep scenes within these limits.
+Lua indices are zero-based and shift after deletion; names need not be unique. Call find_object after scene membership changes. Events use stable IDs internally and resolve indices before each callback; events involving deleted objects are discarded. Callback errors include a traceback and pause the runtime in Debugger/Output.
+```lua
+-- Tools > Build > Script trigger creates a non-solid zone.
+-- Assign this script in Build Game > Startup script; press Play.
+function on_trigger(event, zone, actor)
+    if event == 'enter' and zone == find_object('Script trigger') then
+        gui_text('message', 'Welcome!')
+        gui_visible('message', true)
+    elseif event == 'exit' then
+        gui_visible('message', false)
+    end
+end
+function on_gui_click(id)
+    if id == 'restart' then restart_game() end
+end
+```
+)GUIDE",R"GUIDE(### Создание игрового интерфейса
+Window > GUI Designer открывает холст. Добавьте Label (текст), Button (кнопку), Panel (панель) или Progress (полосу прогресса). Выберите виджет в списке или на холсте и перетащите мышью. Настройте уникальный ID, текст, видимость, цвета фона/текста/заливки, X/Y, ширину/высоту и значение прогресса. Move layer up поднимает слой. Скрытые виджеты остаются доступны в редакторе. Delete widget удаляет выбранный; Edit > Undo/Redo отменяет изменения GUI вне Play.
+Положение и размер — доли игрового viewport от 0 до 1. GUI масштабируется с окном, за пределами viewport обрезается. Максимум 128 элементов, уникальный ID — 1–63 байта, текст — до 1024 байт UTF-8. Текст может содержать переносы строк, прогресс — от 0 до 1. Это плоский 2D-интерфейс без HTML, вложенных контейнеров и полей ввода.
+### Lua API интерфейса
+- gui_text(id, text) — изменить текст.
+- gui_visible(id, boolean) — показать или скрыть.
+- gui_value(id, number) — задать прогресс с ограничением 0–1.
+Функции возвращают true при существующем ID, иначе false. Обработчик on_gui_click(id) получает нажатия кнопок. Сначала создайте виджеты в GUI Designer. События доставляются на следующем такте симуляции; пауза отладчика блокирует обработку. Stop восстанавливает GUI, перезапуск сбрасывает его.
+### Постройка и события триггеров
+Tools > Build содержит Killzone, Checkpoint и Script trigger. Перемещайте и масштабируйте их как обычные объекты. Properties > Trigger превращает любой объект в зону; Debugger > Collision / trigger bounds показывает границы. Зоны используют мировые AABB и не блокируют движение даже при включённом Solid.
+set_trigger(objectIndex, kind): 0 — отключить, 1 — киллзона, 2 — чекпоинт, 3 — скриптовая зона. При неверном индексе/типе возвращает false. Триггер становится статическим. Киллзона респавнит динамические объекты, чекпоинт меняет точку возрождения персонажа; скриптовая зона только отправляет события.
+on_trigger(event, zoneIndex, actorIndex) получает enter (вход), stay (один раз за такт симуляции) и exit (выход). Автоматически отслеживаются динамические объекты, включая персонажей. trigger_contains(zoneIndex, actorIndex) проверяет текущее пересечение с любым объектом. Пролёт тонкой зоны за один кадр вызывает enter и exit. Респавн применяется до вызова обработчика. Лимиты: 8192 активных пары и 4096 событий за такт.
+Индексы Lua начинаются с нуля и сдвигаются при удалении. Имена могут повторяться. После изменения состава сцены снова используйте find_object. Внутри очереди используются стабильные ID, а индексы вычисляются перед вызовом; события удалённых объектов отбрасываются. Ошибки обработчиков дают traceback и приостанавливают симуляцию в Debugger/Output.
+```lua
+-- Tools > Build > Script trigger creates a non-solid zone.
+-- Assign this script in Build Game > Startup script; press Play.
+function on_trigger(event, zone, actor)
+    if event == 'enter' and zone == find_object('Script trigger') then
+        gui_text('message', 'Welcome!')
+        gui_visible('message', true)
+    elseif event == 'exit' then
+        gui_visible('message', false)
+    end
+end
+function on_gui_click(id)
+    if id == 'restart' then restart_game() end
+end
+```
+)GUIDE"}},
 };

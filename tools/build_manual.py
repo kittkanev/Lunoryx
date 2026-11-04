@@ -27,5 +27,5 @@ for lang in ('en','ru'):
     page=f'''<!doctype html><html lang="{lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Lunoryx — {title}</title><style>{css}</style><aside><b>Lunoryx</b><p>{title}</p><a href="../{'ru' if lang=='en' else 'en'}/index.html">English / Русский</a><input id="search" placeholder="Search / Поиск">{nav}</aside><main><div class="badge">STUDIO · OFFLINE DOCUMENTATION</div><h1>{title}</h1><p>{'Build, animate, test, ship.' if lang=='en' else 'Создавайте сцены, анимации и игры.'}</p>{sections}<footer>Lunoryx · EN / RU · No network required</footer></main><script>document.querySelector('#search').oninput=e=>{{let q=e.target.value.toLowerCase();document.querySelectorAll('section').forEach(s=>s.hidden=!s.textContent.toLowerCase().includes(q));}};</script></html>'''
     folder=root/'docs'/lang;folder.mkdir(exist_ok=True)
     (folder/'index.html').write_text(page)
-    (folder/'README.md').write_text('# Lunoryx — '+title+'\n\n'+'\n\n'.join('## '+t[lang]['title']+'\n\n'+t[lang]['body'] for t in topics)+'\n')
+    (folder/'README.md').write_text('# Lunoryx — '+title+'\n\n'+'\n\n'.join('## '+t[lang]['title']+'\n\n'+t[lang]['body'] for t in topics).rstrip()+'\n')
 print('Generated EN/RU manuals and embedded guide')

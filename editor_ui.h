@@ -77,7 +77,11 @@ static void BuildStudioLayout(ImGuiID dockspace,const ImGuiViewport* viewport) {
 }
 #include "editor_animation.h"
 #include "editor_debug.h"
+#include "game_gui.h"
+#include "editor_gui.h"
+static bool g_RequestBuild=false;
 static void StudioMenu() {
+    if(ImGui::MenuItem("Build Game"))g_RequestBuild=true;
     if(ImGui::BeginMenu("Edit")) {
         ImGui::BeginDisabled(g_PhysicsRunning);
         if(ImGui::MenuItem("Undo scene edit","Ctrl+Z")){if(g_ObjectHistory.Undo(g_Objects)){g_SelectedObjectIndex=-1;g_SimulationRunning=false;}}
@@ -89,6 +93,7 @@ static void StudioMenu() {
     if(ImGui::MenuItem("Audio"))g_ShowAudio=true;
     if(ImGui::MenuItem("Settings"))g_Preferences.ShowSettings=true;
     if(ImGui::BeginMenu("Window")) {
+        ImGui::MenuItem("GUI Designer",nullptr,&g_ShowGUI);
         ImGui::MenuItem("Animation",nullptr,&g_ShowAnimation);
         ImGui::MenuItem("Debugger",nullptr,&g_ShowDebug);
         ImGui::MenuItem("Explorer",nullptr,&g_Studio.ShowExplorer);
@@ -288,9 +293,9 @@ static void RenderProperties(float target[3]) {
             EditColor("Base Color",o.Color);EditScalar("Metallic",o.Metallic,0,1);EditScalar("Roughness",o.Roughness,0,1);
             if(ImGui::CollapsingHeader("Physics / Character",ImGuiTreeNodeFlags_DefaultOpen)) {
                 ImGui::Checkbox("Solid collider",&o.Solid);
-                const char* triggers[]={"None","Killzone","Checkpoint"};
-                if(ImGui::Combo("Trigger",&o.Trigger,triggers,3)&&o.Trigger)o.Dynamic=false;
-                ImGui::TextWrapped("Triggers are non-solid AABB volumes. Killzones respawn dynamic actors; checkpoints update the character spawn.");
+                const char* triggers[]={"None","Killzone","Checkpoint","Script trigger"};
+                if(ImGui::Combo("Trigger",&o.Trigger,triggers,4)&&o.Trigger)o.Dynamic=false;
+                ImGui::TextWrapped("Triggers are non-solid AABB volumes. Killzones respawn dynamic actors; checkpoints update the character spawn. Lua: on_trigger(event, zone, actor).");
                 ImGui::Checkbox("Dynamic",&o.Dynamic);
                 if(ImGui::Checkbox("Character Controller",&o.Character)&&o.Character){o.Dynamic=true;o.Restitution=0;}EditScalar("Mass",o.Mass,.01f,10000);
                 EditScalar("Bounce",o.Restitution,0,1);EditScalar("Friction",o.Friction,0,20);
@@ -337,6 +342,8 @@ static void RenderTools(float& distance,float& pitch,float& yaw,float target[3])
             if(g_Studio.RequestTool==tab)g_Studio.RequestTool=-1;
             if(tab==0) {
                 for(int type=0;type<5;++type){if(ImGui::Button(GetMeshTypeName(MeshType(type)),ImVec2(-1,0)))SpawnPrimitive(MeshType(type));}
+                ImGui::SeparatorText("Triggers");
+                for(int kind=1;kind<=3;++kind){const char* names[]={"","Killzone","Checkpoint","Script trigger"};ImGui::PushID(kind);if(ImGui::Button(names[kind],ImVec2(-1,0))){SpawnPrimitive(MeshType::Cube);auto& zone=g_Objects.back();zone.Name=names[kind];zone.Trigger=kind;zone.Solid=false;zone.Scale[0]=zone.Scale[2]=3;zone.Color[0]=kind==1?1.f:.2f;zone.Color[1]=kind==2?1.f:.3f;zone.Color[2]=kind==3?1.f:.2f;}ImGui::PopID();}
                 ImGui::Separator();EditScalar("Grid Snap",g_Studio.Snap,.01f,10);
                 if(ImGui::Button("Snap Selected"))for(auto& o:g_Objects)if(o.Selected)SnapObject(o,g_Studio.Snap);
                 if(ImGui::Button("Join Selected Meshes")) {
@@ -367,7 +374,7 @@ static void RenderTools(float& distance,float& pitch,float& yaw,float target[3])
                 ImGui::EndDisabled();ImGui::EndDisabled();
                 ImGui::TextWrapped("Select a mesh, subdivide for detail, then brush its surface with LMB. Shift inverts Inflate. Brush size is object-local.");
             } else if(tab==2) {
-                RenderGameSettings();
+                if(ImGui::Button("Game / Build settings"))g_ShowBuild=true;
                 auto& c=g_Studio.Character;
                 ImGui::SliderFloat("Height",&c.Height,1,4);ImGui::SliderFloat("Body Width",&c.Width,.3f,1.5f);ImGui::SliderFloat("Head Size",&c.HeadSize,.15f,std::min(.8f,c.Height*.4f));
                 ImGui::ColorEdit3("Outfit",c.BodyColor);ImGui::ColorEdit3("Skin",c.SkinColor);
@@ -433,7 +440,8 @@ static void RenderDocs() {
 static void RenderStudio(float& distance,float& pitch,float& yaw,float target[3],float dt) {
     RenderWorkspace(distance,pitch,yaw,target,dt);
     RenderEditorSettings();
-    RenderAnimationEditor(dt);RenderDebugPanel();
+    if(g_RequestBuild){g_ShowBuild=true;g_RequestBuild=false;}RenderBuildWindow();
+    RenderAnimationEditor(dt);RenderDebugPanel();RenderGUIEditor();
     RenderUVEditor();
     RenderGeometryNodes();
     if(!g_Studio.FullscreenCode){RenderExplorer();RenderProperties(target);RenderTools(distance,pitch,yaw,target);RenderOutput();RenderDocs();}

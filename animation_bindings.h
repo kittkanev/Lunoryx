@@ -24,7 +24,7 @@ static int l_animation_stop(lua_State* L) {
 }
 static int l_set_trigger(lua_State* L) {
   lua_Integer index=luaL_checkinteger(L,1),kind=luaL_checkinteger(L,2);
-  bool valid=index>=0&&uint64_t(index)<g_Objects.size()&&kind>=0&&kind<=2;
+  bool valid=index>=0&&uint64_t(index)<g_Objects.size()&&kind>=0&&kind<=3;
   if(valid){auto& o=g_Objects[size_t(index)];o.Trigger=int(kind);if(kind)o.Dynamic=false;}
   lua_pushboolean(L,valid);return 1;
 }

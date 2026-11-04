@@ -28,6 +28,14 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     material['image'] = []
     material['texture'] = 'assets/checker.png'
     project.write_text(json.dumps(document), encoding='utf-8')
+    # A small custom RGBA PNG exercises icon packing and Windows PE resources.
+    def chunk(kind, data):
+        return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data))
+    png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',32,32,8,6,0,0,0))+chunk(b'IDAT',zlib.compress((b'\x00'+bytes([30,180,210,255])*32)*32))+chunk(b'IEND',b'')
+    icon=source_assets/'game-icon.png';icon.write_bytes(png)
+    document['game'].update(title='Custom Gem Trail',icon='assets/game-icon.png',window_mode=1,width=960,height=540)
+    document['game']['gui']=[dict(id='custom_label',text='Custom HUD',type=0,x=.1,y=.8,width=.4,height=.08,value=.5,visible=True,color=[.1,.2,.3,1],text_color=[1,1,1,1])]
+    project.write_text(json.dumps(document),encoding='utf-8')
     original = project.read_bytes()
     subprocess.run([engine, '--build-game', project, game], check=True, timeout=60)
     assert project.read_bytes() == original
@@ -35,13 +43,52 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     if mesa:
         for dll in Path(mesa).glob('*.dll'):
             shutil.copy2(dll, directory / dll.name)
+    if os.name=='nt':
+        # Empty icon explicitly removes all editor icon resources.
+        blank_project=directory/'blank.lunoryx'
+        blank_document=json.loads(project.read_text(encoding='utf-8'))
+        blank_document['game']['icon']=''
+        blank_project.write_text(json.dumps(blank_document),encoding='utf-8')
+        blank_game=directory/'NoLogo.exe'
+        subprocess.run([engine,'--build-game',blank_project,blank_game],check=True,timeout=60)
+        import ctypes
+        kernel=ctypes.WinDLL('kernel32',use_last_error=True)
+        kernel.LoadLibraryExW.argtypes=[ctypes.c_wchar_p,ctypes.c_void_p,ctypes.c_uint32];kernel.LoadLibraryExW.restype=ctypes.c_void_p
+        kernel.FindResourceW.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p];kernel.FindResourceW.restype=ctypes.c_void_p
+        kernel.LoadResource.argtypes=[ctypes.c_void_p,ctypes.c_void_p];kernel.LoadResource.restype=ctypes.c_void_p
+        kernel.LockResource.argtypes=[ctypes.c_void_p];kernel.LockResource.restype=ctypes.c_void_p
+        kernel.SizeofResource.argtypes=[ctypes.c_void_p,ctypes.c_void_p];kernel.SizeofResource.restype=ctypes.c_uint32
+        kernel.FreeLibrary.argtypes=[ctypes.c_void_p]
+        module=kernel.LoadLibraryExW(str(blank_game),None,2|32);assert module
+        try:assert not kernel.FindResourceW(module,101,14),'Empty icon retained Studio logo'
+        finally:kernel.FreeLibrary(module)
+        blank_project.unlink();blank_game.unlink()
+        module=kernel.LoadLibraryExW(str(game),None,2|32);assert module
+        try:
+            resource=kernel.FindResourceW(module,101,14);assert resource,'EXE icon group missing'
+            resource=kernel.FindResourceW(module,1,3);assert resource,'EXE icon missing'
+            data=kernel.LockResource(kernel.LoadResource(module,resource))
+            assert ctypes.string_at(data,kernel.SizeofResource(module,resource))==png,'EXE still uses Studio icon'
+        finally:kernel.FreeLibrary(module)
     payload = game.read_bytes()
+    # Invalid icons fail transactionally, without replacing a working output.
+    icon.write_bytes(b'not a png')
+    assert subprocess.run([engine,'--build-game',project,game],capture_output=True,timeout=60).returncode!=0
+    assert game.read_bytes()==payload
+    icon.write_bytes(png)
     assert payload[-32:-24] == b'LNXPCK01'
     offset, size, crc, version = struct.unpack('<QQII', payload[-24:])
     assert version == 1 and offset + size + 32 == len(payload)
     metadata_size = struct.unpack_from('<Q', payload, offset)[0]
     manifest = json.loads(payload[offset + 8:offset + 8 + metadata_size])
     assert any(entry['name'] == 'project.lunoryx' for entry in manifest)
+    base=offset+8+metadata_size
+    packed=next(e for e in manifest if e['name']=='project.lunoryx')
+    settings=json.loads(payload[base+packed['offset']:base+packed['offset']+packed['size']])['game']
+    assert settings['title']=='Custom Gem Trail' and settings['window_mode']==1 and settings['width']==960
+    assert settings['gui'][0]['id']=='custom_label' and settings['icon']=='assets/game-icon.png'
+    assert any(e['name']=='assets/game-icon.png' for e in manifest)
+
     project.unlink()  # The runtime must not need the source document or assets.
     shutil.rmtree(source_assets)
     subprocess.run([game, '--verify-package'], check=True, timeout=60)

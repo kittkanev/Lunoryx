@@ -19,3 +19,11 @@ path tracing and environment-map reflections are not implemented.
 Validation includes actual mouse drags on each signed axis, production box/circle
 and mesh-mode gestures, fixed-eye free-look math, normalized flight, HDR readback
 above 1.0, tone mapping and framebuffer fallback, plus existing game/GLB/MCP checks.
+
+## Game creation
+
+- Build Game window: custom title and PNG icon, window/fullscreen startup, resolution, resizing, VSync and optional built-in HUD. Windows file pickers select icon/output; EXE resources and SDL window use the chosen icon. No Studio logo is added to game windows.
+- GUI Designer: draggable labels/buttons/panels/progress, colors, layers, normalized positions, save/load, Undo/Redo and Lua updates/click callbacks.
+- Building presets for killzones, checkpoints and script trigger volumes. Swept enter/stay/exit callbacks, overlap queries, safe event dispatch and debugger tracebacks.
+- EN/RU Docs include an end-to-end build, GUI and trigger scripting guide.
+- Gem Trail uses its own window title and fullscreen startup.

@@ -33,10 +33,20 @@ jobs:
         id: state
         run: |
           state=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' 2>/dev/null || true)
-          if [ "$state" = false ]; then
-            echo 'published=true' >> "$GITHUB_OUTPUT"
-          elif [ "$state" = true ]; then
-            echo 'draft=true' >> "$GITHUB_OUTPUT"
+          if [ -n "$state" ]; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+            tag_sha=$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq '.sha')
+            if [ "$tag_sha" != "$RELEASE_SHA" ]; then
+              # 1.2.1 is being completed in this release session. Replace only
+              # this explicitly requested patch; other published tags stay fixed.
+              if [ "$RELEASE_TAG" != v1.2.1 ]; then
+                echo 'Refusing to replace a different published release commit' >&2
+                exit 1
+              fi
+              echo 'refresh=true' >> "$GITHUB_OUTPUT"
+            elif [ "$state" = false ]; then
+              echo 'published=true' >> "$GITHUB_OUTPUT"
+            fi
           fi
       - name: Download the tested Windows artifact
         if: steps.state.outputs.published != 'true'
@@ -79,10 +89,16 @@ jobs:
       - name: Create draft and upload verified files
         if: steps.state.outputs.published != 'true'
         run: |
-          if [ '${{ steps.state.outputs.draft }}' != true ]; then
+          if [ '${{ steps.state.outputs.exists }}' != true ]; then
             gh release create "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --prerelease --draft
           fi
+          if [ '${{ steps.state.outputs.refresh }}' = true ]; then
+            gh release edit "$RELEASE_TAG" --draft=true --latest=false
+          fi
           gh release upload "$RELEASE_TAG" build/release/*.zip build/release/*.exe build/release/*.txt build/release/*.md build/release/*.png build/release/*.csv --clobber
+          if [ '${{ steps.state.outputs.refresh }}' = true ]; then
+            gh api "repos/$GH_REPO/git/refs/tags/$RELEASE_TAG" --method PATCH -f sha="$RELEASE_SHA" -F force=true
+          fi
           prerelease=true; latest=false
           if [[ "$RELEASE_TAG" != *-* ]]; then prerelease=false; latest=true; fi
           gh release edit "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --draft=false --prerelease="$prerelease" --latest="$latest"

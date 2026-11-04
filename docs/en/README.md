@@ -6,7 +6,7 @@ Lunoryx keeps your docked Workspace, Explorer, Properties, Tools and Output. Ope
 ### First scene
 - Tools > Build adds primitives. Select in Explorer or in Scene.
 - Q selects; W moves; E rotates; R scales. Drag a colored axis or plane.
-- Right mouse orbits; middle mouse pans; wheel zooms. Local changes the transform frame, Snap enables quantization.
+- Free Fly: hold RMB + WASD, Q/E vertical movement. Disable Free Fly for orbit. Local changes the transform frame, Snap enables quantization.
 - Ctrl+S saves .lunoryx. Project files contain scene metadata; GLB exports geometry and materials.
 - Edit > Undo/Redo restores completed scene edits. F11 expands the code editor; F5 runs the active script.
 ### Play safely
@@ -46,7 +46,7 @@ Properties > Physics / Character now includes Solid collider and Trigger. A trig
 local lava = add_object('Lava', 'cube')
 set_position(lava, 5, 0.1, 0)
 set_scale(lava, 2, 0.2, 2)
-set_trigger(lava, 1) -- 0 none / 1 killzone / 2 checkpoint
+set_trigger(lava, 1) -- 0 none / 1 killzone / 2 checkpoint / 3 script
 set_solid(lava, false)
 -- respawn(player) returns true during Play for a known dynamic actor
 ```
@@ -108,3 +108,50 @@ Free Fly is enabled in the Scene toolbar. Hold RMB to look and fly: WASD moves r
 ### Rendering
 Wireframe, Solid, Material PBR and Rendered PBR are available in the Scene toolbar. Material and Rendered use GGX metallic/roughness lighting. Balanced/Quality render to a linear RGBA16F target where supported, then apply exposure, tone mapping and FXAA. Quality adds directional PCF shadows. Office uses the direct compatible path.
 Lighting is realtime rasterization with a directional sun and an approximate hemisphere ambient term. It does not include path tracing or environment-map reflections. The display texture and UI stay at the requested output size.
+
+## 08 · Build your game EXE
+
+### Your own game identity
+Open Build Game in the top menu (also Tools > Character > Game / Build settings). Stop simulation before building. Give the game its own title; this becomes its window title. Studio branding is not added to the game window.
+Choose a square PNG icon, 16–256 px (256×256 recommended). On Windows, Choose icon opens a file picker; Clear icon uses the system default, not the Lunoryx logo. The PNG is embedded in the package and Windows EXE resources, so both Explorer and the running game use it. Windows may cache an old Explorer icon: try a new output filename.
+### Display and startup
+- Startup display: Windowed or Fullscreen (desktop). Fullscreen uses the current desktop resolution without changing the monitor mode.
+- Window width/height apply to windowed mode: 320–7680 by 200–4320. Resizable window and Game VSync are independent settings.
+- New projects and Gem Trail start fullscreen; old projects keep their saved/legacy windowed behavior until you choose Fullscreen.
+- Built-in score / HUD can be disabled when you make your own GUI.
+- Startup script: choose the Lua tab to execute at launch. Follow selected character and distance/pitch/yaw configure the game camera.
+### Build and test
+Choose output EXE (Windows file picker) or type its path, then Build standalone Game.exe. The builder packages the scene, GUI, scripts, PNG icon, textures and sounds into one executable without a separate compiler. Build errors appear in Output. Save the .lunoryx to keep the settings for the next build.
+Move the game to an empty folder to test it independently. Esc exits; R restarts. Build on Windows to customize Windows EXE resources. Linux builds produce a native Linux game, not a Windows cross-compile.
+
+
+## 09 · GUI Designer and trigger scripting
+
+### Build a game interface
+Window > GUI Designer opens a canvas. Add Label, Button, Panel or Progress. Select a widget in the list or canvas and drag it into place. Edit its unique ID, text, visibility, background/text/fill colors, X/Y, width/height and progress value. Move layer up places it above the next widget. Hidden widgets remain editable in the designer. Delete widget removes the selected one; Edit > Undo/Redo restores GUI edits while stopped.
+Coordinates and sizes are fractions of the viewport (0–1). The GUI scales with the game window; content outside the viewport is clipped. A maximum of 128 widgets is supported, IDs are unique (1–63 bytes), text up to 1024 UTF-8 bytes. Labels/buttons support multiline text; progress values are 0–1. This is a flat 2D overlay, without HTML, nesting or text-input widgets.
+### Lua GUI API
+- gui_text(id, text): change a label/button's text.
+- gui_visible(id, boolean): show or hide a widget.
+- gui_value(id, number): set progress (clamped 0–1).
+Each returns true if the ID exists, otherwise false. Define on_gui_click(id) for button clicks. Create the widgets first in GUI Designer. Clicks are delivered on the next simulation tick; callbacks stop while the debugger is paused. Stop restores the original GUI; restart resets it.
+### Trigger building and events
+Tools > Build has Killzone, Checkpoint and Script trigger presets. Move/scale them like other objects. Properties > Trigger can change any object into a zone; Debugger > Collision / trigger bounds displays their volumes. Triggers are world-axis-aligned, non-solid boxes even if Solid is checked.
+set_trigger(objectIndex, kind): 0 none, 1 killzone, 2 checkpoint, 3 script trigger. Returns false for an invalid index/kind. A trigger is made static. Killzones respawn dynamic actors; checkpoints update character spawns; script triggers only emit events.
+Define on_trigger(event, zoneIndex, actorIndex). Events are enter, stay (once per runtime tick, not per physics substep), exit. Sensors track dynamic non-trigger actors, including characters; trigger_contains(zoneIndex, actorIndex) directly tests current overlap for any object. A thin zone crossed in one frame emits enter then exit. Kill/respawn is applied before callbacks. Overlap limits: 8192 active pairs, 4096 queued events per tick. Keep scenes within these limits.
+Lua indices are zero-based and shift after deletion; names need not be unique. Call find_object after scene membership changes. Events use stable IDs internally and resolve indices before each callback; events involving deleted objects are discarded. Callback errors include a traceback and pause the runtime in Debugger/Output.
+```lua
+-- Tools > Build > Script trigger creates a non-solid zone.
+-- Assign this script in Build Game > Startup script; press Play.
+function on_trigger(event, zone, actor)
+    if event == 'enter' and zone == find_object('Script trigger') then
+        gui_text('message', 'Welcome!')
+        gui_visible('message', true)
+    elseif event == 'exit' then
+        gui_visible('message', false)
+    end
+end
+function on_gui_click(id)
+    if id == 'restart' then restart_game() end
+end
+```

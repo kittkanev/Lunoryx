@@ -151,3 +151,10 @@ Lunoryx 1.0 — игровой редактор с указанным набор
 Bevel требует замкнутой ориентированной топологии; новые поверхности используют первый слот материала. Булев результат требует новой UV-развёртки и настройки материала. Mirror копирует весь меш относительно локального начала; подразделение использует Loop. GLB-импорт сообщает о пропущенных анимациях/морфах/нетреугольных примитивах и отклоняет обязательные неподдерживаемые расширения и sparse-accessors.
 
 Лимиты: 10 000 объектов; 200 000 вершин на меш; 1 000 000 вершин на проект; 16 модификаторов; 64 материала на объект; 64 звука; текстуры до 4096×4096; документ проекта до 32 MiB; до 255 упакованных внешних ресурсов и 512 MiB игровых данных. Проверки Windows/Mesa не охватывают все пользовательские GPU.
+
+### Game authoring in 1.2.1
+
+- **Build Game:** custom game title and PNG icon, fullscreen/windowed startup, window size, resizing, VSync and optional score HUD. Choose icon/output files on Windows; settings are saved in the project.
+- **Window → GUI Designer:** drag labels, buttons, panels and progress bars; edit IDs, colors, normalized positions and layers. Lua: `gui_text`, `gui_visible`, `gui_value`, `on_gui_click`.
+- **Tools → Build:** killzones, checkpoints and script-trigger presets. Lua: `set_trigger(index, 3)`, `trigger_contains` and `on_trigger(event, zone, actor)` for enter/stay/exit.
+- Full [English guide](docs/en/README.md) / [Русское руководство](docs/ru/README.md), sections 08–09, are also embedded in API Docs.

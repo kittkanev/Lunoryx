@@ -35,7 +35,7 @@ static void CreateSampleGame() {
   g_Objects.clear();
   g_Sounds.clear();
   g_Game = StudioGameSettings();
-  g_Game.Title = "Lunoryx - Gem Trail";g_Game.StartupScript=0;
+  g_Game.Title = "Gem Trail";g_Game.DefaultHUD=true;g_Game.WindowMode=1;g_Game.StartupScript=0;
   ApplySkyPreset(0);
   g_Physics = PhysicsState();g_Physics.Ground=false;
   GameObject floor("Textured Floor");

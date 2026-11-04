@@ -71,8 +71,11 @@ jobs:
             timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GIZMO_SMOKE=1 LUNORYX_GIZMO_AXIS="$axis" LUNORYX_GIZMO_NEGATIVE=1 ./engine
           done
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_SELECTION_SMOKE=1 ./engine
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GAME_GUI_SMOKE=1 ./engine
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=5 LUNORYX_RUNTIME_SMOKE=1 ./engine
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/animation-docs.png ./engine --report-animation
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/game-ui.png ./engine --report-game-ui
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/game-build.png ./engine --report-game-build
       - uses: actions/upload-artifact@v4
         with:
           name: gltf-validation
@@ -88,6 +91,8 @@ jobs:
             build/geometry-nodes.png
             build/sculpt.png
             build/animation-docs.png
+            build/game-ui.png
+            build/game-build.png
             build/render-before.png
       - name: Address, undefined behavior and leak checks
         run: |
@@ -183,6 +188,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ./viewport_postprocess_tests.exe --bench | Set-Content -Encoding utf8 build/render-postprocess-windows.csv
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test GUI input to Lua on Windows
+        shell: pwsh
+        run: |
+          $env:LUNORYX_GAME_GUI_SMOKE='1'
+          $env:TEST_TIMEOUT='8'
+          & ./engine.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item Env:LUNORYX_GAME_GUI_SMOKE
       - name: Test viewport selection and signed gizmos on Windows
         shell: pwsh
         run: |

@@ -44,3 +44,20 @@ static int l_restart_game(lua_State *) {
   g_RestartGame = true;
   return 0;
 }
+
+static int l_gui_text(lua_State* L) {
+  const char* id=luaL_checkstring(L,1);size_t n=0;const char* text=luaL_checklstring(L,2,&n);
+  if(n>1024||std::memchr(text,0,n))return luaL_error(L,"GUI text must be at most 1024 bytes without NUL");
+  auto* w=FindGameWidget(id);if(w)w->Text.assign(text,n);lua_pushboolean(L,w!=nullptr);return 1;
+}
+static int l_gui_visible(lua_State* L) {
+  const char* id=luaL_checkstring(L,1);auto* w=FindGameWidget(id);if(w)w->Visible=lua_toboolean(L,2)!=0;lua_pushboolean(L,w!=nullptr);return 1;
+}
+static int l_gui_value(lua_State* L) {
+  const char* id=luaL_checkstring(L,1);float value=CheckFiniteNumber(L,2);auto* w=FindGameWidget(id);if(w)w->Value=std::max(0.f,std::min(1.f,value));lua_pushboolean(L,w!=nullptr);return 1;
+}
+static int l_trigger_contains(lua_State* L) {
+  lua_Integer zone=luaL_checkinteger(L,1),actor=luaL_checkinteger(L,2);
+  bool valid=zone>=0&&actor>=0&&uint64_t(zone)<g_Objects.size()&&uint64_t(actor)<g_Objects.size();
+  lua_pushboolean(L,valid&&TriggerContains(g_Objects[size_t(zone)],g_Objects[size_t(actor)]));return 1;
+}

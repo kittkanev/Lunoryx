@@ -3,7 +3,29 @@
 struct ActorSpawn { Vec3 Position, Previous; uint64_t Checkpoint; ActorSpawn():Position{0,0,0},Previous{0,0,0},Checkpoint(0){} ActorSpawn(Vec3 p,Vec3 previous,uint64_t checkpoint):Position(p),Previous(previous),Checkpoint(checkpoint){} };
 static std::map<uint64_t,ActorSpawn> g_ActorSpawns;
 static unsigned g_DeathCount=0,g_CheckpointCount=0;
+struct TriggerEvent { std::string Event;uint64_t Zone,Actor; };
+static std::set<std::pair<uint64_t,uint64_t>> g_TriggerOverlaps;
+static std::vector<TriggerEvent> g_TriggerEvents;
+static bool TriggerContains(const GameObject& zone,const GameObject& actor) {
+  Bounds a,b;if(!zone.Trigger||!WorldBounds(zone,a)||!WorldBounds(actor,b))return false;
+  return a.Min.x<=b.Max.x&&a.Max.x>=b.Min.x&&a.Min.y<=b.Max.y&&a.Max.y>=b.Min.y&&a.Min.z<=b.Max.z&&a.Max.z>=b.Min.z;
+}
+inline bool SweptTrigger(const GameObject&,Vec3,const Bounds&);
+static void CollectTriggerEvents() {
+  std::set<std::pair<uint64_t,uint64_t>> current;
+  auto emit=[](const char* event,uint64_t zone,uint64_t actor){if(g_TriggerEvents.size()<4096)g_TriggerEvents.push_back({event,zone,actor});};
+  for(const auto& actor:g_Objects)if(actor.Dynamic&&!actor.Trigger){
+    auto it=g_ActorSpawns.find(actor.Id);Vec3 previous=it==g_ActorSpawns.end()?Vec3{actor.Position[0],actor.Position[1],actor.Position[2]}:it->second.Previous;
+    for(const auto& zone:g_Objects)if(zone.Trigger){auto pair=std::make_pair(zone.Id,actor.Id);bool was=g_TriggerOverlaps.count(pair)!=0,inside=TriggerContains(zone,actor);
+      if(inside){if(current.size()<8192)current.insert(pair);emit(was?"stay":"enter",zone.Id,actor.Id);}
+      else if(!was){Bounds b;if(WorldBounds(zone,b)&&SweptTrigger(actor,previous,b)){emit("enter",zone.Id,actor.Id);emit("exit",zone.Id,actor.Id);}}
+    }
+  }
+  for(const auto& pair:g_TriggerOverlaps)if(!current.count(pair))emit("exit",pair.first,pair.second);
+  g_TriggerOverlaps.swap(current);
+}
 static void ResetGameplay() {
+  g_TriggerOverlaps.clear();g_TriggerEvents.clear();
   g_ActorSpawns.clear();g_DeathCount=g_CheckpointCount=0;
   for(const auto& o:g_Objects)if(o.Dynamic){Vec3 p={o.Position[0],o.Position[1],o.Position[2]};g_ActorSpawns[o.Id]={p,p,0};}
 }
@@ -25,6 +47,7 @@ inline bool SweptTrigger(const GameObject& actor,Vec3 previous,const Bounds& tri
   return true;
 }
 static void UpdateGameplay() {
+  CollectTriggerEvents();
   for(auto& actor:g_Objects)if(actor.Dynamic&&!actor.Trigger){
     auto it=g_ActorSpawns.find(actor.Id);
     if(it==g_ActorSpawns.end()){Vec3 p={actor.Position[0],actor.Position[1],actor.Position[2]};it=g_ActorSpawns.emplace(actor.Id,ActorSpawn{p,p,0}).first;}
