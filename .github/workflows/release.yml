@@ -86,6 +86,12 @@ jobs:
           prerelease=true; latest=false
           if [[ "$RELEASE_TAG" != *-* ]]; then prerelease=false; latest=true; fi
           gh release edit "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --draft=false --prerelease="$prerelease" --latest="$latest"
+      - name: Retire the superseded 1.2.0 beta
+        if: env.RELEASE_TAG == 'v1.2.0'
+        run: |
+          if gh release view v1.2.0-beta.1 >/dev/null 2>&1; then
+            gh release edit v1.2.0-beta.1 --draft=true --latest=false
+          fi
       - name: Verify published release
         run: |
           gh release view "$RELEASE_TAG" --json url,isDraft,isPrerelease,targetCommitish,assets
