@@ -11,9 +11,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/Lunoryx.exe"><img src="assets/readme/download-windows.svg" alt="Скачать Lunoryx 1.2.1 для Windows x64 — один EXE" width="280" /></a>
-  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/Lunoryx-v1.2.1-windows-x64.zip"><img src="assets/readme/download-package.svg" alt="Скачать Windows ZIP с редактором, документацией и примерами" width="280" /></a>
-  <a href="#build-linux"><img src="assets/readme/build-linux.svg" alt="Linux: инструкция по сборке из исходников" width="280" /></a>
+  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/Lunoryx.exe"><img src="assets/readme/download-windows.svg" alt="Скачать Lunoryx 1.2.1 для Windows x64 — один EXE" width="260" /></a>
+  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/Lunoryx-v1.2.1-windows-x64.zip"><img src="assets/readme/download-package.svg" alt="Скачать Windows ZIP с редактором, документацией и примерами" width="260" /></a>
+  <a href="#build-linux"><img src="assets/readme/build-linux.svg" alt="Linux: инструкция по сборке из исходников" width="260" /></a>
 </p>
 <p align="center">
   <a href="docs/ru/README.md"><img src="assets/readme/docs-ru.svg" alt="Руководство на русском" width="188" /></a>
