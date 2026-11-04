@@ -6,14 +6,14 @@ CARGO ?= cargo
 RUST_LIB = build/rust-windows/x86_64-pc-windows-gnu/release/liblunoryx_kernels.a
 RUST_BENCH_LIB = build/rust-windows-bench/x86_64-pc-windows-gnu/release/liblunoryx_kernels.a
 RUST_SOURCES = $(wildcard extensions/rust-kernels/src/*.rs) extensions/rust-kernels/Cargo.toml extensions/rust-kernels/Cargo.lock rust-toolchain.toml
-CPPFLAGS = -DSDL_MAIN_HANDLED -DNOMINMAX -I$(LUA_DIR) -I$(SDL_DIR)/include/SDL2 -I./imgui -I./imgui/backends -isystem ./win_deps
+CPPFLAGS = -I. -DSDL_MAIN_HANDLED -DNOMINMAX -I$(LUA_DIR) -I$(SDL_DIR)/include/SDL2 -I./third_party/imgui -I./third_party/imgui/backends -isystem ./third_party/include
 CXXFLAGS = -Wall -Wextra -Werror -O2 -std=c++11 -MMD -MP
 LDLIBS = build/deps/manifold-windows/src/libmanifold.a -L$(LUA_DIR) -llua $(SDL_DIR)/lib/libSDL2.a -lopengl32 -lm -ldinput8 -ldxguid -ldxerr8 -lcomdlg32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lsetupapi -lversion -luuid -lksuser -lavrt
 LDFLAGS = -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lwinpthread -Wl,-Bdynamic
 
-IMGUI_SRC = extensions/ImGuizmo/ImGuizmo.cpp imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_sdl2.cpp imgui/backends/imgui_impl_opengl3.cpp
+IMGUI_SRC = extensions/ImGuizmo/ImGuizmo.cpp third_party/imgui/imgui.cpp third_party/imgui/imgui_demo.cpp third_party/imgui/imgui_draw.cpp third_party/imgui/imgui_tables.cpp third_party/imgui/imgui_widgets.cpp third_party/imgui/backends/imgui_impl_sdl2.cpp third_party/imgui/backends/imgui_impl_opengl3.cpp
 OBJS = $(addprefix $(BUILD_DIR)/obj/,$(IMGUI_SRC:.cpp=.o)) $(BUILD_DIR)/obj/extensions/audio/audio_backend.o $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o $(BUILD_DIR)/obj/extensions/xatlas/xatlas.o
-ENGINE_OBJ = $(BUILD_DIR)/obj/main.o
+ENGINE_OBJ = $(BUILD_DIR)/obj/src/main.o
 TEST_OBJ = $(BUILD_DIR)/obj/tests/engine_tests.o
 DEPS = $(OBJS:.o=.d) $(ENGINE_OBJ:.o=.d) $(TEST_OBJ:.o=.d)
 
@@ -21,14 +21,14 @@ DEPS = $(OBJS:.o=.d) $(ENGINE_OBJ:.o=.d) $(TEST_OBJ:.o=.d)
 all: $(BUILD_DIR)/engine.exe
 
 $(BUILD_DIR)/engine.exe: $(ENGINE_OBJ) $(OBJS) $(BUILD_DIR)/app-icon.o $(RUST_LIB)
-	$(CXX) $^ $(LDLIBS) $(LDFLAGS) -mwindows -o $@
+	$(CXX) $(CPPFLAGS) $^ $(LDLIBS) $(LDFLAGS) -mwindows -o $@
 
 $(BUILD_DIR)/engine_tests.exe: $(TEST_OBJ) $(OBJS) $(RUST_LIB)
-	$(CXX) $^ $(LDLIBS) $(LDFLAGS) -o $@
+	$(CXX) $(CPPFLAGS) $^ $(LDLIBS) $(LDFLAGS) -o $@
 
-$(BUILD_DIR)/core_tests.exe: tests/core_tests.cpp scene_core.h scene_tools.h editor_transform.h
+$(BUILD_DIR)/core_tests.exe: tests/core_tests.cpp src/core/scene_core.h src/core/scene_tools.h src/editor/editor_transform.h
 	mkdir -p $(BUILD_DIR)
-	$(CXX) -std=c++11 -Wall -Wextra -Werror -O2 $< $(LDFLAGS) -o $@
+	$(CXX) $(CPPFLAGS) -std=c++11 -Wall -Wextra -Werror -O2 $< $(LDFLAGS) -o $@
 
 $(BUILD_DIR)/app-icon.o: assets/app.rc assets/lunoryx.ico
 	mkdir -p $(BUILD_DIR)
@@ -43,6 +43,9 @@ tests: $(BUILD_DIR)/core_tests.exe $(BUILD_DIR)/engine_tests.exe
 package: all tests
 	cp README.md $(BUILD_DIR)/
 	cp -r examples docs $(BUILD_DIR)/
+	mkdir -p $(BUILD_DIR)/assets
+	cp assets/lunoryx-logo.png $(BUILD_DIR)/assets/
+	cp -r assets/readme $(BUILD_DIR)/assets/
 	mkdir -p $(BUILD_DIR)/licenses
 	cp docs/licenses/* $(BUILD_DIR)/licenses/
 
@@ -53,26 +56,26 @@ clean:
 
 $(BUILD_DIR)/obj/extensions/audio/audio_backend.o: extensions/audio/audio_backend.c extensions/audio/audio_backend.h extensions/audio/miniaudio.h extensions/audio/stb_vorbis.c
 	mkdir -p $(dir $@)
-	x86_64-w64-mingw32-gcc -std=c11 -Wall -Wextra -Werror -Wno-unused-function -O2 -c $< -o $@
+	x86_64-w64-mingw32-gcc $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -Wno-unused-function -O2 -c $< -o $@
 
 $(BUILD_DIR)/studio_audio_tests.exe: tests/studio_audio_tests.c $(BUILD_DIR)/obj/extensions/audio/audio_backend.o
-	x86_64-w64-mingw32-gcc -std=c11 -Wall -Wextra -Werror -O2 $^ -lwinmm -lole32 -luuid -lksuser -lavrt -static-libgcc -o $@
+	x86_64-w64-mingw32-gcc $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -O2 $^ -lwinmm -lole32 -luuid -lksuser -lavrt -static-libgcc -o $@
 tests: $(BUILD_DIR)/studio_audio_tests.exe
 
 $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o: extensions/modeling/boolean_adapter.cpp extensions/modeling/boolean_adapter.h build/deps/manifold-windows/src/libmanifold.a
 	mkdir -p $(dir $@)
-	$(CXX) -std=c++17 -O2 -Wall -Wextra -Werror -Ibuild/deps/manifold/include -Ibuild/deps/manifold-windows/include -c $< -o $@
+	$(CXX) $(CPPFLAGS) -std=c++17 -O2 -Wall -Wextra -Werror -Ibuild/deps/manifold/include -Ibuild/deps/manifold-windows/include -c $< -o $@
 
 build/deps/manifold-windows/src/libmanifold.a:
 	bash tools/prepare_modeling.sh windows
 
-$(BUILD_DIR)/modeling_tests.exe: tests/modeling_tests.cpp scene_core.h scene_tools.h mesh_modeling.h studio_mesh_types.h extensions/rust-kernels/kernels.h $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o $(RUST_LIB)
-	$(CXX) -std=c++11 -Wall -Wextra -Werror -O2 $< $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o build/deps/manifold-windows/src/libmanifold.a $(RUST_LIB) $(LDFLAGS) -o $@
+$(BUILD_DIR)/modeling_tests.exe: tests/modeling_tests.cpp src/core/scene_core.h src/core/scene_tools.h src/core/mesh_modeling.h src/core/studio_mesh_types.h extensions/rust-kernels/kernels.h $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o $(RUST_LIB)
+	$(CXX) $(CPPFLAGS) -std=c++11 -Wall -Wextra -Werror -O2 $< $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o build/deps/manifold-windows/src/libmanifold.a $(RUST_LIB) $(LDFLAGS) -o $@
 tests: $(BUILD_DIR)/modeling_tests.exe
 
 $(BUILD_DIR)/obj/extensions/xatlas/xatlas.o: extensions/xatlas/xatlas.cpp extensions/xatlas/xatlas.h
 	mkdir -p $(dir $@)
-	$(CXX) -std=c++11 -O2 -w -c $< -o $@
+	$(CXX) $(CPPFLAGS) -std=c++11 -O2 -w -c $< -o $@
 
 $(RUST_LIB): $(RUST_SOURCES)
 	$(CARGO) build --locked --offline --release --target x86_64-pc-windows-gnu --manifest-path extensions/rust-kernels/Cargo.toml --target-dir $(abspath build/rust-windows)
@@ -80,45 +83,45 @@ $(RUST_LIB): $(RUST_SOURCES)
 $(RUST_BENCH_LIB): $(RUST_SOURCES)
 	$(CARGO) build --locked --offline --release --features bench --target x86_64-pc-windows-gnu --manifest-path extensions/rust-kernels/Cargo.toml --target-dir $(abspath build/rust-windows-bench)
 
-$(BUILD_DIR)/rust_kernel_tests.exe: tests/rust_kernel_tests.cpp scene_core.h scene_tools.h studio_mesh_types.h extensions/rust-kernels/kernels.h mesh_modeling.h $(RUST_LIB) $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o
+$(BUILD_DIR)/rust_kernel_tests.exe: tests/rust_kernel_tests.cpp src/core/scene_core.h src/core/scene_tools.h src/core/studio_mesh_types.h extensions/rust-kernels/kernels.h src/core/mesh_modeling.h $(RUST_LIB) $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o
 	mkdir -p $(BUILD_DIR)
-	$(CXX) -std=c++11 -Wall -Wextra -Werror -O2 $< $(RUST_LIB) $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o build/deps/manifold-windows/src/libmanifold.a $(LDFLAGS) -o $@
+	$(CXX) $(CPPFLAGS) -std=c++11 -Wall -Wextra -Werror -O2 $< $(RUST_LIB) $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o build/deps/manifold-windows/src/libmanifold.a $(LDFLAGS) -o $@
 
-$(BUILD_DIR)/performance.exe: benchmarks/performance.cpp scene_core.h scene_tools.h extensions/rust-kernels/kernels.h $(RUST_BENCH_LIB)
+$(BUILD_DIR)/performance.exe: benchmarks/performance.cpp src/core/scene_core.h src/core/scene_tools.h extensions/rust-kernels/kernels.h $(RUST_BENCH_LIB)
 	mkdir -p $(BUILD_DIR)
-	$(CXX) -std=c++11 -Wall -Wextra -Werror -O2 $< $(RUST_BENCH_LIB) $(LDFLAGS) -o $@
+	$(CXX) $(CPPFLAGS) -std=c++11 -Wall -Wextra -Werror -O2 $< $(RUST_BENCH_LIB) $(LDFLAGS) -o $@
 
 tests: $(BUILD_DIR)/rust_kernel_tests.exe $(BUILD_DIR)/performance.exe
 
-$(BUILD_DIR)/physics_differential.exe: tests/physics_differential.cpp tests/physics_reference.h scene_core.h scene_tools.h
+$(BUILD_DIR)/physics_differential.exe: tests/physics_differential.cpp tests/physics_reference.h src/core/scene_core.h src/core/scene_tools.h
 	mkdir -p $(BUILD_DIR)
-	$(CXX) -std=c++11 -Wall -Wextra -Werror -O2 $< $(LDFLAGS) -o $@
+	$(CXX) $(CPPFLAGS) -std=c++11 -Wall -Wextra -Werror -O2 $< $(LDFLAGS) -o $@
 
-$(BUILD_DIR)/physics_benchmark.exe: benchmarks/physics_benchmark.cpp tests/physics_reference.h scene_core.h scene_tools.h
+$(BUILD_DIR)/physics_benchmark.exe: benchmarks/physics_benchmark.cpp tests/physics_reference.h src/core/scene_core.h src/core/scene_tools.h
 	mkdir -p $(BUILD_DIR)
-	$(CXX) -std=c++11 -Wall -Wextra -Werror -O2 $< $(LDFLAGS) -o $@
+	$(CXX) $(CPPFLAGS) -std=c++11 -Wall -Wextra -Werror -O2 $< $(LDFLAGS) -o $@
 
 tests: $(BUILD_DIR)/physics_differential.exe $(BUILD_DIR)/physics_benchmark.exe
 
-$(BUILD_DIR)/viewport_postprocess_tests.exe: tests/viewport_postprocess_tests.cpp viewport_target.h viewport_postprocess.h
+$(BUILD_DIR)/viewport_postprocess_tests.exe: tests/viewport_postprocess_tests.cpp src/render/viewport_target.h src/render/viewport_postprocess.h
 	mkdir -p $(BUILD_DIR)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(filter-out build/deps/manifold-windows/src/libmanifold.a -L$(LUA_DIR) -llua,$(LDLIBS)) $(LDFLAGS) -o $@
 
 tests: $(BUILD_DIR)/viewport_postprocess_tests.exe
 
-$(BUILD_DIR)/render_parity_tests.exe: tests/render_parity_tests.cpp material_render.h render_geometry.h tests/render_cache_regressions.h scene_tools.h mesh_modeling.h studio_mesh_types.h
+$(BUILD_DIR)/render_parity_tests.exe: tests/render_parity_tests.cpp src/render/material_render.h src/render/render_geometry.h tests/render_cache_regressions.h src/core/scene_tools.h src/core/mesh_modeling.h src/core/studio_mesh_types.h
 	mkdir -p $(BUILD_DIR)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(filter-out build/deps/manifold-windows/src/libmanifold.a -L$(LUA_DIR) -llua,$(LDLIBS)) $(LDFLAGS) -o $@
 
 tests: $(BUILD_DIR)/render_parity_tests.exe
 
-$(BUILD_DIR)/weld_operation.exe: benchmarks/weld_operation.cpp tests/reference_weld.h scene_tools.h mesh_modeling.h studio_mesh_types.h extensions/rust-kernels/kernels.h $(RUST_LIB)
+$(BUILD_DIR)/weld_operation.exe: benchmarks/weld_operation.cpp tests/reference_weld.h src/core/scene_tools.h src/core/mesh_modeling.h src/core/studio_mesh_types.h extensions/rust-kernels/kernels.h $(RUST_LIB)
 	mkdir -p $(BUILD_DIR)
-	$(CXX) -std=c++11 -Wall -Wextra -Werror -O2 $< $(RUST_LIB) $(LDFLAGS) -o $@
+	$(CXX) $(CPPFLAGS) -std=c++11 -Wall -Wextra -Werror -O2 $< $(RUST_LIB) $(LDFLAGS) -o $@
 
 tests: $(BUILD_DIR)/weld_operation.exe
 
-$(BUILD_DIR)/scene_shadow_tests.exe: tests/scene_shadow_tests.cpp scene_shadows.h viewport_target.h viewport_postprocess.h
+$(BUILD_DIR)/scene_shadow_tests.exe: tests/scene_shadow_tests.cpp src/render/scene_shadows.h src/render/viewport_target.h src/render/viewport_postprocess.h
 	mkdir -p $(BUILD_DIR)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(filter-out build/deps/manifold-windows/src/libmanifold.a -L$(LUA_DIR) -llua,$(LDLIBS)) $(LDFLAGS) -o $@
 

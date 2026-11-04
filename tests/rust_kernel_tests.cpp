@@ -1,5 +1,5 @@
-#include "../scene_tools.h"
-#include "../mesh_modeling.h"
+#include "src/core/scene_tools.h"
+#include "src/core/mesh_modeling.h"
 #include <cassert>
 #include <iostream>
 static std::vector<uint32_t> Reference(const std::vector<float>& p,const std::vector<uint32_t>& selected,float t){std::map<uint32_t,uint32_t> map;std::vector<uint32_t> out;for(auto v:selected){map[v]=v;for(auto r:map)if(v!=r.first){Vec3 d=Subtract({p[v*3],p[v*3+1],p[v*3+2]},{p[r.first*3],p[r.first*3+1],p[r.first*3+2]});if(Dot(d,d)<=double(t)*t){map[v]=r.second;break;}}out.push_back(map[v]);}return out;}

@@ -1,5 +1,5 @@
 #pragma once
-#include "viewport_postprocess.h"
+#include "src/render/viewport_postprocess.h"
 #include <cmath>
 // OpenGL 2.1 + EXT_framebuffer_object, with core-entry-point fallbacks.
 struct ViewportTarget {

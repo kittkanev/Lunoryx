@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <memory>
 #ifndef LUNORYX_RENDER_PARITY_TEST
-#include "scene_shadows.h"
+#include "src/render/scene_shadows.h"
 #endif
 struct StudioRenderStats {
   size_t DrawCalls = 0, Triangles = 0, CacheHits = 0, CacheMisses = 0;
@@ -179,7 +179,7 @@ static void RenderLitMeshLegacy(const GameObject &object) {
   glDisable(GL_LIGHTING);
 }
 
-#include "render_geometry.h"
+#include "src/render/render_geometry.h"
 static void RenderLitMesh(const GameObject &object) {
   if (!g_StudioMeshCaching) {
     RenderLitMeshLegacy(object);

@@ -1,5 +1,5 @@
 #pragma once
-#include "editor_transform.h"
+#include "src/editor/editor_transform.h"
 struct StudioProjected { float X=0,Y=0,Depth=0; bool Valid=false; };
 inline StudioProjected StudioProjectPoint(const StudioMatrix& matrix,Vec3 p,float x,float y,float width,float height){
   float c[4]={};for(int r=0;r<4;++r)c[r]=matrix.M[r]*p.x+matrix.M[4+r]*p.y+matrix.M[8+r]*p.z+matrix.M[12+r];

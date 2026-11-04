@@ -1,4 +1,4 @@
-#include "../animation_core.h"
+#include "src/core/animation_core.h"
 #include <assert.h>
 #include <stdio.h>
 int main(void){

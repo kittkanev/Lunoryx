@@ -55,7 +55,7 @@ static int ReadInteger(const nlohmann::json &value, int low, int high) {
     throw std::runtime_error("Integer outside allowed range");
   return int(number);
 }
-#include "game_project.h"
+#include "src/runtime/game_project.h"
 template <typename T>
 static std::vector<T> ReadUnsignedArray(const nlohmann::json &value,
                                         size_t limit) {

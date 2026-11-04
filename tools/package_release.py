@@ -36,7 +36,7 @@ def package(artifact, output):
     shutil.copy2(artifact / 'engine.exe', stage / f'{NAME}.exe')
     shutil.copy2(artifact / 'README.md', stage / 'README.md')
     shutil.copy2('docs/README-FIRST.txt', stage / 'README-FIRST.txt')
-    for directory in ('examples', 'docs', 'licenses'):
+    for directory in ('examples', 'docs', 'licenses', 'assets'):
         shutil.copytree(artifact / directory, stage / directory)
     archive = output / f'{stage.name}.zip'
     with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:

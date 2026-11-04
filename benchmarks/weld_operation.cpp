@@ -1,5 +1,5 @@
-#include "../scene_tools.h"
-#include "../mesh_modeling.h"
+#include "src/core/scene_tools.h"
+#include "src/core/mesh_modeling.h"
 #include "../tests/reference_weld.h"
 #include <cassert>
 #include <chrono>

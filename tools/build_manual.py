@@ -19,7 +19,7 @@ embedded=['#pragma once\nstruct StudioGuideTopic { const char* Title[2]; const c
 for topic in topics:
     embedded.append('{{'+','.join(json.dumps(topic[x]['title'],ensure_ascii=False) for x in ('en','ru'))+'},{'+','.join('R"GUIDE('+topic[x]['body']+')GUIDE"' for x in ('en','ru'))+'}},')
 embedded.append('};\n')
-(root/'editor_guide_data.h').write_text('\n'.join(embedded))
+(root/'src/editor/editor_guide_data.h').write_text('\n'.join(embedded))
 for lang in ('en','ru'):
     title='Creator Handbook' if lang=='en' else 'Руководство автора'
     nav=''.join(f'<a href="#s{i}">{html.escape(t[lang]["title"])}</a>' for i,t in enumerate(topics))

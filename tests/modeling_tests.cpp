@@ -1,5 +1,5 @@
-#include "../scene_tools.h"
-#include "../mesh_modeling.h"
+#include "src/core/scene_tools.h"
+#include "src/core/mesh_modeling.h"
 #include <cassert>
 #include <iostream>
 static double Volume(const GameObject& o){auto m=Model::FromObject(o);double v=0;for(size_t i=0;i<m.Indices.size();i+=3)v+=Dot(Model::Point(m,m.Indices[i]),Cross(Model::Point(m,m.Indices[i+1]),Model::Point(m,m.Indices[i+2])))/6;return std::abs(v);}

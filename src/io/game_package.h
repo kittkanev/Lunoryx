@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
 #include <sys/stat.h>
-#include "game_icon.h"
+#include "src/io/game_icon.h"
 namespace GamePackage {
 static const size_t MaxPayload = 512 * 1024 * 1024;
 inline void CheckResourceName(const std::string &name) {

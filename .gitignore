@@ -12,7 +12,7 @@ SDL2-*/
 *.o
 *.d
 /tools/node_modules/
-imgui.ini
+/imgui.ini
 
 /tests/*.lunoryx
 /tests/*.lunoryx.tmp

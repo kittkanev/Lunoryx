@@ -1,7 +1,7 @@
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
 #endif
-#include "../scene_shadows.h"
+#include "src/render/scene_shadows.h"
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include <cassert>

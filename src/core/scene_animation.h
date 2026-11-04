@@ -1,5 +1,5 @@
 #pragma once
-#include "scene_tools.h"
+#include "src/core/scene_tools.h"
 inline LnxPose ObjectPose(const GameObject& o) {
   LnxPose p;
   std::copy(o.Position,o.Position+3,p.Position);std::copy(o.Rotation,o.Rotation+3,p.Rotation);

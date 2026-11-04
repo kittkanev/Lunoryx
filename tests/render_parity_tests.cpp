@@ -5,8 +5,8 @@
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
 #endif
-#include "../scene_tools.h"
-#include "../mesh_modeling.h"
+#include "src/core/scene_tools.h"
+#include "src/core/mesh_modeling.h"
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include <cassert>
@@ -31,7 +31,7 @@ struct ShadowStub {
 };
 static ShadowStub g_SceneShadows;
 #define LUNORYX_RENDER_PARITY_TEST
-#include "../material_render.h"
+#include "src/render/material_render.h"
 #include "render_cache_regressions.h"
 
 static void Draw(const GameObject &object, bool cached) {

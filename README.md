@@ -133,6 +133,24 @@ MCP запускается тем же EXE в режиме `--mcp` и работ
 [API и примеры на русском](docs/ru/README.md) · [English API guide](docs/en/README.md) · [Пример игры на Lua](examples/collect.lua)
 
 <a id="build-linux"></a>
+## Структура репозитория
+
+| Папка | Содержимое |
+|---|---|
+| `src/core/` | Сцена, геометрия, меши и анимационное ядро |
+| `src/editor/` | Панели Studio, инструменты и встроенная документация |
+| `src/render/` | Viewport, материалы, HDR и тени |
+| `src/runtime/` | Игровые настройки, GUI, триггеры и симуляция |
+| `src/scripting/` | Lua API и MCP |
+| `src/io/` | Файлы, ресурсы, проекты и упаковка игры |
+| `src/examples/`, `src/licenses/` | Встроенные примеры и уведомления о лицензиях |
+| `third_party/` | Dear ImGui и внешние заголовочные библиотеки |
+| `extensions/` | Аудио, моделирование, ImGuizmo, xatlas и Rust-ядро |
+| `assets/`, `config/` | Логотип, шрифт, оформление README и шаблон раскладки |
+| `tests/`, `benchmarks/`, `tools/`, `docs/` | Проверки, замеры, сборочные утилиты и руководства |
+
+Вход в приложение — `src/main.cpp`. Команды `make`, `make test` и `make -f Makefile.win package` запускаются из корня.
+
 ## Сборка из исходников
 
 <details>

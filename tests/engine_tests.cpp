@@ -1,5 +1,5 @@
 #define main editor_main
-#include "../main.cpp"
+#include "src/main.cpp"
 #undef main
 #include <cassert>
 #include <fstream>

@@ -1,8 +1,8 @@
 #pragma once
-#include "embedded_licenses.h"
-#include "extension_licenses.h"
-#include "modeling_licenses.h"
-#include "rust_licenses.h"
+#include "src/licenses/embedded_licenses.h"
+#include "src/licenses/extension_licenses.h"
+#include "src/licenses/modeling_licenses.h"
+#include "src/licenses/rust_licenses.h"
 struct ApiTopic {const char* Title;const char* Text;};
 static const ApiTopic kApiTopics[]={
 {"Geometry Nodes",R"DOC(Nodes > New node mesh creates a procedural object. Connect an output pin to a geometry input; drag node headers, MMB pans. Generators: Box, Sphere, Cylinder. Operations: Transform, Noise, Array, Mirror. Exactly one Output is required; cycles and geometry over budget are rejected.

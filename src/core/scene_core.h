@@ -1,5 +1,5 @@
 #pragma once
-#include "animation_core.h"
+#include "src/core/animation_core.h"
 #include <vector>
 #include <string>
 #include <cmath>
@@ -49,7 +49,7 @@ struct ObjectProperty {
     std::string TextValue;
 };
 
-#include "studio_mesh_types.h"
+#include "src/core/studio_mesh_types.h"
 
 // Enhanced GameObject structure (Rotation is stored in degrees for UI clarity and converted to radians on GLB export)
 inline std::atomic<uint64_t>& ObjectIdCounter(){static std::atomic<uint64_t> next{0};return next;}

@@ -19,7 +19,7 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.85.1 --profile minimal
       - name: Build bilingual offline manuals
-        run: python tools/build_manual.py && git diff --exit-code -- editor_guide_data.h docs/en docs/ru
+        run: python tools/build_manual.py && git diff --exit-code -- src/editor/editor_guide_data.h docs/en docs/ru
       - name: Test geometry, Rust ABI and physics equivalence
         run: make -j2 test test-rust test-kernels test-physics
       - name: Build editor and integration tests
@@ -121,6 +121,7 @@ jobs:
             build/win/*.exe
             build/win/README.md
             build/win/examples/
+            build/win/assets/
             build/win/docs/
             build/win/licenses/
   windows:

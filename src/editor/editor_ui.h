@@ -1,8 +1,8 @@
 #pragma once
 #include "imgui_internal.h"
-#include "viewport_target.h"
-#include "editor_docs.h"
-#include "editor_guide_data.h"
+#include "src/render/viewport_target.h"
+#include "src/editor/editor_docs.h"
+#include "src/editor/editor_guide_data.h"
 #include <array>
 #include <fstream>
 
@@ -31,8 +31,8 @@ static bool g_ShowNodes=false;
 static bool g_ShowUV=false;
 static GameObject g_SculptUndo("Sculpt Undo");
 static GLuint g_LogoTexture=0;
-#include "editor_project.h"
-#include "game_package.h"
+#include "src/editor/editor_project.h"
+#include "src/io/game_package.h"
 
 static void SelectObject(int index,bool toggle=false) {
     if(index<0||size_t(index)>=g_Objects.size())return;
@@ -75,10 +75,10 @@ static void BuildStudioLayout(ImGuiID dockspace,const ImGuiViewport* viewport) {
     ImGui::DockBuilderDockWindow("API Docs",bottom);
     ImGui::DockBuilderFinish(dockspace);
 }
-#include "editor_animation.h"
-#include "editor_debug.h"
-#include "game_gui.h"
-#include "editor_gui.h"
+#include "src/editor/editor_animation.h"
+#include "src/editor/editor_debug.h"
+#include "src/runtime/game_gui.h"
+#include "src/editor/editor_gui.h"
 static bool g_RequestBuild=false;
 static void StudioMenu() {
     if(ImGui::MenuItem("Build Game"))g_RequestBuild=true;
@@ -124,12 +124,12 @@ static Vec3 CameraVector(Vec3 v,float pitch,float yaw) {
     a=yaw*toRad;c=std::cos(a);s=std::sin(a);float x=c*v.x+s*v.z;
     v.z=-s*v.x+c*v.z;v.x=x;return v;
 }
-#include "editor_modeling.h"
-#include "editor_nodes.h"
-#include "editor_uv.h"
-#include "editor_game.h"
-#include "editor_gizmo.h"
-#include "editor_selection.h"
+#include "src/editor/editor_modeling.h"
+#include "src/editor/editor_nodes.h"
+#include "src/editor/editor_uv.h"
+#include "src/editor/editor_game.h"
+#include "src/editor/editor_gizmo.h"
+#include "src/editor/editor_selection.h"
 
 static void SceneInteraction(float distance,float pitch,float yaw,const float target[3],float dt) {
     if(g_Selection.Tool!=0||g_AnimationPreview||ImGui::IsMouseDown(1))return;

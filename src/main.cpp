@@ -25,16 +25,16 @@ extern "C" {
 // tinygltf requires json
 #include <tiny_gltf.h>
 
-#include "scene_tools.h"
-#include "mesh_modeling.h"
-#include "mesh_uv.h"
-#include "geometry_nodes.h"
-#include "file_output.h"
-#include "asset_io.h"
+#include "src/core/scene_tools.h"
+#include "src/core/mesh_modeling.h"
+#include "src/core/mesh_uv.h"
+#include "src/core/geometry_nodes.h"
+#include "src/io/file_output.h"
+#include "src/io/asset_io.h"
 #include "engine_version.h"
-#include "editor_transform.h"
-#include "editor_camera_math.h"
-#include "viewport_selection.h"
+#include "src/editor/editor_transform.h"
+#include "src/editor/editor_camera_math.h"
+#include "src/editor/viewport_selection.h"
 #include "extensions/ImGuizmo/ImGuizmo.h"
 #include <limits>
 #include <exception>
@@ -74,11 +74,11 @@ static void ApplySkyPreset(int preset) {
     g_SkyPreset=preset;std::copy(top[preset],top[preset]+3,g_SkyTop);std::copy(bottom[preset],bottom[preset]+3,g_SkyBottom);
 }
 static void AppendConsole(const std::string& msg);
-#include "studio_sounds.h"
-#include "game_state.h"
-#include "scene_animation.h"
-#include "gameplay_runtime.h"
-#include "editor_history.h"
+#include "src/runtime/studio_sounds.h"
+#include "src/runtime/game_state.h"
+#include "src/core/scene_animation.h"
+#include "src/runtime/gameplay_runtime.h"
+#include "src/editor/editor_history.h"
 static float g_PlayTop[3],g_PlayBottom[3];
 static int g_PlaySky=0;
 static PhysicsState g_PlayPhysics;
@@ -145,7 +145,7 @@ static void AppendConsole(const std::string& msg) {
     g_ConsoleScrollToBottom = true;
 }
 
-#include "editor_preferences.h"
+#include "src/editor/editor_preferences.h"
 static StudioHistory g_ObjectHistory;
 
 static void ClearConsole() {
@@ -538,10 +538,10 @@ static int l_get_material(lua_State* L) {
     return 2;
 }
 
-#include "scene_bindings.h"
-#include "model_commands.h"
-#include "game_bindings.h"
-#include "animation_bindings.h"
+#include "src/scripting/scene_bindings.h"
+#include "src/scripting/model_commands.h"
+#include "src/scripting/game_bindings.h"
+#include "src/scripting/animation_bindings.h"
 
 static void InitLuaState() {
     ShutdownLuaState();
@@ -885,7 +885,7 @@ static int ExportAccessor(tinygltf::Model& model,const void* data,size_t bytes,s
     model.accessors.push_back(accessor);return int(model.accessors.size())-1;
 }
 
-#include "scene_assets.h"
+#include "src/io/scene_assets.h"
 
 static bool ExportGLB(const std::string& filename) {
     try {
@@ -912,20 +912,20 @@ static bool ExportGLB(const std::string& filename) {
     }catch(const std::exception& e){AppendConsole(std::string("GLB export failed: ")+e.what()+"\n");return false;}
 }
 
-#include "material_render.h"
-#include "editor_audio.h"
-#include "editor_ui.h"
-#include "game_runtime.h"
-#include "render_showcase.h"
-#include "example_game.h"
-#include "studio_mcp.h"
+#include "src/render/material_render.h"
+#include "src/editor/editor_audio.h"
+#include "src/editor/editor_ui.h"
+#include "src/runtime/game_runtime.h"
+#include "src/render/render_showcase.h"
+#include "src/examples/example_game.h"
+#include "src/scripting/studio_mcp.h"
 #include "tests/gizmo_smoke.h"
 #include "tests/game_smoke.h"
 #include "tests/runtime_smoke.h"
 #include "tests/selection_smoke.h"
 #include "tests/game_gui_smoke.h"
 #include "assets/logo_data.h"
-#include "editor_font.h"
+#include "src/editor/editor_font.h"
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32

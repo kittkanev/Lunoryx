@@ -1,5 +1,5 @@
 #pragma once
-#include "example_script.h"
+#include "src/examples/example_script.h"
 static std::vector<unsigned char> ExampleTone() {
   std::vector<unsigned char> wav;
   auto text = [&](const char *s) {

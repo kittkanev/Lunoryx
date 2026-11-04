@@ -1,4 +1,4 @@
-#include "../scene_tools.h"
+#include "src/core/scene_tools.h"
 #define LUNORYX_KERNEL_BENCHMARK
 #include "../extensions/rust-kernels/kernels.h"
 #include <chrono>

@@ -1,4 +1,4 @@
-#include "../viewport_target.h"
+#include "src/render/viewport_target.h"
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include <cassert>

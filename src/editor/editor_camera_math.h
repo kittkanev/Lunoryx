@@ -1,5 +1,5 @@
 #pragma once
-#include "scene_tools.h"
+#include "src/core/scene_tools.h"
 inline Vec3 StudioCameraVector(Vec3 v,float pitch,float yaw){
   const float toRad=-PI/180;float a=pitch*toRad,c=std::cos(a),s=std::sin(a),y=c*v.y-s*v.z;
   v.z=s*v.y+c*v.z;v.y=y;a=yaw*toRad;c=std::cos(a);s=std::sin(a);float x=c*v.x+s*v.z;v.z=-s*v.x+c*v.z;v.x=x;return v;

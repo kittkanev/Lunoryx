@@ -1,5 +1,5 @@
 #pragma once
-#include "scene_tools.h"
+#include "src/core/scene_tools.h"
 #include <cstring>
 
 struct StudioMatrix {

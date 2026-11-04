@@ -1,5 +1,5 @@
 #pragma once
-#include "scene_core.h"
+#include "src/core/scene_core.h"
 #include <set>
 
 struct Vec3 { float x, y, z; };

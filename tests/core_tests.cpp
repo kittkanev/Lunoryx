@@ -1,5 +1,5 @@
-#include "../scene_tools.h"
-#include "../editor_transform.h"
+#include "src/core/scene_tools.h"
+#include "src/editor/editor_transform.h"
 #include <cassert>
 #include <iostream>
 
