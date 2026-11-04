@@ -1,160 +1,188 @@
-**Patch 1.2.1:** Free Fly camera (RMB + WASD, Q/E), six signed transform handles,
-Object/Edit selection (Tab, 1/2/3, box/circle/X-ray), GGX PBR with HDR tone mapping.
-[Download 1.2.1](https://github.com/kittkanev/Lunoryx/releases/tag/v1.2.1).
-
-> **1.2.0** — Animation timeline, killzones/checkpoints, runtime debugger,
-> smooth Cyrillic fonts, mipmapped textures and EN/RU offline manuals.
-> [Download release](https://github.com/kittkanev/Lunoryx/releases/tag/v1.2.0).
-> [English handbook](docs/en/README.md) · [Руководство](docs/ru/README.md).
-> Open `docs/en/index.html` / `docs/ru/index.html` for the styled offline edition.
-
 <p align="center">
-  <img src="assets/lunoryx-logo.png" alt="Lunoryx Studio" width="160" />
-  <br/><strong>LUNORYX STUDIO</strong>
+  <img src="assets/lunoryx-logo.png" alt="Lunoryx Studio" width="112" />
+</p>
+<h1 align="center">Lunoryx Studio</h1>
+<p align="center"><strong>От первой 3D-сцены — до собственной игры в одном EXE.</strong><br/>Моделирование, Lua, анимации, GUI и инструменты сборки в одном редакторе.</p>
+<p align="center">
+  <a href="https://github.com/kittkanev/Lunoryx/releases/tag/v1.2.1"><strong>Релиз 1.2.1</strong></a> ·
+  <a href="#screenshots">Скриншоты</a> ·
+  <a href="#first-game">Первая игра</a> ·
+  <a href="https://github.com/kittkanev/Lunoryx/issues">Сообщить об ошибке</a>
 </p>
 
-**1.0.1 — патч надёжности.** Создавай 3D-сцены, редактируй модели, пиши Lua и собирай игру в один EXE. Сохранены прежняя тема Studio, докинг, Explorer, Properties, Tools и вкладки кода.
+<p align="center">
+  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/Lunoryx.exe"><img src="assets/readme/download-windows.svg" alt="Скачать Lunoryx 1.2.1 для Windows x64 — один EXE" width="280" /></a>
+  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/Lunoryx-v1.2.1-windows-x64.zip"><img src="assets/readme/download-package.svg" alt="Скачать Windows ZIP с редактором, документацией и примерами" width="280" /></a>
+  <a href="#build-linux"><img src="assets/readme/build-linux.svg" alt="Linux: инструкция по сборке из исходников" width="280" /></a>
+</p>
+<p align="center">
+  <a href="docs/ru/README.md"><img src="assets/readme/docs-ru.svg" alt="Руководство на русском" width="188" /></a>
+  <a href="docs/en/README.md"><img src="assets/readme/docs-en.svg" alt="English creator handbook" width="188" /></a>
+</p>
 
-[Скачать Lunoryx.exe](https://github.com/kittkanev/Lunoryx/releases/download/v1.0.1/Lunoryx.exe) · [Все файлы и визуальный отчёт](https://github.com/kittkanev/Lunoryx/releases/tag/v1.0.1) · [Сообщить об ошибке](https://github.com/kittkanev/Lunoryx/issues)
+**Windows x64:** OpenGL 2.1 compatibility и framebuffer objects. Редактор запускается без окна консоли и отдельных SDL/Lua/audio DLL. В ZIP входят офлайн-документация, примеры и лицензии. Для Linux доступна сборка из исходников; готовая сборка macOS пока не публикуется.
 
-Нужны Windows x64 и OpenGL 2.1 compatibility с framebuffer objects. Редактор работает без отдельной SDL/Lua/audio DLL и без окна консоли. ZIP добавляет примеры, инструкции и лицензии. `GemTrail.exe` в релизе — самостоятельный игровой пример.
+**English:** a 3D editor with modeling, Lua scripting, object animation, GUI authoring and standalone game builds. [Start with the English handbook](docs/en/README.md).
 
-## Экспериментальная ветка: 1.1.0-experimental.1
+<p align="center">
+  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/render-quality.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/render-quality.png" alt="Lunoryx 1.2.1: сцена в режиме Quality, материалы и тени" width="960" /></a>
+  <br/><sub>Реальный viewport Lunoryx 1.2.1. GGX PBR, HDR, тональная коррекция, FXAA и тени солнца.</sub>
+</p>
 
-[Скачать экспериментальный Windows ZIP](https://github.com/kittkanev/Lunoryx/releases/download/v1.1.0-experimental.1/Lunoryx-v1.1.0-experimental.1-windows-x64.zip) · [Pre-release и визуальный отчёт](https://github.com/kittkanev/Lunoryx/releases/tag/v1.1.0-experimental.1) · [Методика и замеры](docs/PERFORMANCE-experimental.md)
+## Что нового в 1.2.1
 
-Эксперимент ускоряет существующие операции и добавляет настройки рендера внутри прежней темы Studio. Стабильный Latest остаётся **1.0.1**.
+- **Свободная камера:** ПКМ + WASD, Q/E вниз/вверх, Shift ускоряет. Шесть направлений манипулятора: ±X, ±Y, ±Z.
+- **Выделение:** Object/Edit, вершины/рёбра/грани, рамка, круг и X-ray.
+- **Рендер:** Wireframe, Solid, Material PBR и Rendered PBR; HDR, экспозиция, тональная коррекция и тени.
+- **Build Game:** своё название и PNG-иконка, оконный или полноэкранный запуск, разрешение, VSync и выбор выходного EXE.
+- **GUI Designer:** текст, кнопки, панели и полосы прогресса; холст, цвета, слои, Undo/Redo и Lua-события.
+- **Триггеры:** киллзоны, чекпоинты и скриптовые зоны с событиями `enter / stay / exit`.
 
-- Материалы отрисовываются через кэш геометрии и VBO с группировкой по материалу. При отсутствии VBO используется путь через массивы вершин; прежний рендер можно включить для сравнения.
-- Физика кэширует AABB в пределах шага и пересчитывает границы перемещённых объектов. Порядок разрешения столкновений сохранён; результаты сравниваются с реализацией 1.0.1 побитово.
-- На Rust перенесён только поиск соответствий для **Weld / Merge by Distance** при выборе от 2048 вершин. Небольшие выборки и числовые случаи вне диапазона сетки используют C++. CRC32 и расчёт границ остались на C++: замеры не обосновали их перенос.
-- **F8** переключает Office, Balanced и Quality в редакторе и игре. В **Settings** доступны Render preset, Render scale и Cached renderer. Office при выборе ставит масштаб 0.75 и отключает постобработку; Balanced включает FXAA; Quality добавляет LDR-коррекцию цвета и тени фиксированного солнца с PCF-фильтрацией. Масштаб влияет на 3D-сцену, интерфейс остаётся в разрешении окна.
+Из 1.2.0 сохранены объектные анимации по ключевым кадрам, отладчик с паузой и шагом симуляции, сглаженный шрифт с кириллицей и справка EN/RU.
 
-При первом запуске включены кэширование и прямой рендер без эффектов, масштаб — 1.00. Постобработка требует дополнительного времени GPU: в тесте программной Mesa на 1280×720 её стоимость заметно выше прямого вывода. Это настройки качества, которые можно включить по необходимости. Замеры отдельных сцен не гарантируют FPS на любом офисном ПК. Рендер остаётся совместимым с OpenGL 2.1/FBO; HDR, полноценный PBR и равенство с другими редакторами этим экспериментом не заявляются.
+<a id="screenshots"></a>
+## Внутри редактора
 
-## Возможности
+Снимки сделаны в версии **1.2.1** во время проверок приложения. Нажмите на изображение, чтобы открыть его полностью.
 
-| Подсистема | Что работает |
+<table>
+  <tr>
+    <td width="50%"><strong>GUI Designer</strong><br/>Холст, свойства и слои интерфейса.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-ui.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-ui.png" alt="Редактор GUI: виджеты и свойства" width="460" /></a></td>
+    <td width="50%"><strong>Build Game</strong><br/>Название, иконка и параметры игрового окна.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-build.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-build.png" alt="Окно настройки и сборки игрового EXE" width="460" /></a></td>
+  </tr>
+  <tr>
+    <td><strong>Моделирование</strong><br/>Работа с мешами, модификаторы и булевы операции.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/modeling.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/modeling.png" alt="Моделирование и булевы операции Lunoryx" width="460" /></a></td>
+    <td><strong>Анимации и отладка</strong><br/>Ключевые кадры, состояние симуляции и встроенные Docs.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/animation-docs.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/animation-docs.png" alt="Анимации, отладчик и русская документация" width="460" /></a></td>
+  </tr>
+</table>
+
+## Что можно создавать
+
+| Инструменты | Возможности |
 |---|---|
-| Сцена | Примитивы, Explorer, мультивыбор, свойства, Move/Rotate/Scale, local/world и snapping |
-| Моделирование | Вершины, рёбра, грани, Extrude, удаление, Merge by Distance, нормали, Join и скульптинг |
-| Модификаторы | Недеструктивный стек Mirror, Array, Loop Subdivision, Bevel; порядок, отключение, применение |
-| Булевы операции | Настоящие Union / Difference / Intersection через Manifold; исходные операнды сохраняются скрытыми |
-| UV и материалы | xatlas-развёртка и упаковка, швы, острова, перемещение/вращение/масштаб UV, материалы по граням, PNG/JPEG |
-| Обмен | Статический GLB: геометрия, трансформации, нормали, UV, цвета и базовые материалы; автономный экспорт с текстурами |
-| Игры | Lua 5.4, AABB-физика, персонаж, камера от третьего лица, ввод, счёт, HUD, звук и перезапуск |
-| Проекты | Schema 2 с чтением schema 1, атомарное сохранение, Save As, защита несохранённых изменений, история операций |
-| Автоматизация | MCP stdio: сцена, стабильные ID, проекты, GLB, Lua, аудио и моделирование |
+| **Сцена и управление** | Explorer, свойства объектов, мультивыбор, Move/Rotate/Scale, локальные и мировые оси, привязка и адаптивная сетка |
+| **Моделирование** | Вершины/рёбра/грани, Extrude, Weld, Join, удаление и нормали; Mirror, Array, Loop Subdivision, Bevel; Union / Difference / Intersection |
+| **Скульптинг и ноды** | Кисти Inflate/Deflate, Smooth, Flatten, симметрия по X; граф геометрии с Preview/Commit и Bake |
+| **UV и материалы** | xatlas-развёртка, швы и острова, трансформации UV, материалы по граням, PNG/JPEG-текстуры |
+| **Игровые системы** | Lua 5.4, персонаж, AABB-физика, звук, объектные анимации, киллзоны, чекпоинты и скриптовые триггеры |
+| **GUI** | Label, Button, Panel, Progress; перетаскивание на холсте, цвета и слои, события и обновления из Lua |
+| **Проект и экспорт** | `.lunoryx`, история операций, статический GLB, самостоятельная игра в одном EXE с вложенными ресурсами |
+| **Отладка и автоматизация** | Пауза и шаг симуляции, границы коллизий, traceback Lua, MCP stdio со стабильными ID |
 
-<img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.0.1/uv.png" alt="Работающий UV-редактор Lunoryx" width="900" />
+<a id="first-game"></a>
+## Своя игра за несколько шагов
 
+1. Запустите редактор и откройте **Build Game** в верхнем меню.
+2. Нажмите **New third-person example**. **Play Simulation / F6** запускает пример: WASD — движение, Space — прыжок. **Stop** восстанавливает сцену редактора.
+3. Создайте интерфейс через **Window → GUI Designer**. Зоны добавляются в **Tools → Build**, тип меняется в **Properties → Trigger**.
+4. В **Build Game** задайте название, квадратную PNG-иконку 16–256 px, режим **Fullscreen (desktop)** или **Windowed**, размер окна и стартовый скрипт.
+5. Сохраните `.lunoryx`, выберите выходной файл и нажмите **Build standalone Game.exe**. На Windows доступны диалоги выбора иконки и EXE.
+6. Перенесите игру в пустую папку: проект, исходные ресурсы и компилятор для запуска не нужны. Esc — выход, R — перезапуск.
 
-В эксперименте меню **Nodes** открывает граф геометрии: **New node mesh → соединить пины / изменить параметры → Preview / Commit**. **Bake for mesh / sculpt** оставляет результат для UV, скульптинга и модификаторов. Граф и его применённый меш сохраняются в проекте; поддерживаются Undo/Redo.
+[Скачать самостоятельный пример Gem Trail](https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/GemTrail.exe) · [Инструкция по сборке и GUI](docs/ru/README.md)
 
-## Первая игра
+<p align="center">
+  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-windows.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-windows.png" alt="Самостоятельная Gem Trail на Windows: игровой уровень и HUD" width="960" /></a>
+  <br/><sub>Gem Trail — игровой пример, собранный в отдельный EXE.</sub>
+</p>
 
-1. Запусти `Lunoryx.exe` и открой **Tools → Character → Game / Build**.
-2. Нажми **New third-person example**. При замене несохранённого проекта появится Save / Discard / Cancel.
-3. Нажми **Play Simulation**: WASD — движение, Space — прыжок, R — перезапуск. Собери три предмета.
-4. **Stop Simulation** восстановит сцену, окружение, звуки и игровые настройки редактора.
-5. Сохрани `.lunoryx`, укажи путь в **Game EXE path** и нажми **Build standalone Game.exe**.
-6. Перенеси полученный EXE в другую папку или на другой компьютер. Исходный проект, ресурсы, редактор, Python и компилятор для запуска не нужны. Escape закрывает игру.
+## Управление
 
-Для собственного проекта выбери стартовый скрипт и объект камеры. По умолчанию стартовый скрипт не назначен. В сборку входят ресурсы, импортированные в проект; произвольные обращения Lua к файлам и процессам не упаковываются автоматически.
+| Действие | Клавиши и мышь |
+|---|---|
+| Свободный полёт | Удерживать ПКМ; WASD — движение, Q/E — вниз/вверх, Shift — быстрее, Ctrl — медленнее; колесо меняет скорость |
+| Орбитальная камера | Выключить Free Fly: ПКМ — вращение, СКМ — сдвиг, колесо — приближение |
+| Трансформации | Q — Select, W — Move, E — Rotate, R — Scale; перетаскивать ось или плоскость манипулятора |
+| Редактирование меша | Tab — Object/Edit; 1/2/3 — вершины/рёбра/грани; B — рамка, C — круг, Alt+Z — X-ray |
+| Изменение выделения | Shift добавляет, Ctrl убирает; A — всё, Alt+A — снять выделение |
+| Код и симуляция | F5 — запуск скрипта, F6 — Play/Stop, F11 — полный экран редактора кода |
+| Сохранение и история | Ctrl+S — сохранить проект, Ctrl+Z / Ctrl+Y — Undo/Redo |
+| Качество рендера | F8 — Office/Balanced/Quality; настройки — в Settings |
 
-<img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.0.1/game-windows.png" alt="Автоматически пройденный уровень в Windows" width="900" />
+Во время свободного полёта Q/E управляют высотой камеры. Перед ручной правкой сцены остановите симуляцию.
 
-## Работа в редакторе
+## Lua, GUI и триггеры
 
-- **Scene:** Q/W/E/R — Select/Move/Rotate/Scale; ЛКМ — выбор; Ctrl+click — мультивыбор; ПКМ — орбита; СКМ — сдвиг; колесо — приближение.
-- **Tools → Build → Mesh Edit / Modifiers:** включи Edit mesh, выбери вершины/рёбра/грани и используй маркеры в viewport. Операции над тяжёлой геометрией выполняются в фоне; устаревший результат отклоняется.
-- **Sculpt:** в эксперименте доступны X-симметрия, круг кисти и гладкие нормали после деформации; сначала запечь ноды и применить стек модификаторов; подразделить меш; рисовать ЛКМ, Shift меняет знак Inflate.
-- **UV:** применить модификаторы, отметить рёбра как швы, Auto unwrap and pack. Click выбирает остров, Ctrl добавляет; drag перемещает. Доступны числовые offset/rotation/scale.
-- **Properties → Materials / Texture:** создать слот, назначить PNG/JPEG и при необходимости применить слот к выбранным граням.
-- **File:** Save Project, Save As, Load Project, Import static GLB и Export GLB. Перед сохранением останови Play Simulation. GLB также можно перетащить в окно.
-- **Код:** + Script, F5 — Run, F11 — полный экран; закрытые вкладки доступны в Explorer. Текст имеет собственную отмену; Edit → Undo/Redo управляет операциями сцены, звука и окружения.
-- **Audio:** WAV/WAVE/W64/RF64, MP3, FLAC, OGG/OGA Vorbis; preview, volume, pitch, loop, autoplay и 3D-позиция. В редактируемом проекте внешние пути относительны файлу `.lunoryx`; отсутствующий файл можно заменить.
-
-Сохранение `.lunoryx` хранит сцену, меши, UV, материалы, модификаторы, свойства, скрипты, окружение и игровые настройки. Загрузка редакторского проекта не запускает скрипты автоматически.
-
-## Lua и MCP
-
-Индексы Lua начинаются с нуля и сдвигаются после удаления объекта. Повторно вызывай `find_object(name)` после изменения состава сцены. Существующие обращения `add_object`, `set_position`, `set_rotation`, `set_scale`, `set_color`, `set_material`, `set_property`, `add_sound`, `play_sound`, `export_glb` сохранены.
+Создайте Label с ID `message` и Button с ID `restart` в **GUI Designer**, затем добавьте **Script trigger** в сцену. Назначьте Lua-вкладку стартовым скриптом в **Build Game**:
 
 ```lua
-local player = find_object('Player')
-follow_camera(player, 7, 24)
-game_score(0)
-hud_text('WASD / Space')
-function on_update(dt)
-    if input_key('R') then restart_game() end
+function on_trigger(event, zone, actor)
+    if zone == find_object('Script trigger') then
+        if event == 'enter' then
+            gui_text('message', 'Добро пожаловать!')
+            gui_visible('message', true)
+        elseif event == 'exit' then
+            gui_visible('message', false)
+        end
+    end
+end
+
+function on_gui_click(id)
+    if id == 'restart' then restart_game() end
 end
 ```
 
-```lua
-local box = add_object('Box', 'cube')
-mesh_operation(box, 'modifier', '{"type":"bevel","amount":0.08}')
-mesh_operation(box, 'apply')
-mesh_operation(box, 'unwrap')
-```
+Триггеры автоматически отслеживают динамические объекты, включая персонажей. `set_trigger(index, 3)` создаёт скриптовую зону; `trigger_contains(zone, actor)` проверяет пересечение. `gui_text`, `gui_visible`, `gui_value` изменяют интерфейс. Все индексы объектов в Lua начинаются с **нуля** и сдвигаются при удалении; после изменения состава сцены снова вызывайте `find_object`.
 
-`mesh_operation` также поддерживает `polygonize`, `extrude`, `weld`, `delete`, `normals`, `boolean`. Параметры передаются JSON-строкой. Полная справка и лицензии находятся в **Window → API Docs**. Пример игры — [examples/collect.lua](examples/collect.lua).
+MCP запускается тем же EXE в режиме `--mcp` и работает со стабильными ID:
 
 ```json
 {"mcpServers":{"lunoryx":{"command":"C:\\Tools\\Lunoryx.exe","args":["--mcp"]}}}
 ```
 
-MCP обращается к объектам по стабильным ID; инструмент `mesh_operation` принимает `id`, `action`, `options`. Его boolean-опция `other` — индекс второго объекта в текущей сцене. Сервер имеет собственную headless-сцену: сохрани `.lunoryx`, чтобы открыть результат в редакторе.
+[API и примеры на русском](docs/ru/README.md) · [English API guide](docs/en/README.md) · [Пример игры на Lua](examples/collect.lua)
 
-Lua считается доверенным и имеет доступ к стандартным библиотекам. Ограничитель инструкций прерывает случайные бесконечные циклы; ошибки и стек обрабатываются на границе движка.
+<a id="build-linux"></a>
+## Сборка из исходников
 
-## Сборка и проверки
-
-Linux, Debian/Ubuntu:
+<details>
+<summary><strong>Linux — Debian / Ubuntu</strong></summary>
 
 ```bash
 sudo apt-get install -y g++ make cmake curl libsdl2-dev liblua5.4-dev libgl1-mesa-dev
-# Для экспериментальной ветки: установленный rustup и закреплённый toolchain
 rustup toolchain install 1.85.1 --profile minimal
 make -j2
 ./engine
-make test test-integration
 ```
 
-Зависимость Manifold 3.5.4 подготавливается автоматически с проверкой SHA-256. xatlas закреплён на `f700c7790aaa030e794b52ba7791a05c085faf0c` и включён в исходники.
+Требуется установленный `rustup`. Manifold 3.5.4 подготавливается автоматически с проверкой SHA-256; xatlas включён в исходники. Основной редактор — C++11, адаптер Manifold — C++17; Rust-ядро Weld линкуется статически.
 
-Windows-кросс-сборка:
+</details>
+
+<details>
+<summary><strong>Windows x64 — кросс-сборка MinGW</strong></summary>
 
 ```bash
-sudo apt-get install -y cmake g++-mingw-w64-x86-64
+sudo apt-get install -y cmake curl g++-mingw-w64-x86-64
 rustup toolchain install 1.85.1 --profile minimal --target x86_64-pc-windows-gnu
 bash tools/prepare_mingw.sh
 make -j2 -f Makefile.win package
 ```
 
-Используется POSIX-вариант MinGW для фоновых задач. Редактор остаётся на C++11; адаптер Manifold собирается как C++17. Экспериментальное ядро Weld собирается Rust 1.85.1 в статическую библиотеку без внешних crates. Для запуска готового редактора и игры Rust не нужен. Rust устанавливается через [rustup](https://rustup.rs/); версия закреплена в `rust-toolchain.toml`.
+Используется POSIX-вариант MinGW. Готовые файлы находятся в `build/win/`. Для обычного запуска редактора инструменты сборки не нужны.
 
-Нативная упаковка из командной строки:
+</details>
 
-```text
-Lunoryx.exe --create-example example.lunoryx
-Lunoryx.exe --build-game example.lunoryx Game.exe
-Game.exe --verify-package
+<details>
+<summary><strong>Проверки и производительность</strong></summary>
+
+```bash
+make test test-integration test-rust test-kernels test-physics
+make test-postprocess test-render test-shadows
+python tools/test_studio_mcp.py ./engine
+python tools/test_game_package.py ./engine
 ```
 
-CI проверяет Linux/MinGW с `-Werror`, нативное выполнение на Windows, ASan/UBSan/LeakSanitizer, Lua/MCP, шесть аудиоформатов из файлов и памяти, GLB валидатором Khronos, историю/совместимость проектов и графические сценарии. Игровой тест использует реальный контроллер с детерминированным вводом: удаляет исходные файлы, собирает все предметы, проверяет звук и перезапуск. Windows-графика проверяется через Mesa; этот тестовый драйвер в релиз не входит.
+CI проверяет сборки Linux/MinGW с `-Werror`, нативный запуск на Windows, ASan/UBSan/LeakSanitizer, Lua/MCP, аудио, GLB, совместимость проектов и графические сценарии. Проверяются GUI-ввод, иконка EXE, все шесть направлений манипулятора, триггеры и перенос самостоятельной игры без исходных ресурсов. Windows-графика тестируется через Mesa; этот драйвер не входит в релиз.
 
-## Границы выпуска
+[Методика замеров и ограничения](docs/PERFORMANCE.md) · [GitHub Actions](https://github.com/kittkanev/Lunoryx/actions)
 
-Lunoryx 1.0 — игровой редактор с указанным набором моделирования. Физика использует AABB, viewport — простое освещение, импорт GLB — статический. В эксперименте появились ноды геометрии. Риг, скелетная анимация, ноды материалов и игровой логики, офлайн-рендер и полная совместимость с Blender остаются дальнейшим развитием.
+</details>
 
-Bevel требует замкнутой ориентированной топологии; новые поверхности используют первый слот материала. Булев результат требует новой UV-развёртки и настройки материала. Mirror копирует весь меш относительно локального начала; подразделение использует Loop. GLB-импорт сообщает о пропущенных анимациях/морфах/нетреугольных примитивах и отклоняет обязательные неподдерживаемые расширения и sparse-accessors.
+## Документация и границы версии
 
-Лимиты: 10 000 объектов; 200 000 вершин на меш; 1 000 000 вершин на проект; 16 модификаторов; 64 материала на объект; 64 звука; текстуры до 4096×4096; документ проекта до 32 MiB; до 255 упакованных внешних ресурсов и 512 MiB игровых данных. Проверки Windows/Mesa не охватывают все пользовательские GPU.
+Справка **EN/RU** встроена в **Window → API Docs**. Офлайн-HTML находится в `docs/en/index.html` и `docs/ru/index.html`; откройте файлы из ZIP в браузере. Лицензии зависимостей доступны внутри редактора и в `docs/licenses`.
 
-### Game authoring in 1.2.1
+Физика использует AABB, анимации — объектные, GLB-импорт — статический. Рендер работает в реальном времени; трассировка лучей, HDRI-отражения, скелетный риг и полная совместимость с Blender пока не реализованы. HDR требует поддерживаемого framebuffer; при его отсутствии используется LDR-путь.
 
-- **Build Game:** custom game title and PNG icon, fullscreen/windowed startup, window size, resizing, VSync and optional score HUD. Choose icon/output files on Windows; settings are saved in the project.
-- **Window → GUI Designer:** drag labels, buttons, panels and progress bars; edit IDs, colors, normalized positions and layers. Lua: `gui_text`, `gui_visible`, `gui_value`, `on_gui_click`.
-- **Tools → Build:** killzones, checkpoints and script-trigger presets. Lua: `set_trigger(index, 3)`, `trigger_contains` and `on_trigger(event, zone, actor)` for enter/stay/exit.
-- Full [English guide](docs/en/README.md) / [Русское руководство](docs/ru/README.md), sections 08–09, are also embedded in API Docs.
+[Релизы и контрольные суммы](https://github.com/kittkanev/Lunoryx/releases) · [Ошибки и предложения](https://github.com/kittkanev/Lunoryx/issues)

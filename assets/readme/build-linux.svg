@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288" height="198" viewBox="0 0 288 198" role="img" aria-labelledby="title desc">
+<title id="title">Linux / Source — Build guide</title><desc id="desc">Build from source · OpenGL 2.1</desc>
+<path d="M12 8h264l8 8v172l-8 8H12l-8-8V16z" fill="#090f1c"/>
+<path d="M12 2h264l8 8v172l-8 8H12l-8-8V10z" fill="#ffce43"/>
+<path d="M12 2h264l-5 5H17L9 15 4 10z" fill="#fff0a9"/>
+<path d="M284 10v172l-8 8H12l-8-8 5-4h265l5-5V15z" fill="#b28615"/>
+<path d="M17 8h253l8 8v157H10V16z" fill="none" stroke="#fff0a9" stroke-opacity=".35"/>
+<rect x="22" y="22" width="57" height="57" rx="5" fill="#f6f8fd"/>
+<rect x="22" y="75" width="57" height="4" rx="2" fill="#d3dae5"/>
+<g transform="translate(33 33)"><rect x="0" y="2" width="35" height="30" rx="3" fill="#202738"/><path d="M7 11l7 6-7 6m12 1h9" stroke="#ffce43" stroke-width="3" fill="none"/></g>
+<g font-family="DejaVu Sans,Arial,sans-serif" fill="#172033">
+<text x="22" y="109" font-size="24" font-weight="800">Linux / Source</text>
+<text x="22" y="131" font-size="11.5" font-weight="500">Build from source · OpenGL 2.1</text>
+<rect x="22" y="143" width="157" height="31" rx="4" fill="#13233a" opacity=".22"/>
+<g transform="translate(36 152)" color="#172033"><path d="M0 0v9m-4-4l4 4 4-4m-9 7h10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></g>
+<text x="49" y="164" font-size="12" font-weight="800">Build guide</text>
+<path d="M253 153l7 7-7 7" fill="none" stroke="#172033" stroke-width="2"/>
+</g></svg>

@@ -1,67 +1,49 @@
-LUNORYX STUDIO 1.1.0-experimental.1 — PERFORMANCE / RENDER EXPERIMENT
+LUNORYX STUDIO 1.2.1
 
-Запустите Lunoryx.exe. Отдельная SDL/Lua/audio DLL и консоль не нужны.
-Требуются Windows x64, OpenGL 2.1 compatibility и framebuffer objects.
+WINDOWS X64
+Запустите Lunoryx.exe. Отдельные SDL/Lua/audio DLL и консоль не нужны.
+Требуется OpenGL 2.1 compatibility с framebuffer objects.
 
-Это экспериментальная сборка. Стабильный Latest: 1.0.1.
-Настройки и интерфейс сохраняют прежнюю тему Studio.
+ПЕРВАЯ ИГРА
+Build Game > New third-person example; Play Simulation / F6.
+WASD — движение, Space — прыжок; Stop восстанавливает редакторскую сцену.
+Build Game: название, PNG-иконка, Fullscreen / Windowed, размер окна,
+VSync, стартовый скрипт и путь EXE. Сохраните .lunoryx и нажмите Build.
+Игра упаковывает сцену, GUI, скрипты, текстуры и звуки в один файл.
 
-СКОРОСТЬ И КАЧЕСТВО
-F8 переключает пресеты рендера в редакторе и самостоятельной игре.
-Office: прямой вывод без постобработки, масштаб 3D-сцены 0.75 при выборе.
-Balanced: полный масштаб и FXAA. Quality: FXAA, LDR-коррекция и тени солнца.
-Тени Quality используют дополнительный проход; на слабом GPU выбирайте Office.
-Settings > Render preset / Render scale позволяют настроить режим вручную.
-Cached renderer включает кэш геометрии и VBO; отключение нужно для сравнения.
-При первом запуске: кэш включён, эффекты выключены, масштаб 1.00.
-Интерфейс всегда выводится в разрешении окна. На слабом GPU используйте Office.
-Эффекты качества расходуют время GPU; одинаковый FPS на всех ПК не обещается.
+КАМЕРА И ВЫДЕЛЕНИЕ
+Free Fly: ПКМ + WASD, Q/E вниз/вверх, Shift быстрее, Ctrl медленнее.
+Tab — Object/Edit; 1/2/3 — вершины/рёбра/грани; B — рамка, C — круг.
+Alt+Z — X-ray; Q/W/E/R — Select/Move/Rotate/Scale вне полёта.
+Ctrl+S — сохранить; Ctrl+Z/Ctrl+Y — Undo/Redo.
 
-ВНУТРЕННИЕ ИЗМЕНЕНИЯ
-Кэширование отрисовки по материалам и границ объектов в физическом шаге.
-Поиск Weld для выборок от 2048 вершин выполняет статическое ядро на Rust;
-маленькие выборки и крайние числовые случаи используют прежний C++ путь.
-Готовой программе не нужны Rust, Python или другие инструменты разработки.
-Замеры, сведения о тестовой машине и ограничения: docs/PERFORMANCE-experimental.md.
+GUI, ТРИГГЕРЫ И АНИМАЦИИ
+Window > GUI Designer — текст, кнопки, панели и полосы прогресса.
+Tools > Build — Killzone, Checkpoint, Script trigger.
+Lua: on_trigger(event, zone, actor), on_gui_click(id), gui_text/visible/value.
+Window > Animation — ключевые кадры объектов и предпросмотр.
+Window > Debugger — пауза, шаг симуляции, границы коллизий и ошибки Lua.
 
-БЫСТРЫЙ СТАРТ
-Tools > Character > Game / Build > New third-person example.
-Play Simulation: WASD — движение, Space — прыжок, R — перезапуск.
-Stop Simulation восстанавливает сцену редактора.
-Перед сохранением остановите Play Simulation.
-File > Save Project / Save Project As сохраняет редактируемый .lunoryx.
-Build standalone Game.exe упаковывает проект и импортированные ресурсы.
-Готовый Game.exe не требует редактора, компилятора или файлов проекта.
+КАЧЕСТВО
+Settings: Render preset, Render scale, Exposure и размер текста.
+F8 — Office / Balanced / Quality. Доступны PBR, HDR и тени солнца.
+Производительность зависит от сцены, GPU и выбранных эффектов.
 
-МОДЕЛИРОВАНИЕ
-Tools > Build > Mesh Edit / Modifiers: вершины, рёбра, грани, Extrude,
-Merge by Distance, Mirror, Array, Loop Subdivision, Bevel и булевы операции.
-Примените модификаторы перед скульптингом и UV-редактированием.
-UV: швы, Auto unwrap and pack, выбор/перемещение/вращение/масштаб островов.
-Properties > Materials / Texture: слоты, текстуры PNG/JPEG, назначение граням.
+СПРАВКА EN/RU
+Window > API Docs — встроенная справка, примеры и лицензии.
+docs/ru/index.html и docs/en/index.html — оформленные офлайн-руководства.
+docs/PERFORMANCE.md — методика измерений и ограничения замеров.
 
-Сцена: Q/W/E/R; Ctrl+click — мультивыбор; ПКМ — орбита; СКМ — панорама.
-F5 — запуск скрипта; F11 — полный экран кода.
-Edit > Undo/Redo — операции сцены. Текст скрипта имеет собственную отмену.
-Window > API Docs — справка и лицензии, встроенные в приложение.
-
-Старые проекты schema 1 читаются; новые сохраняются как schema 2.
-Загрузка проекта в редактор не запускает скрипты автоматически.
-Lua-скрипты доверенные и имеют доступ к файлам и процессам.
+ПРОЕКТЫ
+Перед сохранением и сборкой остановите Play Simulation.
+File > Save Project / Save Project As сохраняет .lunoryx.
+Загрузка в редактор не запускает Lua автоматически.
+Lua-скрипты считаются доверенными; стандартные библиотеки доступны.
 
 ГРАНИЦЫ
-Физика AABB; статический GLB; освещённый viewport с опциональной постобработкой.
-Это LDR-рендер; HDR и полноценный PBR не заявляются.
-Нет скелетной анимации, нод материалов/логики, офлайн-рендера и полной совместимости
-с Blender. Подробнее: README.md и описание релиза.
+Физика AABB; статический GLB; объектные анимации без скелетного рига.
+Нет трассировки лучей, HDRI-отражений и полной совместимости с Blender.
+HDR использует LDR fallback, если GPU не поддерживает нужный framebuffer.
 
-Каждый релиз содержит SHA256SUMS.txt, визуальный отчёт и снимки из тестов.
-Сообщить об ошибке: https://github.com/kittkanev/Lunoryx/issues
-
-НОДЫ ГЕОМЕТРИИ (ЭКСПЕРИМЕНТ)
-Nodes > New node mesh. Соедините выходной и входной пины.
-Box/Sphere/Cylinder, Transform, Noise, Array, Mirror, Output.
-Preview / Commit проверяет и сохраняет граф с результатом в проект.
-До Preview изменения остаются черновиком. Bake переводит результат в меш
-для UV, скульптинга и модификаторов. Есть Undo/Redo, до 32 узлов.
-Sculpt: круг радиуса, Mirror brush across X и гладкие нормали после мазка.
+Релизы: https://github.com/kittkanev/Lunoryx/releases
+Ошибки: https://github.com/kittkanev/Lunoryx/issues

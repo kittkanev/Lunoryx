@@ -84,7 +84,7 @@ jobs:
           gh run download "$SOURCE_RUN" --name performance-windows --dir build/perf-windows
           gh run download "$SOURCE_RUN" --name performance-render-windows --dir build/perf-render
           find build/perf-linux build/perf-windows build/perf-render -type f \( -name '*.csv' -o -name '*.txt' \) -exec cp {} build/release/ \;
-          cp docs/PERFORMANCE-experimental.md build/release/PERFORMANCE.md
+          cp docs/PERFORMANCE.md build/release/PERFORMANCE.md
           (cd build/release && sha256sum GemTrail.exe REPORT.md PERFORMANCE.md *.png *.csv benchmark-*-environment.txt >> SHA256SUMS.txt)
       - name: Create draft and upload verified files
         if: steps.state.outputs.published != 'true'
