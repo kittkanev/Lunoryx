@@ -1077,10 +1077,10 @@ int main(int argc, char* argv[]) {
             }
             bool flyEnabled=!g_PlayerMode&&!g_PhysicsRunning&&g_Preferences.FreeFly;
             int lookX=0,lookY=0;SDL_GetMouseState(&lookX,&lookY);
-            if(flyEnabled&&event.type==SDL_MOUSEBUTTONDOWN&&event.button.button==SDL_BUTTON_RIGHT&&SceneContains(float(lookX),float(lookY))&&!io.WantTextInput){flyCaptured=true;SDL_SetRelativeMouseMode(SDL_TRUE);}
+            if(flyEnabled&&event.type==SDL_MOUSEBUTTONDOWN&&event.button.button==SDL_BUTTON_RIGHT&&SceneContains(float(lookX),float(lookY))&&g_Studio.SceneHovered&&!io.WantTextInput){flyCaptured=true;SDL_SetRelativeMouseMode(SDL_TRUE);}
             if((event.type==SDL_MOUSEBUTTONUP&&event.button.button==SDL_BUTTON_RIGHT)||(event.type==SDL_WINDOWEVENT&&event.window.event==SDL_WINDOWEVENT_FOCUS_LOST)||(event.type==SDL_KEYDOWN&&event.key.keysym.sym==SDLK_ESCAPE)||!flyEnabled){if(flyCaptured)SDL_SetRelativeMouseMode(SDL_FALSE);flyCaptured=false;}
             int mouseX=0,mouseY=0;SDL_GetMouseState(&mouseX,&mouseY);
-            if (SceneContains(float(mouseX),float(mouseY))||flyCaptured) {
+            if ((SceneContains(float(mouseX),float(mouseY))&&g_Studio.SceneHovered)||flyCaptured) {
                 if(event.type==SDL_KEYDOWN&&!event.key.repeat&&!io.WantTextInput&&!g_PhysicsRunning&&!flyCaptured){
                     if(event.key.keysym.mod&KMOD_CTRL){if(event.key.keysym.sym==SDLK_z&&g_ObjectHistory.Undo(g_Objects)){g_SelectedObjectIndex=-1;g_SimulationRunning=false;}if(event.key.keysym.sym==SDLK_y&&g_ObjectHistory.Redo(g_Objects)){g_SelectedObjectIndex=-1;g_SimulationRunning=false;}}
                     else if(!(SDL_GetMouseState(nullptr,nullptr)&SDL_BUTTON_RMASK)) {
