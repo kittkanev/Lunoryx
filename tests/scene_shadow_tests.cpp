@@ -92,12 +92,12 @@ int main() {
   float restored[16];
   glGetFloatv(GL_MODELVIEW_MATRIX, restored);
   assert(!memcmp(restored, camera, sizeof(camera)));
-  auto draw = [&]() {
+  auto draw = [&](float metal,float rough) {
     glClearColor(.1, .1, .1, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     assert(g_SceneShadows.BeginLighting(camera));
-    g_SceneShadows.Material(false, .1, .5);
+    g_SceneShadows.Material(false, metal, rough);
     geometry();
     g_SceneShadows.EndLighting();
     glFinish();
@@ -105,7 +105,8 @@ int main() {
     glReadPixels(0, 0, 320, 240, GL_RGB, GL_UNSIGNED_BYTE, p.data());
     return p;
   };
-  auto shadow = draw();
+  auto shadow = draw(.1f,.5f);
+  auto metal=draw(1,.1f);auto rough=draw(0,1);size_t materialDifference=0;for(size_t i=0;i<metal.size();++i)materialDifference+=std::abs(int(metal[i])-int(rough[i]))>4;assert(materialDifference>200);
   glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
   glGetIntegerv(GL_ACTIVE_TEXTURE, &currentTexture);
   assert(currentProgram == 0 && currentTexture == GL_TEXTURE0);
@@ -113,7 +114,7 @@ int main() {
   // lighting shader.
   assert(g_SceneShadows.BeginDepth(target, 12));
   g_SceneShadows.EndDepth();
-  auto unshadowed = draw();
+  auto unshadowed = draw(.1f,.5f);
   int darker = 0;
   for (size_t i = 0; i < shadow.size(); i += 3)
     if (int(unshadowed[i]) + int(unshadowed[i + 1]) + int(unshadowed[i + 2]) >

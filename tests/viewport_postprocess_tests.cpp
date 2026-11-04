@@ -125,6 +125,14 @@ int main(int argc, char **argv) {
   assert(!target.SceneColor && !target.PresentFramebuffer &&
          !target.Post.Program);
 
+  // Actual floating-point attachment preserves values above display white.
+  target.ConfigurePostProcess(2,1,false,true);assert(target.Resize(80,80));assert(target.HdrActive);
+  target.BindFramebuffer(GL_FRAMEBUFFER,target.Framebuffer);glDisable(GL_SCISSOR_TEST);glClearColor(4,2,.5f,1);glClear(GL_COLOR_BUFFER_BIT);
+  float hdrPixel[4]={};glReadPixels(20,20,1,1,GL_RGBA,GL_FLOAT,hdrPixel);assert(hdrPixel[0]>3.9f&&hdrPixel[1]>1.9f);
+  target.FinishScene(false);auto tone=Read(target);size_t pixel=(size_t(20)*80+20)*4;assert(tone[pixel]>tone[pixel+1]&&tone[pixel+1]>tone[pixel+2]&&tone[pixel]<255);
+  // Unsupported FP16 colour must retain the LDR/FXAA fallback.
+  NativeCheck=target.Check;FailAfter=2;target.Check=InjectFramebufferFailure;assert(target.Resize(81,81));target.Check=NativeCheck;assert(!target.HdrActive&&target.PostProcessEnabled());
+  target.ConfigurePostProcess(0);assert(target.Resize(64,64));assert(!target.HdrActive);
   // Both the presentation and raw-scene FBO failure paths must return to
   // direct rendering, preserving the public ImGui texture and freeing extras.
   for (int failAt : {1, 2}) {

@@ -145,4 +145,29 @@ end
 ### Отдельная игра
 В Tools > Game / Build назначьте стартовый скрипт и соберите Game.exe со сценой и ресурсами. Проверьте EXE после переноса, без исходных файлов. Анимации и триггеры используют тот же код, что в редакторе.
 MCP: Lunoryx.exe --mcp, транспорт stdio, отдельная сцена без интерфейса. Сохраните проект через MCP и откройте в Studio; подключение к запущенному редактору не выполняется. Подробная прежняя справка API доступна в разделе API reference этого окна.)GUIDE"}},
+{{"07 · Fly, select and render","07 · Полёт, выделение и рендер"},{R"GUIDE(### Six directions
+The transform gizmo has positive and negative handles for X, Y and Z. Drag either end in either direction; the center supports plane/free translation.
+### Free camera
+Free Fly is enabled in the Scene toolbar. Hold RMB to look and fly: WASD moves relative to view, Q/E down/up, Shift accelerates, Ctrl slows down. The wheel while holding RMB changes speed; Escape releases the mouse. Camera rotation keeps the camera position fixed. Disable Free Fly for the orbit controls.
+### Selection
+- Tab switches Object / Edit for a selected editable object.
+- 1 / 2 / 3 choose vertices / edges / faces in Edit mode.
+- B selects with a rectangle; C paints with a circle. Wheel changes the circle radius. Escape returns to click selection.
+- Shift adds; Ctrl subtracts for region selection. A selects all, Alt+A deselects.
+- X-ray / Alt+Z enables selection through geometry in Edit mode. With X-ray off, the viewport depth buffer filters hidden elements.
+### Rendering
+Wireframe, Solid, Material PBR and Rendered PBR are available in the Scene toolbar. Material and Rendered use GGX metallic/roughness lighting. Balanced/Quality render to a linear RGBA16F target where supported, then apply exposure, tone mapping and FXAA. Quality adds directional PCF shadows. Office uses the direct compatible path.
+Lighting is realtime rasterization with a directional sun and an approximate hemisphere ambient term. It does not include path tracing or environment-map reflections. The display texture and UI stay at the requested output size.)GUIDE",R"GUIDE(### Шесть направлений
+У манипулятора есть положительный и отрицательный конец для каждой оси X, Y, Z. Любой конец можно тянуть в обе стороны; центр позволяет двигать объект в плоскости камеры.
+### Свободная камера
+В Scene включён Free Fly. Удерживайте ПКМ: WASD перемещает относительно взгляда, Q/E — вниз/вверх, Shift ускоряет, Ctrl замедляет. Колесо при зажатой ПКМ меняет скорость, Escape освобождает мышь. При вращении камера остаётся на месте. Отключите Free Fly для прежнего орбитального управления.
+### Выделение
+- Tab переключает Object / Edit для выделенного редактируемого объекта.
+- 1 / 2 / 3 выбирают вершины / рёбра / грани в Edit.
+- B — рамка, C — выделение кругом. Колесо меняет радиус круга, Escape возвращает обычный клик.
+- Shift добавляет, Ctrl вычитает при выделении областью. A выбирает всё, Alt+A снимает выделение.
+- X-ray / Alt+Z включает выбор сквозь геометрию в Edit. Без X-ray скрытые элементы отсекаются по буферу глубины.
+### Рендер
+В Scene доступны Wireframe, Solid, Material PBR и Rendered PBR. Material и Rendered используют GGX-освещение metallic/roughness. Balanced/Quality рисуют в линейный RGBA16F-буфер при поддержке видеокартой, затем применяют экспозицию, тональное отображение и FXAA. Quality добавляет направленные PCF-тени. Office использует совместимый прямой вывод.
+Это растровый рендер в реальном времени с направленным солнцем и приближённым освещением полусферы. Трассировка путей и отражения карты окружения не включены. Интерфейс и итоговая текстура сохраняют заданное разрешение.)GUIDE"}},
 };

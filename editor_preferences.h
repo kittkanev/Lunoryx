@@ -6,7 +6,10 @@ struct EditorPreferences {
         ScaleSnap = .1f, MasterVolume = .8f, MoveSnap = .5f;
   bool AdaptiveGrid = true, ShowSettings = false, VSync = true,
        SnapEnabled = false, LocalTransform = false;
-  int Theme = 0, RenderQuality = 0;
+  int Theme = 0, RenderQuality = 2;
+  int ViewportShading=3;
+  bool FreeFly=true;
+  float FlySpeed=5;
   float RenderScale = 1.f, Exposure = 1.f;
   bool CachedRenderer = true;
   float FontSize=17;
@@ -18,7 +21,9 @@ static std::string g_PreferencesPath;
 static bool SaveEditorPreferences() {
   if (g_PreferencesPath.empty())
     return false;
-  nlohmann::json j = {{"font_size",g_Preferences.FontSize},{"docs_language",g_Preferences.DocsLanguage},
+  nlohmann::json j = {{"viewport_shading",g_Preferences.ViewportShading},
+                      {"free_fly",g_Preferences.FreeFly},{"fly_speed",g_Preferences.FlySpeed},
+                      {"font_size",g_Preferences.FontSize},{"docs_language",g_Preferences.DocsLanguage},
                       {"orbit", g_Preferences.OrbitSensitivity},
                       {"pan", g_Preferences.PanSensitivity},
                       {"zoom", g_Preferences.ZoomSensitivity},
@@ -62,6 +67,7 @@ static void LoadEditorPreferences() {
         throw std::runtime_error("Invalid setting range");
       return float(n);
     };
+    p.FreeFly=j.value("free_fly",true);p.FlySpeed=number("fly_speed",5,.1f,1000);
     p.FontSize=number("font_size",17,13,26);
     p.DocsLanguage=j.value("docs_language",0);if(p.DocsLanguage<0||p.DocsLanguage>1)throw std::runtime_error("Invalid docs language");
     p.OrbitSensitivity = number("orbit", p.OrbitSensitivity, .01f, 3);
@@ -78,7 +84,9 @@ static void LoadEditorPreferences() {
     p.LocalTransform = j.value("local_transform", false);
     p.AdaptiveGrid = j.value("adaptive_grid", true);
     p.VSync = j.value("vsync", true);
-    p.RenderQuality = j.value("render_quality",0);
+    p.RenderQuality = j.value("render_quality",2);
+    if(!j.contains("viewport_shading"))p.RenderQuality=2;
+    p.ViewportShading=j.value("viewport_shading",3);if(p.ViewportShading<0||p.ViewportShading>3)throw std::runtime_error("Invalid viewport shading");
     if(p.RenderQuality<0||p.RenderQuality>2)throw std::runtime_error("Invalid render quality");
     p.RenderScale=number("render_scale",p.RenderScale,.5f,1.f);
     p.Exposure=number("exposure",p.Exposure,.5f,2.f);

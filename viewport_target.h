@@ -9,6 +9,7 @@ struct ViewportTarget {
   int Width = 0, Height = 0, PostQuality = 0;
   float PostExposure = 1;
   bool AttachedPost = false, ForceOffscreen = false;
+  bool HdrRequested=false,AttachedHDR=false,HdrActive=false;
   ViewportPostProcess Post;
   using GenFn = void(APIENTRY *)(GLsizei, GLuint *);
   using DeleteFn = void(APIENTRY *)(GLsizei, const GLuint *);
@@ -60,7 +61,8 @@ struct ViewportTarget {
     return Resize(1, 1);
   }
   void ConfigurePostProcess(int quality, float exposure = 1,
-                            bool forceOffscreen = false) {
+                            bool forceOffscreen = false,bool hdr=false) {
+    HdrRequested=hdr;
     ForceOffscreen = forceOffscreen;
     PostQuality = std::max(0, std::min(quality, 2));
     PostExposure =
@@ -78,18 +80,18 @@ struct ViewportTarget {
   GLuint SceneFramebuffer(bool player) const {
     return player && !PostProcessEnabled() && !ForceOffscreen ? 0 : Framebuffer;
   }
-  void AllocateTexture(GLuint texture, int width, int height) {
+  void AllocateTexture(GLuint texture, int width, int height,bool hdr=false) {
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, hdr?GL_RGBA16F:GL_RGBA, width, height, 0, GL_RGBA,
+                 hdr?GL_FLOAT:GL_UNSIGNED_BYTE, nullptr);
   }
   bool Resize(int width, int height) {
     bool post = PostProcessEnabled();
-    if (width == Width && height == Height && post == AttachedPost)
+    if (width == Width && height == Height && post == AttachedPost && AttachedHDR==HdrRequested)
       return true;
     if (width < 1 || height < 1 || width > 8192 || height > 8192 ||
         !Framebuffer)
@@ -106,7 +108,9 @@ struct ViewportTarget {
         glGenTextures(1, &SceneColor);
       if (!PresentFramebuffer)
         GenFramebuffer(1, &PresentFramebuffer);
-      AllocateTexture(SceneColor, width, height);
+      const char* extensions=reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
+      HdrActive=HdrRequested&&extensions&&(std::strstr(extensions,"GL_ARB_texture_float")||std::strstr(extensions,"GL_ATI_texture_float"));
+      AllocateTexture(SceneColor, width, height,HdrActive);
       BindFramebuffer(GL_FRAMEBUFFER, PresentFramebuffer);
       AttachTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Color,
                     0);
@@ -125,6 +129,10 @@ struct ViewportTarget {
     AttachRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
                        Depth);
     bool valid = Check(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    if(!valid&&post&&HdrActive){
+      // Keep FXAA available if the driver cannot render into floating-point colour.
+      HdrActive=false;AllocateTexture(SceneColor,width,height,false);valid=Check(GL_FRAMEBUFFER)==GL_FRAMEBUFFER_COMPLETE;
+    }
     if (!valid && post) {
       Post.Error = "Post processing target unavailable; using direct rendering";
       if (Post.Program && Post.DeleteProgram)
@@ -136,6 +144,7 @@ struct ViewportTarget {
       valid = Check(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
     }
     if (!post) {
+      HdrActive=false;
       if (PresentFramebuffer) {
         if (GLuint(oldFramebuffer) == PresentFramebuffer)
           oldFramebuffer = 0;
@@ -155,7 +164,7 @@ struct ViewportTarget {
     if (valid) {
       Width = width;
       Height = height;
-      AttachedPost = post;
+      AttachedPost = post;AttachedHDR=HdrRequested;
     }
     return valid;
   }
@@ -168,7 +177,7 @@ struct ViewportTarget {
     BindFramebuffer(GL_FRAMEBUFFER, player ? 0 : PresentFramebuffer);
     if (post)
       Post.Draw(SceneColor, Width, Height, PostQuality, PostExposure,
-                player ? outputWidth : 0, player ? outputHeight : 0);
+                player ? outputWidth : 0, player ? outputHeight : 0,HdrActive);
     else
       Post.Copy(Color, outputWidth > 0 ? outputWidth : Width,
                 outputHeight > 0 ? outputHeight : Height);
@@ -188,7 +197,7 @@ struct ViewportTarget {
       glDeleteTextures(1, &Color);
     Framebuffer = Color = Depth = SceneColor = PresentFramebuffer = 0;
     Width = Height = 0;
-    AttachedPost = ForceOffscreen = false;
+    AttachedPost = ForceOffscreen = HdrRequested=AttachedHDR=HdrActive=false;
   }
 };
 static ViewportTarget g_ViewportTarget;

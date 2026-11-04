@@ -163,6 +163,8 @@ uniform sampler2D shadowImage;
 uniform int textured;
 uniform float metallic;
 uniform float roughness;
+uniform int shadowsEnabled;
+uniform int hdrOutput;
 uniform vec3 sunEye;
 uniform vec3 upEye;
 varying vec3 eyePosition;
@@ -171,6 +173,7 @@ varying vec4 tint;
 varying vec2 uv;
 varying vec4 shadowPosition;
 float visibility(float cosine) {
+    if(shadowsEnabled==0)return 1.0;
     vec3 p = shadowPosition.xyz / shadowPosition.w;
     if (p.x <= 0.0 || p.x >= 1.0 || p.y <= 0.0 || p.y >= 1.0 || p.z <= 0.0 || p.z >= 1.0) return 1.0;
     // Compare each PCF tap against the receiver depth at that texel, rather
@@ -191,20 +194,29 @@ float visibility(float cosine) {
     }
     return lit / 9.0;
 }
+vec3 toneMap(vec3 x){return pow(clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0),vec3(1.0/2.2));}
 void main() {
-    vec3 base = tint.rgb;
-    if (textured != 0) base *= texture2D(baseImage, uv).rgb;
-    vec3 n = normalize(normal);
-    if (!gl_FrontFacing) n = -n;
-    float diffuse = max(dot(n, sunEye), 0.0);
-    float shadow = visibility(diffuse);
-    float ambient = 0.24 + 0.08 * dot(n, upEye);
-    vec3 light = base * (ambient + 0.78 * diffuse * shadow);
-    vec3 halfDirection = normalize(sunEye + normalize(-eyePosition));
-    float highlight = pow(max(dot(n, halfDirection), 0.0), mix(100.0, 3.0, roughness));
-    vec3 specular = mix(vec3(0.04), base * 0.7, metallic);
-    light += specular * highlight * diffuse * shadow;
-    gl_FragColor = vec4(light, 1.0);
+    const float PI=3.14159265;
+    vec3 base=pow(max(tint.rgb,vec3(0.0)),vec3(2.2));
+    if(textured!=0)base*=pow(texture2D(baseImage,uv).rgb,vec3(2.2));
+    vec3 n=normalize(normal);if(!gl_FrontFacing)n=-n;
+    vec3 v=normalize(-eyePosition),l=normalize(sunEye),h=normalize(v+l);
+    float nl=max(dot(n,l),0.0),nv=max(dot(n,v),0.0001),nh=max(dot(n,h),0.0),vh=max(dot(v,h),0.0);
+    float r=clamp(roughness,0.045,1.0),a=r*r,a2=a*a;
+    float denominator=nh*nh*(a2-1.0)+1.0;
+    float distribution=a2/max(PI*denominator*denominator,0.000001);
+    float k=(r+1.0)*(r+1.0)/8.0;
+    float geometry=(nv/(nv*(1.0-k)+k))*(nl/max(nl*(1.0-k)+k,0.00001));
+    vec3 f0=mix(vec3(0.04),base,metallic);
+    vec3 fresnel=f0+(1.0-f0)*pow(1.0-vh,5.0);
+    vec3 specular=distribution*geometry*fresnel/max(4.0*nv*nl,0.0001);
+    vec3 diffuse=(1.0-fresnel)*(1.0-metallic)*base/PI;
+    vec3 direct=(diffuse+specular)*vec3(3.4,3.2,2.9)*nl*visibility(nl);
+    float hemi=clamp(dot(n,upEye)*.5+.5,0.0,1.0);
+    vec3 irradiance=mix(vec3(.06,.045,.035),vec3(.24,.32,.44),hemi);
+    vec3 ambient=irradiance*(base*(1.0-metallic)+f0*.3);
+    vec3 radiance=max(direct+ambient,vec3(0.0));
+    gl_FragColor=vec4(hdrOutput!=0?radiance:toneMap(radiance),1.0);
 }
 )GLSL";
     GLuint vs = Shader(GL_VERTEX_SHADER, vertex),
@@ -383,8 +395,9 @@ void main() {
     DepthActive = false;
     MapReady = true;
   }
-  bool BeginLighting(const float view[16]) {
-    if (DepthActive || LightingActive || !Program || !Depth || !MapReady)
+  bool BeginLighting(const float view[16], bool hdr=false, bool shadows=true) {
+    if(!Program&&!Initialize())return false;
+    if (DepthActive || LightingActive || !Program || !Depth)
       return false;
     for (int k = 0; k < 16; ++k)
       if (!std::isfinite(view[k]))
@@ -411,6 +424,8 @@ void main() {
     ActiveTexture(GL_TEXTURE0);
     glMatrixMode(GLenum(LightingMatrixMode));
     UseProgram(Program);
+    UniformInt(Location(Program,"hdrOutput"),hdr?1:0);
+    UniformInt(Location(Program,"shadowsEnabled"),shadows&&MapReady?1:0);
     UniformInt(Location(Program, "baseImage"), 0);
     UniformInt(Location(Program, "shadowImage"), 1);
     float light[3] = {}, up[3] = {view[4], view[5], view[6]};

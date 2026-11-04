@@ -1,3 +1,7 @@
+**Patch 1.2.1:** Free Fly camera (RMB + WASD, Q/E), six signed transform handles,
+Object/Edit selection (Tab, 1/2/3, box/circle/X-ray), GGX PBR with HDR tone mapping.
+[Download 1.2.1](https://github.com/kittkanev/Lunoryx/releases/tag/v1.2.1).
+
 > **1.2.0** — Animation timeline, killzones/checkpoints, runtime debugger,
 > smooth Cyrillic fonts, mipmapped textures and EN/RU offline manuals.
 > [Download release](https://github.com/kittkanev/Lunoryx/releases/tag/v1.2.0).

@@ -1725,6 +1725,15 @@ namespace IMGUIZMO_NAMESPACE
                ImVec2 ortogonalDir(dir.y, -dir.x); // Perpendicular vector
                ImVec2 a(worldDirSSpace + dir);
                drawList->AddTriangleFilled(worldDirSSpace - dir, a + ortogonalDir, a - ortogonalDir, colors[i + 1]);
+               // Lunoryx: draw both signs of each axis; both use the same signed drag.
+               ImVec2 negativeEnd=worldToPos(dirAxis * -gContext.mScreenFactor,gContext.mMVP);
+               ImVec2 negativeBase=worldToPos(dirAxis * (-0.1f*gContext.mScreenFactor),gContext.mMVP);
+               drawList->AddLine(negativeBase,negativeEnd,colors[i+1],gContext.mStyle.TranslationLineThickness);
+               ImVec2 negativeDirection=origin-negativeEnd;
+               float negativeLength=sqrtf(ImLengthSqr(negativeDirection));
+               if(negativeLength>0.001f){negativeDirection/=negativeLength;negativeDirection*=gContext.mStyle.TranslationLineArrowSize;
+                  ImVec2 perpendicular(negativeDirection.y,-negativeDirection.x),tipBase=negativeEnd+negativeDirection;
+                  drawList->AddTriangleFilled(negativeEnd-negativeDirection,tipBase+perpendicular,tipBase-perpendicular,colors[i+1]);}
                // Arrow head end
 
                if (gContext.GetTripodState().mAxisFactor[i] < 0.f)
@@ -2298,7 +2307,7 @@ namespace IMGUIZMO_NAMESPACE
          const float len = IntersectRayPlane(gContext.mRayOrigin, gContext.mRayVector, BuildPlan(gContext.mModel.v.position, dirAxis));
          vec_t posOnPlan = gContext.mRayOrigin + gContext.mRayVector * len;
 
-         const ImVec2 axisStartOnScreen = worldToPos(gContext.mModel.v.position + dirAxis * gContext.mScreenFactor * 0.1f, gContext.mViewProjection) - ImVec2(gContext.mX, gContext.mY);
+         const ImVec2 axisStartOnScreen = worldToPos(gContext.mModel.v.position - dirAxis * gContext.mScreenFactor, gContext.mViewProjection) - ImVec2(gContext.mX, gContext.mY);
          const ImVec2 axisEndOnScreen = worldToPos(gContext.mModel.v.position + dirAxis * gContext.mScreenFactor, gContext.mViewProjection) - ImVec2(gContext.mX, gContext.mY);
 
          vec_t closestPointOnAxis = PointOnSegment(screenCoord, makeVect(axisStartOnScreen), makeVect(axisEndOnScreen));

@@ -2,10 +2,11 @@
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include <algorithm>
+#include <cstring>
 #include <string>
 
 // Compatibility GLSL 1.20. No extensions beyond the editor's OpenGL 2.1 base.
-// This is an LDR antialiasing/colour pass; it does not claim an HDR pipeline.
+// Supports linear RGBA16F input with ACES-style tone mapping and the LDR fallback.
 struct ViewportPostProcess {
   using CreateShaderFn = GLuint(APIENTRY *)(GLenum);
   using ShaderSourceFn = void(APIENTRY *)(GLuint, GLsizei,
@@ -34,7 +35,7 @@ struct ViewportPostProcess {
   Uniform2fFn Uniform2f = nullptr;
   ActiveTextureFn ActiveTexture = nullptr;
   GLuint Program = 0;
-  GLint Image = -1, Texel = -1, Grade = -1, Exposure = -1;
+  GLint Image = -1, Texel = -1, Grade = -1, Exposure = -1, HDR = -1;
   bool Attempted = false;
   std::string Error;
 
@@ -80,6 +81,7 @@ uniform sampler2D image;
 uniform vec2 texel;
 uniform int grade;
 uniform float exposure;
+uniform int hdr;
 varying vec2 uv;
 float luminance(vec3 c) { return dot(c,vec3(0.299,0.587,0.114)); }
 vec3 antialias() {
@@ -100,16 +102,15 @@ vec3 antialias() {
     return l<lo||l>hi?first:second;
 }
 vec3 filmic(vec3 colour) {
-    // Display-referred LDR adjustment. Preserve the white point and avoid
-    // pretending that already-clipped source highlights can be recovered.
-    vec3 x=pow(max(colour,vec3(0.0)),vec3(2.2))*exposure;
+    // HDR is linear radiance; the compatible LDR path is decoded first.
+    vec3 x=(hdr!=0?max(colour,vec3(0.0)):pow(max(colour,vec3(0.0)),vec3(2.2)))*exposure;
     vec3 mapped=(x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14);
     float white=(2.51+0.03)/(2.43+0.59+0.14);
-    return pow(clamp(mapped/white,vec3(0.0),vec3(1.0)),vec3(1.0/2.2));
+    return pow(clamp(mapped/(hdr!=0?1.0:white),vec3(0.0),vec3(1.0)),vec3(1.0/2.2));
 }
 void main() {
     vec3 colour=antialias();
-    if(grade!=0)colour=filmic(colour);
+    if(grade!=0||hdr!=0)colour=filmic(colour);
     gl_FragColor=vec4(colour,1.0);
 }
 )GLSL";
@@ -165,11 +166,12 @@ void main() {
     Texel = GetUniformLocation(Program, "texel");
     Grade = GetUniformLocation(Program, "grade");
     Exposure = GetUniformLocation(Program, "exposure");
+    HDR=GetUniformLocation(Program,"hdr");
     Error.clear();
     return true;
   }
   void Draw(GLuint texture, int width, int height, int quality, float exposure,
-            int outputWidth = 0, int outputHeight = 0) {
+            int outputWidth = 0, int outputHeight = 0,bool hdr=false) {
     if (!Program || !texture || width < 1 || height < 1)
       return;
     GLint oldProgram = 0, oldActive = 0, oldTexture = 0;
@@ -197,6 +199,7 @@ void main() {
     Uniform1i(Image, 0);
     Uniform2f(Texel, 1.0f / width, 1.0f / height);
     Uniform1i(Grade, quality >= 2 ? 1 : 0);
+    Uniform1i(HDR,hdr?1:0);
     Uniform1f(Exposure, std::max(.25f, std::min(exposure, 4.0f)));
     glBegin(GL_QUADS);
     glTexCoord2f(0, 0);

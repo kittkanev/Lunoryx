@@ -8,3 +8,5 @@
   playback to the original C++ host; there is no new C scene/runtime layer.
 
 Licenses are under docs/licenses and in Studio's API Docs.
+
+ImGuizmo carries a small Lunoryx patch: translation handles and hit testing extend to both signs of each axis. The original MIT license and pinned provenance are retained.

@@ -1,7 +1,7 @@
 #pragma once
 static void RenderTransformGizmo(float distance, float pitch, float yaw,
                                  const float target[3]) {
-  if (g_AnimationPreview || g_Studio.SculptEnabled || g_PhysicsRunning ||
+  if (g_Selection.Tool!=0 || g_AnimationPreview || g_Studio.SculptEnabled || g_PhysicsRunning ||
       g_Studio.TransformMode == 0 || g_SelectedObjectIndex < 0 ||
       size_t(g_SelectedObjectIndex) >= g_Objects.size())
     return;
@@ -61,6 +61,9 @@ static void RenderEditorSettings() {
   if (ImGui::Begin("Settings", &g_Preferences.ShowSettings)) {
     if(g_RenderReport)ImGui::PushItemWidth(145);
     ImGui::TextUnformatted("Camera");
+    ImGui::Checkbox("Free Fly",&g_Preferences.FreeFly);
+    ImGui::SliderFloat("Fly speed",&g_Preferences.FlySpeed,.1f,1000,"%.1f",ImGuiSliderFlags_Logarithmic);
+    ImGui::TextWrapped("Hold RMB: look + WASD move, Q/E down/up. Shift fast, Ctrl slow. Wheel adjusts flight speed. Escape releases mouse.");
     ImGui::SliderFloat("Orbit sensitivity", &g_Preferences.OrbitSensitivity,
                        .01f, 3);
     ImGui::SliderFloat("Pan sensitivity", &g_Preferences.PanSensitivity, .0001f,
@@ -92,9 +95,10 @@ static void RenderEditorSettings() {
     ImGui::SliderFloat("Resolution scale",&g_Preferences.RenderScale,.5f,1.f,"%.2f");
     if(g_Preferences.RenderQuality==2)ImGui::SliderFloat("Exposure",&g_Preferences.Exposure,.5f,2.f);
     ImGui::Checkbox("Cached mesh renderer",&g_Preferences.CachedRenderer);
-    ImGui::TextWrapped("Office: reduced resolution, direct colour. Balanced: FXAA. Quality: FXAA and filmic colour. UI stays sharp.");
+    ImGui::TextWrapped("Rendered/Material: GGX metallic-roughness lighting. Balanced: HDR + FXAA; Quality adds sun shadows. Office keeps a direct compatible path. UI stays sharp.");
     if(!g_SceneShadows.Error.empty())ImGui::TextWrapped("%s",g_SceneShadows.Error.c_str());
     if(!g_ViewportTarget.PostProcessError().empty())ImGui::TextWrapped("%s",g_ViewportTarget.PostProcessError().c_str());
+    ImGui::Text("HDR target: %s",g_ViewportTarget.HdrActive?"RGBA16F":"LDR fallback / direct");
     ImGui::Text("Scene draw calls: %zu | Triangles: %zu",g_StudioRenderStats.DrawCalls,g_StudioRenderStats.Triangles);
     ImGui::Text("Culled objects: %zu",g_StudioRenderStats.CulledObjects);
     ImGui::Text("Mesh cache: %.1f MiB | %s",g_StudioRenderStats.CacheBytes/(1024.f*1024.f),g_StudioRenderStats.VBO?"VBO":"compatibility");

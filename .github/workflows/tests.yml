@@ -66,6 +66,11 @@ jobs:
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/geometry-nodes.png ./engine --report-nodes
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/sculpt.png ./engine --report-sculpt
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_LEGACY=1 LUNORYX_RENDER_PRESET=office LUNORYX_CAPTURE_PATH=build/render-before.png ./engine --report-rendering
+          for axis in x y z; do
+            timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GIZMO_SMOKE=1 LUNORYX_GIZMO_AXIS="$axis" ./engine
+            timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GIZMO_SMOKE=1 LUNORYX_GIZMO_AXIS="$axis" LUNORYX_GIZMO_NEGATIVE=1 ./engine
+          done
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_SELECTION_SMOKE=1 ./engine
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=5 LUNORYX_RUNTIME_SMOKE=1 ./engine
           timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/animation-docs.png ./engine --report-animation
       - uses: actions/upload-artifact@v4
@@ -177,6 +182,13 @@ jobs:
           & ./viewport_postprocess_tests.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ./viewport_postprocess_tests.exe --bench | Set-Content -Encoding utf8 build/render-postprocess-windows.csv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test viewport selection and signed gizmos on Windows
+        shell: pwsh
+        run: |
+          python -c "import os,subprocess; e=dict(os.environ,TEST_TIMEOUT='8',LUNORYX_SELECTION_SMOKE='1'); subprocess.run(['./engine.exe'],env=e,check=True,timeout=30)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c "import os,subprocess; base=dict(os.environ,TEST_TIMEOUT='8',LUNORYX_GIZMO_SMOKE='1'); [subprocess.run(['./engine.exe'],env=dict(base,LUNORYX_GIZMO_AXIS=a,**({'LUNORYX_GIZMO_NEGATIVE':'1'} if sign else {})),check=True,timeout=30) for a in ['x','y','z'] for sign in [False,True]]"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:

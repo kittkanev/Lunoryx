@@ -11,6 +11,7 @@ struct StudioRenderStats {
 };
 static StudioRenderStats g_StudioRenderStats;
 static bool g_StudioMeshCaching = true;
+static bool g_StudioTexturesEnabled=true;
 static void ClearStudioGeometry();
 struct CachedStudioTexture {
   GLuint Id = 0;
@@ -27,7 +28,7 @@ static std::string StudioTextureKey(const StudioMaterial &m) {
   return "embedded:" + std::to_string(h);
 }
 static GLuint StudioTexture(const StudioMaterial &material) {
-  if (material.Texture.empty() && material.Image.empty())
+  if (!g_StudioTexturesEnabled || (material.Texture.empty() && material.Image.empty()))
     return 0;
   if (material.TextureGeneration == g_TextureGeneration)
     return material.CachedTexture;

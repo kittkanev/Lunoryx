@@ -17,6 +17,7 @@ static void CheckLua(const char* script) {
     assert(lua_gettop(g_LuaState) == top);
 }
 #include "animation_gameplay_tests.h"
+#include "patch_121_tests.h"
 static int ThrowingBinding(lua_State*) { throw std::runtime_error("test exception"); }
 int main() {
     InitLuaState();
@@ -179,6 +180,7 @@ int main() {
     g_PreferencesPath="tests/test-settings.json";g_Preferences.Fov=73;g_Preferences.OrbitSensitivity=.7f;g_Preferences.MoveSnap=2;g_Preferences.SnapEnabled=true;assert(SaveEditorPreferences());g_Preferences.Fov=45;LoadEditorPreferences();assert(g_Preferences.Fov==73&&std::abs(g_Preferences.OrbitSensitivity-.7f)<1e-6f&&g_Preferences.MoveSnap==2&&g_Preferences.SnapEnabled);
     {std::ofstream invalid("tests/test-settings.json");invalid<<"{\"fov\":0}";}LoadEditorPreferences();assert(g_Preferences.Fov==73);std::remove("tests/test-settings.json");g_PreferencesPath.clear();g_Preferences=EditorPreferences();
     CheckAnimationGameplay();
+    CheckPatch121();
     ShutdownLuaState();
     for (int run = 0; run < 50; ++run) {
         InitLuaState();

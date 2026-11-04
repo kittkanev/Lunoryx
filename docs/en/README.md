@@ -92,3 +92,19 @@ Getters: get_position, get_rotation, get_scale, get_color, get_material, get_vel
 ### Standalone
 Tools > Game / Build assigns the startup script and builds Game.exe with scene/resources. Test the relocated EXE with the source files unavailable. The runtime contains the same animation and trigger systems.
 MCP: Lunoryx.exe --mcp, stdio, separate headless scene. Save a project from MCP and open it in Studio; it does not attach to an already running editor. Detailed legacy API topics remain available under API reference in this window.
+
+## 07 · Fly, select and render
+
+### Six directions
+The transform gizmo has positive and negative handles for X, Y and Z. Drag either end in either direction; the center supports plane/free translation.
+### Free camera
+Free Fly is enabled in the Scene toolbar. Hold RMB to look and fly: WASD moves relative to view, Q/E down/up, Shift accelerates, Ctrl slows down. The wheel while holding RMB changes speed; Escape releases the mouse. Camera rotation keeps the camera position fixed. Disable Free Fly for the orbit controls.
+### Selection
+- Tab switches Object / Edit for a selected editable object.
+- 1 / 2 / 3 choose vertices / edges / faces in Edit mode.
+- B selects with a rectangle; C paints with a circle. Wheel changes the circle radius. Escape returns to click selection.
+- Shift adds; Ctrl subtracts for region selection. A selects all, Alt+A deselects.
+- X-ray / Alt+Z enables selection through geometry in Edit mode. With X-ray off, the viewport depth buffer filters hidden elements.
+### Rendering
+Wireframe, Solid, Material PBR and Rendered PBR are available in the Scene toolbar. Material and Rendered use GGX metallic/roughness lighting. Balanced/Quality render to a linear RGBA16F target where supported, then apply exposure, tone mapping and FXAA. Quality adds directional PCF shadows. Office uses the direct compatible path.
+Lighting is realtime rasterization with a directional sun and an approximate hemisphere ambient term. It does not include path tracing or environment-map reflections. The display texture and UI stay at the requested output size.

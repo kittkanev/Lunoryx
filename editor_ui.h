@@ -124,9 +124,10 @@ static Vec3 CameraVector(Vec3 v,float pitch,float yaw) {
 #include "editor_uv.h"
 #include "editor_game.h"
 #include "editor_gizmo.h"
+#include "editor_selection.h"
 
 static void SceneInteraction(float distance,float pitch,float yaw,const float target[3],float dt) {
-    if(g_AnimationPreview)return;
+    if(g_Selection.Tool!=0||g_AnimationPreview||ImGui::IsMouseDown(1))return;
     auto& io=ImGui::GetIO();
     if(!g_Studio.SceneHovered||g_Modeling.Edit)return;
     Vec3 camera=CameraVector({0,0,distance},pitch,yaw);
@@ -159,8 +160,8 @@ static void SceneInteraction(float distance,float pitch,float yaw,const float ta
     } else if(ImGui::IsMouseClicked(ImGuiMouseButton_Left)&&!ImGuizmo::IsOver()&&!ImGuizmo::IsUsing()) {
         int selected=-1;float nearest=10000;Vec3 hit;
         for(size_t i=0;i<g_Objects.size();++i)if(g_Objects[i].Visible&&RaycastObject(g_Objects[i],camera,ray,hit,nearest))selected=int(i);
-        if(selected>=0)SelectObject(selected,io.KeyCtrl);
-        else if(!io.KeyCtrl){for(auto& o:g_Objects)o.Selected=false;g_SelectedObjectIndex=-1;}
+        if(selected>=0)SelectObject(selected,io.KeyCtrl||io.KeyShift);
+        else if(!io.KeyCtrl&&!io.KeyShift){for(auto& o:g_Objects)o.Selected=false;g_SelectedObjectIndex=-1;}
     }
 }
 static void RenderWorkspace(float distance,float pitch,float yaw,const float target[3],float dt) {
@@ -183,11 +184,18 @@ static void RenderWorkspace(float distance,float pitch,float yaw,const float tar
             ImGuiTabItemFlags sceneFlags=g_Studio.RequestDocument==-2?ImGuiTabItemFlags_SetSelected:0;
             if(ImGui::BeginTabItem("Scene",nullptr,sceneFlags)) {
                 if(g_Studio.RequestDocument==-2)g_Studio.RequestDocument=-1;
+                ImGui::BeginDisabled(g_PhysicsRunning||g_ModelBusy||g_AnimationPreview);
+                if(ImGui::Button(g_Modeling.Edit?"Edit Mode (Tab)":"Object Mode (Tab)"))ToggleModelEdit();
+                if(g_Modeling.Edit){ImGui::SameLine();const char* elements[]={"Vertex (1)","Edge (2)","Face (3)"};ImGui::SetNextItemWidth(130);if(ImGui::Combo("##elements",&g_Modeling.Mode,elements,3))g_Modeling.Selected.clear();}
+                ImGui::SameLine();const char* selectors[]={"Click","Box (B)","Circle (C)"};ImGui::SetNextItemWidth(125);ImGui::Combo("##selection",&g_Selection.Tool,selectors,3);
+                if(g_Modeling.Edit){ImGui::SameLine();ImGui::Checkbox("X-ray",&g_Selection.XRay);}ImGui::EndDisabled();
+                ImGui::SameLine();ImGui::Checkbox("Free Fly",&g_Preferences.FreeFly);
+                const char* shading[]={"Wireframe","Solid","Material PBR","Rendered PBR"};ImGui::SetNextItemWidth(160);ImGui::Combo("View shading",&g_Preferences.ViewportShading,shading,4);
                 const char* modes[]={"Select (Q)","Move (W)","Rotate (E)","Scale (R)"};
                 for(int mode=0;mode<4;++mode){if(mode)ImGui::SameLine();if(ImGui::RadioButton(modes[mode],g_Studio.TransformMode==mode)){g_Studio.TransformMode=mode;g_Studio.SculptEnabled=false;}}
                 ImGui::SameLine();ImGui::Checkbox("Local",&g_Studio.LocalTransform);ImGui::SameLine();ImGui::Checkbox("Snap",&g_Studio.TransformSnap);
                 ImGui::PushTextWrapPos(0);
-                ImGui::TextDisabled(g_Studio.SculptEnabled?"SCULPT: LMB brush | Shift: invert | RMB orbit":"LMB select | Ctrl+click multi-select | RMB orbit | MMB pan | Wheel zoom");
+                ImGui::TextDisabled(g_Studio.SculptEnabled?"SCULPT: LMB brush | Shift: invert":(g_Preferences.FreeFly?"RMB + WASD fly | Q/E down/up | Shift fast | B box | C circle | Esc click":"RMB orbit | MMB pan | Wheel zoom | Shift add | Ctrl subtract"));
                 ImGui::PopTextWrapPos();
                 g_Studio.SceneMin=ImGui::GetCursorScreenPos();g_Studio.SceneSize=ImGui::GetContentRegionAvail();
                 if(g_Studio.SceneSize.x<1) { g_Studio.SceneSize.x=1; }
@@ -196,6 +204,7 @@ static void RenderWorkspace(float distance,float pitch,float yaw,const float tar
                 ImGui::Image(ImTextureID(g_ViewportTarget.Color),g_Studio.SceneSize,ImVec2(0,1),ImVec2(1,0));
                 g_Studio.SceneHovered=ImGui::IsItemHovered();
                 if(!g_Modeling.Edit)RenderTransformGizmo(distance,pitch,yaw,target);
+                UpdateSelectionGesture();SelectObjectsGesture(distance,pitch,yaw,target);
                 DrawModelSelection(distance,pitch,yaw,target);
                 SceneInteraction(distance,pitch,yaw,target,dt);
                 ImGui::EndTabItem();
@@ -229,7 +238,7 @@ static void RenderExplorer() {
                 auto& o=g_Objects[i];if(g_OutlinerFilter[0]&&o.Name.find(g_OutlinerFilter)==std::string::npos)continue;
                 ImGui::PushID(int(o.Id));
                 char label[256];std::snprintf(label,sizeof(label),"[%s] %s%s",o.Character?"Character":(o.Vertices.empty()?GetMeshTypeName(o.Type):"Mesh"),o.Name.c_str(),o.Visible?"":" (hidden)");
-                if(ImGui::Selectable(label,o.Selected))SelectObject(int(i),ImGui::GetIO().KeyCtrl);
+                if(ImGui::Selectable(label,o.Selected))SelectObject(int(i),ImGui::GetIO().KeyCtrl||ImGui::GetIO().KeyShift);
                 ImGui::PopID();
             }
             ImGui::TreePop();
@@ -431,7 +440,8 @@ static void RenderStudio(float& distance,float& pitch,float& yaw,float target[3]
 }
 static void RenderSky() {
     glDisable(GL_DEPTH_TEST);glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
-    glBegin(GL_QUADS);glColor3fv(g_SkyBottom);glVertex2f(-1,-1);glVertex2f(1,-1);glColor3fv(g_SkyTop);glVertex2f(1,1);glVertex2f(-1,1);glEnd();
+    float top[3],bottom[3];for(int k=0;k<3;++k){top[k]=g_ViewportTarget.HdrActive?std::pow(g_SkyTop[k],2.2f):g_SkyTop[k];bottom[k]=g_ViewportTarget.HdrActive?std::pow(g_SkyBottom[k],2.2f):g_SkyBottom[k];}
+    glBegin(GL_QUADS);glColor3fv(bottom);glVertex2f(-1,-1);glVertex2f(1,-1);glColor3fv(top);glVertex2f(1,1);glVertex2f(-1,1);glEnd();
     if(g_SkyPreset==2){glPointSize(2);glBegin(GL_POINTS);glColor3f(.8f,.85f,1);for(int i=0;i<80;++i)glVertex2f(float((i*73)%199)/100-1,float((i*47)%97)/100);glEnd();glPointSize(1);}
     glPopMatrix();glMatrixMode(GL_PROJECTION);glPopMatrix();glMatrixMode(GL_MODELVIEW);glEnable(GL_DEPTH_TEST);
 }

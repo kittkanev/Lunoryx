@@ -1,3 +1,5 @@
+> 1.2.1: the kernel/physics/mesh-submission fixtures below remain isolated measurements. They do not measure the complete PBR/HDR lighting cost; use the current render presets and frame counters when comparing full scenes.
+
 # Производительность экспериментальной версии
 
 Изменения выбраны по замерам относительно `1.0.1` (`216242f51c95d494e1ec328a1741f5385dc07703`). Основной результат — меньше повторных обходов геометрии, меньше вызовов OpenGL и более быстрый поиск при Weld. Rust используется только в пространственном поиске Weld для выделений от 2048 вершин; редактор, физика, рендер и проектный формат остаются на C++.

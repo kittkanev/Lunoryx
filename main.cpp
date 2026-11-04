@@ -33,6 +33,8 @@ extern "C" {
 #include "asset_io.h"
 #include "engine_version.h"
 #include "editor_transform.h"
+#include "editor_camera_math.h"
+#include "viewport_selection.h"
 #include "extensions/ImGuizmo/ImGuizmo.h"
 #include <limits>
 #include <exception>
@@ -902,6 +904,7 @@ static bool ExportGLB(const std::string& filename) {
 #include "tests/gizmo_smoke.h"
 #include "tests/game_smoke.h"
 #include "tests/runtime_smoke.h"
+#include "tests/selection_smoke.h"
 #include "assets/logo_data.h"
 #include "editor_font.h"
 
@@ -1025,10 +1028,12 @@ int main(int argc, char* argv[]) {
     float cameraAngleY = -35.0f;
     float cameraTarget[3] = {0.0f, 1.0f, 0.0f};
 
+    SelectionSmoke selectionSmoke;selectionSmoke.Enabled=std::getenv("LUNORYX_SELECTION_SMOKE")!=nullptr;selectionSmoke.Initialize();
     RuntimeSmoke runtimeSmoke;runtimeSmoke.Enabled=std::getenv("LUNORYX_RUNTIME_SMOKE")!=nullptr;
     GameSmokeTest gameSmoke;gameSmoke.Enabled=std::getenv("LUNORYX_GAME_SMOKE")!=nullptr;
     GizmoSmokeTest gizmoSmoke;gizmoSmoke.Enabled=std::getenv("LUNORYX_GIZMO_SMOKE")!=nullptr;gizmoSmoke.Initialize();
     Uint32 lastTicks = SDL_GetTicks();
+    bool flyCaptured=false;
     bool historyPending=false,shownDirty=ProjectDirty(),cameraWasPlaying=false;
     float editCameraDistance=0,editCameraPitch=0,editCameraYaw=0,editCameraTarget[3]={};
 
@@ -1070,21 +1075,33 @@ int main(int argc, char* argv[]) {
                 if(!g_PlayerMode&&event.key.keysym.sym==SDLK_F5&&g_Studio.Scripts[g_Studio.ActiveScript].Open)ExecuteLuaScript(g_Studio.Scripts[g_Studio.ActiveScript].Code);
                 if(!g_PlayerMode&&!g_ModelBusy&&event.key.keysym.sym==SDLK_F6){if(g_PhysicsRunning)StopSimulation();else StartSimulation();}
             }
+            bool flyEnabled=!g_PlayerMode&&!g_PhysicsRunning&&g_Preferences.FreeFly;
+            int lookX=0,lookY=0;SDL_GetMouseState(&lookX,&lookY);
+            if(flyEnabled&&event.type==SDL_MOUSEBUTTONDOWN&&event.button.button==SDL_BUTTON_RIGHT&&SceneContains(float(lookX),float(lookY))&&!io.WantTextInput){flyCaptured=true;SDL_SetRelativeMouseMode(SDL_TRUE);}
+            if((event.type==SDL_MOUSEBUTTONUP&&event.button.button==SDL_BUTTON_RIGHT)||(event.type==SDL_WINDOWEVENT&&event.window.event==SDL_WINDOWEVENT_FOCUS_LOST)||(event.type==SDL_KEYDOWN&&event.key.keysym.sym==SDLK_ESCAPE)||!flyEnabled){if(flyCaptured)SDL_SetRelativeMouseMode(SDL_FALSE);flyCaptured=false;}
             int mouseX=0,mouseY=0;SDL_GetMouseState(&mouseX,&mouseY);
-            if (SceneContains(float(mouseX),float(mouseY))) {
-                if(event.type==SDL_KEYDOWN&&!event.key.repeat&&!io.WantTextInput&&!g_PhysicsRunning){
+            if (SceneContains(float(mouseX),float(mouseY))||flyCaptured) {
+                if(event.type==SDL_KEYDOWN&&!event.key.repeat&&!io.WantTextInput&&!g_PhysicsRunning&&!flyCaptured){
                     if(event.key.keysym.mod&KMOD_CTRL){if(event.key.keysym.sym==SDLK_z&&g_ObjectHistory.Undo(g_Objects)){g_SelectedObjectIndex=-1;g_SimulationRunning=false;}if(event.key.keysym.sym==SDLK_y&&g_ObjectHistory.Redo(g_Objects)){g_SelectedObjectIndex=-1;g_SimulationRunning=false;}}
-                    else if(!(SDL_GetMouseState(nullptr,nullptr)&SDL_BUTTON_RMASK)) {SDL_Keycode key=event.key.keysym.sym;if(key==SDLK_q)g_Studio.TransformMode=0;if(key==SDLK_w)g_Studio.TransformMode=1;if(key==SDLK_e)g_Studio.TransformMode=2;if(key==SDLK_r)g_Studio.TransformMode=3;if(key==SDLK_q||key==SDLK_w||key==SDLK_e||key==SDLK_r)g_Studio.SculptEnabled=false;}
+                    else if(!(SDL_GetMouseState(nullptr,nullptr)&SDL_BUTTON_RMASK)) {
+                      if(event.key.keysym.sym==SDLK_TAB)ToggleModelEdit();
+                      if(event.key.keysym.sym>=SDLK_1&&event.key.keysym.sym<=SDLK_3){g_Modeling.Mode=int(event.key.keysym.sym-SDLK_1);g_Modeling.Selected.clear();}
+                      if(event.key.keysym.sym==SDLK_b)g_Selection.Tool=1;
+                      if(event.key.keysym.sym==SDLK_c)g_Selection.Tool=2;
+                      if(event.key.keysym.sym==SDLK_ESCAPE){g_Selection.Tool=0;g_Selection.Dragging=false;}
+                      if(event.key.keysym.sym==SDLK_z&&(event.key.keysym.mod&KMOD_ALT))g_Selection.XRay=!g_Selection.XRay;
+                      if(event.key.keysym.sym==SDLK_a)SelectAllViewport(event.key.keysym.mod&KMOD_ALT);
+                      SDL_Keycode key=event.key.keysym.sym;if(key==SDLK_q)g_Studio.TransformMode=0;if(key==SDLK_w)g_Studio.TransformMode=1;if(key==SDLK_e)g_Studio.TransformMode=2;if(key==SDLK_r)g_Studio.TransformMode=3;if(key==SDLK_q||key==SDLK_w||key==SDLK_e||key==SDLK_r)g_Studio.SculptEnabled=false;}
                 }
 
-                if (event.type == SDL_MOUSEWHEEL) {
-                    cameraDistance *= std::pow(.85f,event.wheel.y*g_Preferences.ZoomSensitivity/.8f);
-                    cameraDistance = std::max(.2f, std::min(g_Preferences.FarClip*.25f, cameraDistance));
+                if (event.type == SDL_MOUSEWHEEL&&g_Selection.Tool==2&&!flyCaptured)g_Selection.Radius=std::max(5.f,std::min(200.f,g_Selection.Radius+event.wheel.y*3.f));
+                else if (event.type == SDL_MOUSEWHEEL) {
+                    if(flyEnabled){if(flyCaptured)g_Preferences.FlySpeed=std::max(.1f,std::min(1000.f,g_Preferences.FlySpeed*std::pow(1.2f,float(event.wheel.y))));else StudioFly(cameraTarget,cameraAngleX,cameraAngleY,{0,0,-float(event.wheel.y)},g_Preferences.FlySpeed,.1f);}
+                    else {cameraDistance *= std::pow(.85f,event.wheel.y*g_Preferences.ZoomSensitivity/.8f);cameraDistance=std::max(.2f,std::min(g_Preferences.FarClip*.25f,cameraDistance));}
                 } else if (event.type == SDL_MOUSEMOTION) {
                     if (event.motion.state & SDL_BUTTON_RMASK) {
-                        cameraAngleY = WrapYaw(cameraAngleY + event.motion.xrel * g_Preferences.OrbitSensitivity);
-                        cameraAngleX += event.motion.yrel * g_Preferences.OrbitSensitivity;
-                        cameraAngleX = std::max(-89.0f, std::min(89.0f, cameraAngleX));
+                        if(flyEnabled)StudioFreeLook(cameraDistance,cameraAngleX,cameraAngleY,cameraTarget,event.motion.xrel*g_Preferences.OrbitSensitivity,event.motion.yrel*g_Preferences.OrbitSensitivity);
+                        else {cameraAngleY=WrapYaw(cameraAngleY+event.motion.xrel*g_Preferences.OrbitSensitivity);cameraAngleX=std::max(-89.f,std::min(89.f,cameraAngleX+event.motion.yrel*g_Preferences.OrbitSensitivity));}
                     } else if (event.motion.state & SDL_BUTTON_MMASK) {
                         cameraTarget[0] -= event.motion.xrel * g_Preferences.PanSensitivity*cameraDistance/10;
                         cameraTarget[1] += event.motion.yrel * g_Preferences.PanSensitivity*cameraDistance/10;
@@ -1093,6 +1110,10 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        if(flyCaptured&&!g_PhysicsRunning&&!io.WantTextInput){const Uint8* keys=SDL_GetKeyboardState(nullptr);
+          float boost=(keys[SDL_SCANCODE_LSHIFT]||keys[SDL_SCANCODE_RSHIFT])?4.f:((keys[SDL_SCANCODE_LCTRL]||keys[SDL_SCANCODE_RCTRL])?.25f:1.f);
+          StudioFly(cameraTarget,cameraAngleX,cameraAngleY,{float(keys[SDL_SCANCODE_D])-float(keys[SDL_SCANCODE_A]),float(keys[SDL_SCANCODE_E])-float(keys[SDL_SCANCODE_Q]),float(keys[SDL_SCANCODE_S])-float(keys[SDL_SCANCODE_W])},g_Preferences.FlySpeed*boost,dt);
+        }
         if(g_RestartGame){g_RestartGame=false;StopSimulation();StartSimulation();}
         runtimeSmoke.BeforeTick(done);
         float runtimeDt=(g_PhysicsRunning&&g_DebugPaused)?(g_DebugStep?1.f/60:0.f):dt;g_DebugStep=false;
@@ -1118,6 +1139,7 @@ int main(int argc, char* argv[]) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         gizmoSmoke.Input(cameraDistance,cameraAngleX,cameraAngleY,cameraTarget);
+        selectionSmoke.Input(cameraDistance,cameraAngleX,cameraAngleY,cameraTarget);
         ImGui::NewFrame();
         ImGuizmo::BeginFrame();
 
@@ -1187,6 +1209,7 @@ int main(int argc, char* argv[]) {
         RenderProjectDialogs();if(g_ExitRequested)done=true;
         RenderStudio(cameraDistance,cameraAngleX,cameraAngleY,cameraTarget,dt);
         gizmoSmoke.Check();if(gizmoSmoke.Done)done=true;
+        selectionSmoke.Check();if(selectionSmoke.Done)done=true;
         RenderStudioAudio();
 
         if(historyPending&&!g_PhysicsRunning&&!g_AnimationPreview&&!ImGui::IsAnyItemActive()&&!ImGuizmo::IsUsing()&&!ImGui::IsMouseDown(ImGuiMouseButton_Left)){g_ObjectHistory.Capture(g_Objects);shownDirty=ProjectDirty();historyPending=false;}
@@ -1216,7 +1239,7 @@ int main(int argc, char* argv[]) {
         const int displaySceneWidth=sceneWidth,displaySceneHeight=sceneHeight;
         sceneWidth=std::max(1,int(sceneWidth*g_Preferences.RenderScale));
         sceneHeight=std::max(1,int(sceneHeight*g_Preferences.RenderScale));
-        g_ViewportTarget.ConfigurePostProcess(g_Preferences.RenderQuality,g_Preferences.Exposure,g_PlayerMode&&g_Preferences.RenderScale<1.f);
+        g_ViewportTarget.ConfigurePostProcess(g_Preferences.RenderQuality,g_Preferences.Exposure,g_PlayerMode&&g_Preferences.RenderScale<1.f,g_Preferences.ViewportShading>=2);
         if(!g_PlayerMode||g_ViewportTarget.PostProcessEnabled()||g_Preferences.RenderScale<1.f)g_ViewportTarget.Resize(sceneWidth,sceneHeight);
         g_ViewportTarget.BindFramebuffer(GL_FRAMEBUFFER,g_ViewportTarget.SceneFramebuffer(g_PlayerMode));
         glViewport(0,0,sceneWidth,sceneHeight);glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
@@ -1256,7 +1279,7 @@ int main(int argc, char* argv[]) {
         g_StudioMeshCaching=g_Preferences.CachedRenderer;
         BeginStudioRenderFrame();
         bool shadowReady=false;
-        if(g_Preferences.RenderQuality==2&&g_Preferences.CachedRenderer){
+        if(g_Preferences.ViewportShading==3&&g_Preferences.RenderQuality==2&&g_Preferences.CachedRenderer){
           shadowReady=g_SceneShadows.BeginDepth(cameraTarget,25.f);
           if(shadowReady){
             for(const auto& object:g_Objects)if(object.Visible){
@@ -1266,9 +1289,10 @@ int main(int argc, char* argv[]) {
             }
             g_SceneShadows.EndDepth();
           }
-        }else g_SceneShadows.Disable();
+        }else if(g_Preferences.ViewportShading<2)g_SceneShadows.Disable();
         float cameraView[16];glGetFloatv(GL_MODELVIEW_MATRIX,cameraView);
-        if(shadowReady)g_SceneShadows.BeginLighting(cameraView);
+        bool lightingReady=g_Preferences.ViewportShading>=2&&g_SceneShadows.BeginLighting(cameraView,g_ViewportTarget.HdrActive,shadowReady);
+        g_StudioTexturesEnabled=g_Preferences.ViewportShading>=2;
         float viewProjection[16]={};
         for(int column=0;column<4;++column)for(int row=0;row<4;++row)for(int k=0;k<4;++k)
           viewProjection[column*4+row]+=proj[k*4+row]*cameraView[column*4+k];
@@ -1284,13 +1308,13 @@ int main(int argc, char* argv[]) {
             glRotatef(obj.Rotation[2], 0.0f, 0.0f, 1.0f);
             glScalef(obj.Scale[0], obj.Scale[1], obj.Scale[2]);
 
-            bool useWireframe = g_GlobalWireframe || obj.Wireframe;
+            bool useWireframe = g_Preferences.ViewportShading==0||g_GlobalWireframe || obj.Wireframe;
             if (useWireframe) {
                 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
             }
 
             if(g_Preferences.CachedRenderer)RenderLitMesh(obj);
-            else if(!obj.Materials.empty()||!obj.Normals.empty())RenderLitMeshLegacy(obj);
+            else if(lightingReady||!obj.Materials.empty()||!obj.Normals.empty())RenderLitMeshLegacy(obj);
             else if(!obj.Vertices.empty())RenderEditableMesh(obj);
             else switch (obj.Type) {
                 case MeshType::Cube:     RenderCube(obj.Color);     break;
@@ -1305,7 +1329,7 @@ int main(int argc, char* argv[]) {
             }
 
             if (!g_PlayerMode&&(obj.Selected || i == g_SelectedObjectIndex)) {
-                if(shadowReady)g_SceneShadows.EndLighting();
+                if(lightingReady)g_SceneShadows.EndLighting();
                 if(obj.Vertices.empty())RenderSelectionBox();
                 else {
                     float lo[3]={obj.Vertices[0],obj.Vertices[1],obj.Vertices[2]},hi[3]={lo[0],lo[1],lo[2]};
@@ -1313,7 +1337,7 @@ int main(int argc, char* argv[]) {
                     glPushMatrix();glTranslatef((lo[0]+hi[0])*.5f,(lo[1]+hi[1])*.5f,(lo[2]+hi[2])*.5f);glScalef(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2]);RenderSelectionBox();glPopMatrix();
                 }
                 RenderAxesGizmo(0.8f);
-                if(shadowReady)g_SceneShadows.BeginLighting(cameraView);
+                if(lightingReady)g_SceneShadows.BeginLighting(cameraView,g_ViewportTarget.HdrActive,shadowReady);
             }
 
             glPopMatrix();
@@ -1343,6 +1367,7 @@ int main(int argc, char* argv[]) {
     if(gameSmoke.Enabled)std::cout<<(gameSmoke.Passed?"PASS: third-person input, physics, all pickups, score, embedded audio, HUD and restart\n":"FAIL: third-person game smoke did not complete\n");
 
     if(gameSmoke.Enabled&&!gameSmoke.Passed){std::cerr<<"score="<<g_GameScore<<" audio="<<gameSmoke.AudioEnergy<<"\n";for(const auto& o:g_Objects)if(o.Character)std::cerr<<"player="<<o.Position[0]<<","<<o.Position[1]<<","<<o.Position[2]<<" velocity="<<o.Velocity[0]<<","<<o.Velocity[1]<<","<<o.Velocity[2]<<" dynamic="<<o.Dynamic<<"\n";std::cerr<<"frames="<<gameSmoke.Frames<<" elapsed="<<(SDL_GetTicks()-start_time)<<" physics="<<g_PhysicsRunning<<" dtacc="<<g_Physics.Accumulator<<"\n";std::cerr<<"phase="<<gameSmoke.Phase<<"\n";for(const auto& o:g_Objects)if(o.Name.find("Gem ")==0)std::cerr<<o.Name<<" collected="<<o.Properties.at("Collected").BoolValue<<" position="<<o.Position[0]<<","<<o.Position[1]<<","<<o.Position[2]<<"\n";std::cerr<<g_ConsoleOutput;}
+    SDL_SetRelativeMouseMode(SDL_FALSE);
     // Cleanup
     if(!g_PlayerMode)PersistStudioPreferences();
     ShutdownLuaState();
@@ -1359,5 +1384,5 @@ int main(int argc, char* argv[]) {
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-    return (runtimeSmoke.Enabled&&!runtimeSmoke.Passed)||(gizmoSmoke.Enabled&&!gizmoSmoke.Passed)||(gameSmoke.Enabled&&!gameSmoke.Passed)?1:0;
+    return (selectionSmoke.Enabled&&!selectionSmoke.Passed)||(runtimeSmoke.Enabled&&!runtimeSmoke.Passed)||(gizmoSmoke.Enabled&&!gizmoSmoke.Passed)||(gameSmoke.Enabled&&!gameSmoke.Passed)?1:0;
 }

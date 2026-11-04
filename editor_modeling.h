@@ -101,6 +101,23 @@ static std::set<uint32_t> SelectedModelVertices(const StudioMesh &m) {
         vertices.insert(m.Faces[face].begin(), m.Faces[face].end());
   return vertices;
 }
+static void ToggleModelEdit() {
+  if(g_ModelBusy||g_PhysicsRunning||g_AnimationPreview)return;
+  if(g_Modeling.Edit){g_Modeling.Edit=false;g_Modeling.Selected.clear();g_Selection.Dragging=false;return;}
+  if(g_SelectedObjectIndex<0||size_t(g_SelectedObjectIndex)>=g_Objects.size())return;
+  auto& o=g_Objects[size_t(g_SelectedObjectIndex)];if(!o.GeometryNodes.empty())return;
+  g_Modeling.Edit=!g_Modeling.Edit;g_Modeling.Selected.clear();g_Selection.Dragging=false;
+  if(g_Modeling.Edit)QueueSelectedMesh([](GameObject& mesh){auto data=Model::Editable(mesh);Model::Polygonize(data);Model::SetEditable(mesh,std::move(data));});
+}
+static void SelectAllViewport(bool deselect) {
+  if(g_ModelBusy||g_PhysicsRunning||g_AnimationPreview)return;
+  if(!g_Modeling.Edit){for(auto& o:g_Objects)o.Selected=!deselect&&o.Visible;g_SelectedObjectIndex=-1;for(size_t i=0;i<g_Objects.size();++i)if(g_Objects[i].Selected)g_SelectedObjectIndex=int(i);return;}
+  g_Modeling.Selected.clear();if(deselect||g_SelectedObjectIndex<0||size_t(g_SelectedObjectIndex)>=g_Objects.size())return;
+  auto m=Model::Editable(g_Objects[size_t(g_SelectedObjectIndex)]);
+  std::set<uint64_t> edges;for(const auto& f:m.Faces)for(size_t i=0;i<f.size();++i)edges.insert(Model::Edge(f[i],f[(i+1)%f.size()]));
+  size_t count=g_Modeling.Mode==0?m.Positions.size()/3:(g_Modeling.Mode==1?edges.size():m.Faces.size());
+  for(uint32_t i=0;i<count;++i)g_Modeling.Selected.insert(i);
+}
 static void RenderModelTools() {
   if (ImGui::CollapsingHeader("Mesh Edit / Modifiers",
                               ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -110,14 +127,9 @@ static void RenderModelTools() {
     if(nodeMesh)ImGui::TextWrapped("Bake geometry nodes before editing topology or modifiers.");
     ImGui::BeginDisabled(g_ModelBusy || g_PhysicsRunning || nodeMesh ||
                          g_SelectedObjectIndex < 0);
-    if (ImGui::Checkbox("Edit mesh", &g_Modeling.Edit)) {
-      g_Modeling.Selected.clear();
-      if (g_Modeling.Edit)
-        QueueSelectedMesh([](GameObject &o) {
-          auto m = Model::Editable(o);
-          Model::Polygonize(m);
-          Model::SetEditable(o, std::move(m));
-        });
+    bool edit=g_Modeling.Edit;
+    if (ImGui::Checkbox("Edit mesh", &edit)) {
+      ToggleModelEdit();
     }
     if (g_Modeling.Edit) {
       const char *modes[] = {"Vertices", "Edges", "Faces"};
@@ -343,6 +355,13 @@ static void DrawModelSelection(float distance, float pitch, float yaw,
   size_t count = g_Modeling.Mode == 0   ? m.Positions.size() / 3
                  : g_Modeling.Mode == 1 ? g_Modeling.Edges.size()
                                         : m.Faces.size();
+  draw->PushClipRect(g_Studio.SceneMin,ImVec2(g_Studio.SceneMin.x+g_Studio.SceneSize.x,g_Studio.SceneMin.y+g_Studio.SceneSize.y),true);
+  if(g_Selection.Paint&&g_Selection.Replace)g_Modeling.Selected.clear();
+  std::vector<float> depth;
+  if(!g_Selection.XRay&&g_ViewportTarget.Width>1&&g_ViewportTarget.Height>1){
+    GLint previous=0;glGetIntegerv(GL_FRAMEBUFFER_BINDING,&previous);g_ViewportTarget.BindFramebuffer(GL_FRAMEBUFFER,g_ViewportTarget.Framebuffer);
+    depth.resize(size_t(g_ViewportTarget.Width)*g_ViewportTarget.Height);glReadPixels(0,0,g_ViewportTarget.Width,g_ViewportTarget.Height,GL_DEPTH_COMPONENT,GL_FLOAT,depth.data());g_ViewportTarget.BindFramebuffer(GL_FRAMEBUFFER,GLuint(previous));
+  }
   for (uint32_t i = 0; i < count; ++i) {
     Vec3 p = {0, 0, 0};
     if (g_Modeling.Mode == 0)
@@ -356,9 +375,19 @@ static void DrawModelSelection(float distance, float pitch, float yaw,
         p = Model::Add(p, Model::Point(m, v));
       p = Model::Mul(p, 1.f / m.Faces[i].size());
     }
-    ImVec2 q = screen(p);
+    ImVec2 q = screen(p);if(q.x<g_Studio.SceneMin.x||q.y<g_Studio.SceneMin.y||q.x>g_Studio.SceneMin.x+g_Studio.SceneSize.x||q.y>g_Studio.SceneMin.y+g_Studio.SceneSize.y)continue;
+    if(!depth.empty()){
+      auto pixel=StudioProjectPoint(clip,p,0,0,float(g_ViewportTarget.Width),float(g_ViewportTarget.Height));
+      int x=int(pixel.X),y=g_ViewportTarget.Height-1-int(pixel.Y);
+      if(!pixel.Valid||x<0||y<0||x>=g_ViewportTarget.Width||y>=g_ViewportTarget.Height)continue;
+      if(pixel.Depth*.5f+.5f>depth[size_t(y)*g_ViewportTarget.Width+x]+.00002f)continue;
+    }
+    if(g_Selection.Paint&&StudioSelectionContains(q.x,q.y,g_Selection.Start.x,g_Selection.Start.y,g_Selection.End.x,g_Selection.End.y,g_Selection.Tool==2,g_Selection.Radius)){
+      if(g_Selection.Remove)g_Modeling.Selected.erase(i);else g_Modeling.Selected.insert(i);
+    }
     float d =
         (q.x - mouse.x) * (q.x - mouse.x) + (q.y - mouse.y) * (q.y - mouse.y);
+    if(g_Modeling.Mode==1){auto edge=g_Modeling.Edges[i];auto a=screen(Model::Point(m,edge.first)),b=screen(Model::Point(m,edge.second));d=StudioSegmentDistance2(mouse.x,mouse.y,a.x,a.y,b.x,b.y);}
     if (d < best) {
       best = d;
       nearest = i;
@@ -374,9 +403,10 @@ static void DrawModelSelection(float distance, float pitch, float yaw,
     } else
       draw->AddCircleFilled(q, selected ? 4 : 2, color);
   }
-  if (g_Studio.SceneHovered && ImGui::IsMouseClicked(0) &&
+  draw->PopClipRect();
+  if (g_Selection.Tool==0 && !g_ModelBusy && !g_AnimationPreview && !ImGui::IsMouseDown(1) && g_Studio.SceneHovered && ImGui::IsMouseClicked(0) &&
       !ImGuizmo::IsOver()) {
-    if (!ImGui::GetIO().KeyCtrl)
+    if (!ImGui::GetIO().KeyCtrl&&!ImGui::GetIO().KeyShift)
       g_Modeling.Selected.clear();
     if (found) {
       if (g_Modeling.Selected.count(nearest))
@@ -386,7 +416,7 @@ static void DrawModelSelection(float distance, float pitch, float yaw,
     }
   }
   auto selected = SelectedModelVertices(m);
-  if (selected.empty() || g_Studio.TransformMode == 0 || !o.Modifiers.empty())
+  if (g_Selection.Tool!=0||g_ModelBusy||g_AnimationPreview||ImGui::IsMouseDown(1)||selected.empty() || g_Studio.TransformMode == 0 || !o.Modifiers.empty())
     return;
   Vec3 center = {0, 0, 0};
   for (auto v : selected)
