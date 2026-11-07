@@ -1,5 +1,6 @@
 #pragma once
 static void CheckAuditRegressions() {
+  const std::string virtualPath="/__lunoryx_bundle__/assets/audit.bin";VirtualAssets()[virtualPath]={1,2,3};assert(ConfinedAssetPath(virtualPath,"/__lunoryx_bundle__")==virtualPath);VirtualAssets().erase(virtualPath);bool missingVirtual=false;try{CanonicalAssetPath(virtualPath);}catch(const std::exception&){missingVirtual=true;}assert(missingVirtual);
   assert(PathDirectory("/scene.lunoryx")=="/");assert(PathDirectory("C:/scene.lunoryx")=="C:/");
   for(size_t size: {size_t(0),size_t(1),size_t(2),size_t(3),size_t(4097),size_t(2*1024*1024)}){
     std::vector<unsigned char> bytes(size);for(size_t i=0;i<size;++i)bytes[i]=static_cast<unsigned char>(i);

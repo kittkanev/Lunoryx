@@ -209,7 +209,7 @@ inline std::string CanonicalAssetPath(const std::string& path) {
   CheckLocalAssetPath(path);
   std::string full=AbsoluteAssetPath(path),parent=full,suffix;
   if(full=="/__lunoryx_bundle__")return full;
-  if(full.compare(0,19,"/__lunoryx_bundle__/")==0){if(VirtualAssets().count(full)||full=="/__lunoryx_bundle__")return full;throw std::runtime_error("Missing embedded asset");}
+  if(full.compare(0,sizeof("/__lunoryx_bundle__/")-1,"/__lunoryx_bundle__/")==0){if(VirtualAssets().count(full)||full=="/__lunoryx_bundle__")return full;throw std::runtime_error("Missing embedded asset");}
   for(;;){
 #ifdef _WIN32
     HANDLE handle=CreateFileW(WidePath(parent).c_str(),FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
