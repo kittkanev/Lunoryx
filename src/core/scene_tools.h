@@ -226,7 +226,7 @@ inline int MergeObjects(std::vector<GameObject>& objects,const std::vector<int>&
     // Reserve before erasing, so allocation failure leaves the source scene intact.
     objects.reserve(objects.size()+1);
     for(auto i=unique.rbegin();i!=unique.rend();++i) objects.erase(objects.begin()+*i);
-    merged.Selected=true; objects.push_back(std::move(merged)); return int(objects.size())-1;
+    merged.Selected=true; CheckObjectLimit(objects.size()); objects.push_back(std::move(merged)); return int(objects.size())-1;
 }
 
 inline bool SetProperty(GameObject& object,const std::string& name,const ObjectProperty& value) {
@@ -264,7 +264,7 @@ inline int CreateCharacter(std::vector<GameObject>& objects,const std::string& n
     for(size_t i=0;i<character.Vertices.size();i+=3) for(int k=0;k<3;++k) character.Vertices[i+k]+=character.Position[k];
     character.Position[0]=character.Position[1]=character.Position[2]=0;
     character.Dynamic=true;character.Character=true;character.Restitution=0;character.Mass=3;
-    objects.push_back(std::move(character));return int(objects.size())-1;
+    CheckObjectLimit(objects.size());CheckSceneMeshBudget(objects,character.Vertices.size()/3); objects.push_back(std::move(character));return int(objects.size())-1;
 }
 
 struct PhysicsState { double Accumulator=0; float Gravity=-9.81f; bool Ground=true; };

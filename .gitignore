@@ -37,3 +37,6 @@ __pycache__/
 /tests/scene_shadow_tests
 
 /tests/animation_tests
+
+/engine-testing
+*.autosave.lunoryx

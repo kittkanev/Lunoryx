@@ -4,15 +4,15 @@
 <h1 align="center">Lunoryx Studio</h1>
 <p align="center"><strong>От первой 3D-сцены — до собственной игры в одном EXE.</strong><br/>Моделирование, Lua, анимации, GUI и инструменты сборки в одном редакторе.</p>
 <p align="center">
-  <a href="https://github.com/kittkanev/Lunoryx/releases/tag/v1.2.1"><strong>Релиз 1.2.1</strong></a> ·
+  <a href="https://github.com/kittkanev/Lunoryx/releases/tag/v1.2.2"><strong>Релиз 1.2.2</strong></a> ·
   <a href="#screenshots">Скриншоты</a> ·
   <a href="#first-game">Первая игра</a> ·
   <a href="https://github.com/kittkanev/Lunoryx/issues">Сообщить об ошибке</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/Lunoryx.exe"><img src="assets/readme/download-windows.svg" alt="Скачать Lunoryx 1.2.1 для Windows x64 — один EXE" width="260" /></a>
-  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/Lunoryx-v1.2.1-windows-x64.zip"><img src="assets/readme/download-package.svg" alt="Скачать Windows ZIP с редактором, документацией и примерами" width="260" /></a>
+  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/Lunoryx.exe"><img src="assets/readme/download-windows.svg" alt="Скачать Lunoryx 1.2.2 для Windows x64 — один EXE" width="260" /></a>
+  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/Lunoryx-v1.2.2-windows-x64.zip"><img src="assets/readme/download-package.svg" alt="Скачать Windows ZIP с редактором, документацией и примерами" width="260" /></a>
   <a href="#build-linux"><img src="assets/readme/build-linux.svg" alt="Linux: инструкция по сборке из исходников" width="260" /></a>
 </p>
 <p align="center">
@@ -25,11 +25,17 @@
 **English:** a 3D editor with modeling, Lua scripting, object animation, GUI authoring and standalone game builds. [Start with the English handbook](docs/en/README.md).
 
 <p align="center">
-  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/render-quality.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/render-quality.png" alt="Lunoryx 1.2.1: сцена в режиме Quality, материалы и тени" width="960" /></a>
-  <br/><sub>Реальный viewport Lunoryx 1.2.1. GGX PBR, HDR, тональная коррекция, FXAA и тени солнца.</sub>
+  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/render-quality.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/render-quality.png" alt="Lunoryx 1.2.2: сцена в режиме Quality, материалы и тени" width="960" /></a>
+  <br/><sub>Реальный viewport Lunoryx 1.2.2. GGX PBR, HDR, тональная коррекция, FXAA и тени солнца.</sub>
 </p>
 
-## Что нового в 1.2.1
+## Что нового в 1.2.2
+
+Песочница Lua с лимитами памяти и исполнения, ограничение путей ресурсов,
+компактное хранение встроенных файлов, атомарный экспорт GLB и автосохранение
+для восстановления работы. [Исправления и ограничения](docs/AUDIT-REMEDIATION.md).
+
+## Возможности редактора
 
 - **Свободная камера:** ПКМ + WASD, Q/E вниз/вверх, Shift ускоряет. Шесть направлений манипулятора: ±X, ±Y, ±Z.
 - **Выделение:** Object/Edit, вершины/рёбра/грани, рамка, круг и X-ray.
@@ -43,16 +49,16 @@
 <a id="screenshots"></a>
 ## Внутри редактора
 
-Снимки сделаны в версии **1.2.1** во время проверок приложения. Нажмите на изображение, чтобы открыть его полностью.
+Снимки сделаны в версии **1.2.2** во время проверок приложения. Нажмите на изображение, чтобы открыть его полностью.
 
 <table>
   <tr>
-    <td width="50%"><strong>GUI Designer</strong><br/>Холст, свойства и слои интерфейса.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-ui.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-ui.png" alt="Редактор GUI: виджеты и свойства" width="460" /></a></td>
-    <td width="50%"><strong>Build Game</strong><br/>Название, иконка и параметры игрового окна.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-build.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-build.png" alt="Окно настройки и сборки игрового EXE" width="460" /></a></td>
+    <td width="50%"><strong>GUI Designer</strong><br/>Холст, свойства и слои интерфейса.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/game-ui.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/game-ui.png" alt="Редактор GUI: виджеты и свойства" width="460" /></a></td>
+    <td width="50%"><strong>Build Game</strong><br/>Название, иконка и параметры игрового окна.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/game-build.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/game-build.png" alt="Окно настройки и сборки игрового EXE" width="460" /></a></td>
   </tr>
   <tr>
-    <td><strong>Моделирование</strong><br/>Работа с мешами, модификаторы и булевы операции.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/modeling.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/modeling.png" alt="Моделирование и булевы операции Lunoryx" width="460" /></a></td>
-    <td><strong>Анимации и отладка</strong><br/>Ключевые кадры, состояние симуляции и встроенные Docs.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/animation-docs.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/animation-docs.png" alt="Анимации, отладчик и русская документация" width="460" /></a></td>
+    <td><strong>Моделирование</strong><br/>Работа с мешами, модификаторы и булевы операции.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/modeling.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/modeling.png" alt="Моделирование и булевы операции Lunoryx" width="460" /></a></td>
+    <td><strong>Анимации и отладка</strong><br/>Ключевые кадры, состояние симуляции и встроенные Docs.<br/><a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/animation-docs.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/animation-docs.png" alt="Анимации, отладчик и русская документация" width="460" /></a></td>
   </tr>
 </table>
 
@@ -79,10 +85,10 @@
 5. Сохраните `.lunoryx`, выберите выходной файл и нажмите **Build standalone Game.exe**. На Windows доступны диалоги выбора иконки и EXE.
 6. Перенесите игру в пустую папку: проект, исходные ресурсы и компилятор для запуска не нужны. Esc — выход, R — перезапуск.
 
-[Скачать самостоятельный пример Gem Trail](https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/GemTrail.exe) · [Инструкция по сборке и GUI](docs/ru/README.md)
+[Скачать самостоятельный пример Gem Trail](https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/GemTrail.exe) · [Инструкция по сборке и GUI](docs/ru/README.md)
 
 <p align="center">
-  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-windows.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.1/game-windows.png" alt="Самостоятельная Gem Trail на Windows: игровой уровень и HUD" width="960" /></a>
+  <a href="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/game-windows.png"><img src="https://github.com/kittkanev/Lunoryx/releases/download/v1.2.2/game-windows.png" alt="Самостоятельная Gem Trail на Windows: игровой уровень и HUD" width="960" /></a>
   <br/><sub>Gem Trail — игровой пример, собранный в отдельный EXE.</sub>
 </p>
 
@@ -204,3 +210,5 @@ CI проверяет сборки Linux/MinGW с `-Werror`, нативный з
 Физика использует AABB, анимации — объектные, GLB-импорт — статический. Рендер работает в реальном времени; трассировка лучей, HDRI-отражения, скелетный риг и полная совместимость с Blender пока не реализованы. HDR требует поддерживаемого framebuffer; при его отсутствии используется LDR-путь.
 
 [Релизы и контрольные суммы](https://github.com/kittkanev/Lunoryx/releases) · [Ошибки и предложения](https://github.com/kittkanev/Lunoryx/issues)
+
+Security, Lua sandbox compatibility and autosave recovery: [audit remediation record](docs/AUDIT-REMEDIATION.md).

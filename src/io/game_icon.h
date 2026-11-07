@@ -1,7 +1,7 @@
 #pragma once
-static std::vector<unsigned char> ReadGameIcon(const std::string& path) {
-  if(path.empty())return {};
-  auto bytes=ReadAssetFile(path,4*1024*1024);int w=0,h=0,c=0;
+static std::vector<unsigned char> ValidateGameIcon(std::vector<unsigned char> bytes) {
+  if(bytes.empty())return {};
+  int w=0,h=0,c=0;
   const unsigned char signature[]={137,80,78,71,13,10,26,10};
   if(bytes.size()<8||std::memcmp(bytes.data(),signature,8)||!stbi_info_from_memory(bytes.data(),int(bytes.size()),&w,&h,&c)||w<16||h<16||w>256||h>256||w!=h)
     throw std::runtime_error("Choose a square PNG icon, 16 to 256 pixels (recommended 256x256)");
@@ -9,6 +9,7 @@ static std::vector<unsigned char> ReadGameIcon(const std::string& path) {
   if(!decoded)throw std::runtime_error("Cannot decode game icon PNG");
   stbi_image_free(decoded);return bytes;
 }
+static std::vector<unsigned char> ReadGameIcon(const std::string& path) {return path.empty()?std::vector<unsigned char>():ValidateGameIcon(ReadAssetFile(path,4*1024*1024));}
 #ifdef _WIN32
 struct GameIconResource { WORD Type,Language;bool Integer;WORD Id;std::wstring Name; };
 static BOOL CALLBACK GameIconLanguage(HMODULE, LPCWSTR type,LPCWSTR name,WORD language,LONG_PTR data) {
@@ -19,6 +20,7 @@ static BOOL CALLBACK GameIconName(HMODULE module,LPCWSTR type,LPWSTR name,LONG_P
   return EnumResourceLanguagesW(module,type,name,GameIconLanguage,data);
 }
 static void ReplaceGameExeIcon(const std::string& path,const std::vector<unsigned char>& png) {
+  if(png.empty())return;
   const auto wide=WidePath(path);
   HMODULE module=LoadLibraryExW(wide.c_str(),nullptr,LOAD_LIBRARY_AS_DATAFILE|LOAD_LIBRARY_AS_IMAGE_RESOURCE);
   if(!module)throw std::runtime_error("Cannot inspect EXE icons");

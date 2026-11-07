@@ -175,12 +175,13 @@ static std::vector<GameObject> ReadGLBObjects(const std::string &path,
   tinygltf::Model model;
   std::string error, warning;
   tinygltf::FsCallbacks fs;
-  fs.FileExists = [](const std::string &p, void *) { return AssetExists(p); };
+  std::string importRoot=CanonicalAssetPath(PathDirectory(AbsoluteAssetPath(path)));
+  fs.FileExists = [](const std::string &p, void *context) { try{return AssetExists(ConfinedAssetPath(p,*static_cast<std::string*>(context)));}catch(...){return false;} };
   fs.ExpandFilePath = [](const std::string &p, void *) { return p; };
   fs.ReadWholeFile = [](std::vector<unsigned char> *out, std::string *err,
-                        const std::string &p, void *) {
+                        const std::string &p, void *context) {
     try {
-      *out = ReadAssetFile(p, 64 * 1024 * 1024);
+      *out = ReadAssetFile(ConfinedAssetPath(p,*static_cast<std::string*>(context)), 64 * 1024 * 1024);
       return true;
     } catch (const std::exception &e) {
       if (err)
@@ -190,7 +191,7 @@ static std::vector<GameObject> ReadGLBObjects(const std::string &path,
   };
   fs.WriteWholeFile = nullptr;
   fs.GetFileSizeInBytes = nullptr;
-  fs.user_data = nullptr;
+  fs.user_data = &importRoot;
   reader.SetFsCallbacks(fs);
   reader.SetImageLoader(BoundedImageLoad, nullptr);
   if (!reader.LoadBinaryFromMemory(&model, &error, &warning, bytes.data(),

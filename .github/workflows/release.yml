@@ -5,13 +5,18 @@ on:
     types: [completed]
     branches: [main]
 permissions:
-  contents: write
+  contents: read
   actions: read
 concurrency:
   group: lunoryx-studio-prerelease
   cancel-in-progress: false
 jobs:
   publish:
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+      attestations: write
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.head_sha == github.sha
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -21,7 +26,7 @@ jobs:
       SOURCE_RUN: ${{ github.event.workflow_run.id }}
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
       - name: Read version from tested source
@@ -37,20 +42,15 @@ jobs:
             echo 'exists=true' >> "$GITHUB_OUTPUT"
             tag_sha=$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq '.sha')
             if [ "$tag_sha" != "$RELEASE_SHA" ]; then
-              # 1.2.1 is being completed in this release session. Replace only
-              # this explicitly requested patch; other published tags stay fixed.
-              if [ "$RELEASE_TAG" != v1.2.1 ]; then
-                echo 'Refusing to replace a different published release commit' >&2
-                exit 1
-              fi
-              echo 'refresh=true' >> "$GITHUB_OUTPUT"
+              echo 'Refusing to replace an existing release commit' >&2
+              exit 1
             elif [ "$state" = false ]; then
               echo 'published=true' >> "$GITHUB_OUTPUT"
             fi
           fi
       - name: Download the tested Windows artifact
         if: steps.state.outputs.published != 'true'
-        run: gh run download "$SOURCE_RUN" --name lua3d-windows-x64 --dir build/artifact
+        run: gh run download "$SOURCE_RUN" --name lunoryx-windows-x64 --dir build/artifact
       - name: Package executable, instructions and licenses
         if: steps.state.outputs.published != 'true'
         run: |
@@ -86,19 +86,18 @@ jobs:
           find build/perf-linux build/perf-windows build/perf-render -type f \( -name '*.csv' -o -name '*.txt' \) -exec cp {} build/release/ \;
           cp docs/PERFORMANCE.md build/release/PERFORMANCE.md
           (cd build/release && sha256sum GemTrail.exe REPORT.md PERFORMANCE.md *.png *.csv benchmark-*-environment.txt >> SHA256SUMS.txt)
+      - name: Attest verified release files
+        if: steps.state.outputs.published != 'true'
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: build/release/*
       - name: Create draft and upload verified files
         if: steps.state.outputs.published != 'true'
         run: |
           if [ '${{ steps.state.outputs.exists }}' != true ]; then
             gh release create "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --prerelease --draft
           fi
-          if [ '${{ steps.state.outputs.refresh }}' = true ]; then
-            gh release edit "$RELEASE_TAG" --draft=true --latest=false
-          fi
-          gh release upload "$RELEASE_TAG" build/release/*.zip build/release/*.exe build/release/*.txt build/release/*.md build/release/*.png build/release/*.csv --clobber
-          if [ '${{ steps.state.outputs.refresh }}' = true ]; then
-            gh api "repos/$GH_REPO/git/refs/tags/$RELEASE_TAG" --method PATCH -f sha="$RELEASE_SHA" -F force=true
-          fi
+          gh release upload "$RELEASE_TAG" build/release/*.zip build/release/*.exe build/release/*.txt build/release/*.md build/release/*.png build/release/*.csv
           prerelease=true; latest=false
           if [[ "$RELEASE_TAG" != *-* ]]; then prerelease=false; latest=true; fi
           gh release edit "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --draft=false --prerelease="$prerelease" --latest="$latest"

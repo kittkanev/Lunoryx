@@ -144,7 +144,7 @@ fn weld(
     workspace.sort_unstable_by_key(|c| (c.x, c.y, c.z, c.ordinal));
     let limit = tolerance as f64 * tolerance as f64;
     for (ordinal, &index) in selection.iter().enumerate() {
-        let (x, y, z) = cell(positions, index, tolerance).unwrap();
+        let Some((x, y, z)) = cell(positions, index, tolerance) else { return 2; };
         let mut best = ordinal;
         // Cells are twice the tolerance, covering the original float-distance
         // rounding at the threshold without widening the neighbour search.

@@ -70,7 +70,8 @@ inline void Check(const StudioMesh &m) {
 }
 inline void Triangulate(StudioMesh &m) {
   m.Indices.clear();
-  for (const auto &face : m.Faces) {
+  size_t work=0;
+  for (auto &face : m.Faces) {
     auto f = face;
     Vec3 normal = Normal(m, f);
     int axis = 0;
@@ -80,6 +81,7 @@ inline void Triangulate(StudioMesh &m) {
         (axis == 0 ? std::abs(normal.x) : std::abs(normal.y)))
       axis = 2;
     auto cross2 = [&](uint32_t a, uint32_t b, uint32_t c) {
+      if(++work>10000000)throw std::runtime_error("Triangulation work budget exceeded");
       Vec3 p = Point(m, a), q = Point(m, b), r = Point(m, c);
       float v[3] = {p.x, p.y, p.z}, w[3] = {q.x, q.y, q.z},
             z[3] = {r.x, r.y, r.z};
@@ -92,6 +94,10 @@ inline void Triangulate(StudioMesh &m) {
                                     : normal.z) >= 0
                            ? 1
                            : -1;
+    // Remove a collinear point only when it lies between its neighbours.
+    bool simplified=true;
+    while(simplified&&f.size()>3){simplified=false;for(size_t i=0;i<f.size();++i){auto a=f[(i+f.size()-1)%f.size()],b=f[i],c=f[(i+1)%f.size()];Vec3 ab=Subtract(Point(m,b),Point(m,a)),cb=Subtract(Point(m,b),Point(m,c));if(std::abs(cross2(a,b,c))<=1e-14&&Dot(ab,cb)<=0){f.erase(f.begin()+i);simplified=true;break;}}}
+    face=f;
     while (f.size() > 3) {
       bool clipped = false;
       for (size_t i = 0; i < f.size(); ++i) {

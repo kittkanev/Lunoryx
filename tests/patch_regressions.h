@@ -44,7 +44,9 @@ static void CheckPatchRegressions() {
   const auto badPath = "tests/patch-invalid.lunoryx";
   auto reject = [&](const char *pointer, const nlohmann::json &value) {
     auto damaged = valid;
-    damaged[nlohmann::json::json_pointer(pointer)] = value;
+    if(std::string(pointer)=="/objects/0/materials/0/image/0")damaged["objects"][0]["materials"][0]["image"]=nlohmann::json::array({value});
+    else if(std::string(pointer)=="/sounds/0/data/0")damaged["sounds"][0]["data"]=nlohmann::json::array({value});
+    else damaged[nlohmann::json::json_pointer(pointer)] = value;
     const auto text = damaged.dump();
     WriteAssetFile(badPath, text.data(), text.size());
     assert(!LoadStudioProject(badPath));

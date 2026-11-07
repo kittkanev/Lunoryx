@@ -9,7 +9,7 @@ struct StudioMcpTool {
   const char *Schema;
 };
 static const StudioMcpTool kStudioMcpTools[] = {
-    {"mesh_operation","Edit a mesh by stable object ID. Actions: modifier, apply, boolean, polygonize, extrude, weld, delete, normals. JSON options use the same modeling commands as Lua.",R"({"type":"object","properties":{"id":{"type":"integer"},"action":{"type":"string"},"options":{"type":"object"}},"required":["id","action"]})"},
+    {"mesh_operation","Edit a mesh by stable object ID. Actions: modifier, apply, boolean, polygonize, extrude, weld, delete, normals, unwrap. JSON options use the same modeling commands as Lua.",R"({"type":"object","properties":{"id":{"type":"integer"},"action":{"type":"string"},"options":{"type":"object"}},"required":["id","action"]})"},
     {"scene_list", "Read the v0.2 scene with stable IDs and legacy Lua indices",
      R"({"type":"object","properties":{}})"},
     {"add_object", "Add an object using the original engine",
@@ -25,7 +25,7 @@ static const StudioMcpTool kStudioMcpTools[] = {
      R"({"type":"object","properties":{"path":{"type":"string"}},"required":["path"]})"},
     {"export_glb", "Export visible objects using the existing GLB exporter",
      R"({"type":"object","properties":{"path":{"type":"string"}},"required":["path"]})"},
-    {"run_lua", "Run trusted Lua with the original engine API",
+    {"run_lua", "Run sandboxed Lua with the original engine API",
      R"({"type":"object","properties":{"code":{"type":"string"}},"required":["code"]})"},
     {"add_sound", "Add a sound asset reference without playing it",
      R"({"type":"object","properties":{"path":{"type":"string"},"name":{"type":"string"}},"required":["path"]})"},
@@ -56,12 +56,13 @@ static nlohmann::json StudioMcpScene() {
 static nlohmann::json StudioMcpCall(const std::string &tool,
                                     const nlohmann::json &args) {
   try {
+    ClearConsole();
     if(tool=="mesh_operation"){
       uint64_t id=args.at("id").get<uint64_t>();int index=-1;for(size_t i=0;i<g_Objects.size();++i)if(g_Objects[i].Id==id)index=int(i);
       int result=ModelCommand(g_Objects,index,args.at("action").get<std::string>(),args.value("options",nlohmann::json::object()));g_ObjectHistory.Capture(g_Objects);return StudioMcpText(nlohmann::json({{"index",result},{"id",g_Objects[size_t(result)].Id}}).dump());
     }
     if (tool == "scene_list")
-      return StudioMcpText(StudioMcpScene().dump());
+      return StudioMcpText(StudioMcpScene().dump(-1,' ',false,nlohmann::json::error_handler_t::replace));
     if (tool == "undo_objects")
       return StudioMcpText(g_ObjectHistory.Undo(g_Objects) ? "Undone"
                                                            : "Nothing to undo");
@@ -99,10 +100,8 @@ static nlohmann::json StudioMcpCall(const std::string &tool,
                          : std::strcmp(key, "rotation") == 0 ? changed.Rotation
                                                              : changed.Scale;
             ReadVector(args.at(key), out);
-            if (std::strcmp(key, "scale") == 0)
-              for (int k = 0; k < 3; ++k)
-                if (out[k] < .001f || out[k] > 100000)
-                  throw std::runtime_error("Scale outside allowed range");
+            ValidateTransform(changed.Position,changed.Rotation,changed.Scale);
+
           }
         *it = changed;
       }
@@ -111,7 +110,7 @@ static nlohmann::json StudioMcpCall(const std::string &tool,
     }
     if (tool == "project_save" || tool == "project_load" ||
         tool == "export_glb") {
-      std::string path = args.at("path").get<std::string>();
+      std::string path = ScriptAssetPath(args.at("path").get<std::string>());
       if (path.empty() || path.size() > 511 ||
           path.find('\0') != std::string::npos)
         throw std::runtime_error("Invalid path");
@@ -126,7 +125,7 @@ static nlohmann::json StudioMcpCall(const std::string &tool,
         throw std::runtime_error("Code exceeds limit");
       LuaStackGuard stack(g_LuaState);
       LuaExecutionGuard budget(g_LuaState);
-      if (luaL_loadbuffer(g_LuaState, code.data(), code.size(), "MCP") !=
+      if (luaL_loadbufferx(g_LuaState, code.data(), code.size(), "MCP", "t") !=
               LUA_OK ||
           lua_pcall(g_LuaState, 0, 0, 0) != LUA_OK)
         return StudioMcpText(LuaErrorText(g_LuaState), true);
@@ -135,7 +134,7 @@ static nlohmann::json StudioMcpCall(const std::string &tool,
     }
     if (tool == "add_sound") {
       StudioSound sound;
-      sound.Path = args.at("path").get<std::string>();
+      sound.Path = ScriptAssetPath(args.at("path").get<std::string>());
       sound.Name = args.value("name", std::string("Sound"));
       if (sound.Path.empty() || sound.Path.size() > 511 ||
           sound.Name.size() > 255 ||
@@ -166,7 +165,7 @@ static int RunStudioMcp() {
       response["error"] = {{"code", code}, {"message", message}};
     else
       response["result"] = result;
-    std::cout << response.dump() << '\n' << std::flush;
+    std::cout << response.dump(-1,' ',false,nlohmann::json::error_handler_t::replace) << '\n' << std::flush;
   };
   std::vector<char> line(1024 * 1024 + 1);
   while (std::fgets(line.data(), int(line.size()), stdin)) {
@@ -237,7 +236,7 @@ static int RunStudioMcp() {
           reply(id, {{"contents", nlohmann::json::array(
                                       {{{"uri", "lunoryx://scene"},
                                         {"mimeType", "application/json"},
-                                        {"text", StudioMcpScene().dump()}}})}});
+                                        {"text", StudioMcpScene().dump(-1,' ',false,nlohmann::json::error_handler_t::replace)}}})}});
       } else
         reply(id, nullptr, -32601, "Unknown method");
     } catch (const std::exception &e) {

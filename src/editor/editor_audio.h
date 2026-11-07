@@ -81,7 +81,7 @@ static int l_add_sound(lua_State *L) {
       g_Sounds.size() >= 64)
     return luaL_error(L, "Invalid sound path, name or sound limit");
   StudioSound sound;
-  sound.Path = AbsoluteAssetPath(path);
+  sound.Path = ScriptAssetPath(path);
   sound.Name = name;
   g_Sounds.push_back(sound);
   lua_pushinteger(L, lua_Integer(g_Sounds.size() - 1));

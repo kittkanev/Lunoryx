@@ -19,6 +19,7 @@ static void CheckLua(const char* script) {
 #include "animation_gameplay_tests.h"
 #include "patch_121_tests.h"
 #include "game_features_tests.h"
+#include "audit_regressions.h"
 static int ThrowingBinding(lua_State*) { throw std::runtime_error("test exception"); }
 int main() {
     InitLuaState();
@@ -199,7 +200,7 @@ int main() {
     std::remove("tests/texture.png");
     // Completed operations cover audio and environment, and Play restores both.
     g_PhysicsRunning=false;g_ObjectHistory.Clear();g_Sounds.clear();g_ObjectHistory.Capture(g_Objects);
-    float originalSky=g_SkyTop[0];g_SkyTop[0]=.37f;StudioSound tone;tone.Path="missing.wav";g_Sounds.push_back(tone);g_ObjectHistory.Capture(g_Objects);
+    float originalSky=g_SkyTop[0];g_SkyTop[0]=.37f;StudioSound tone;tone.Path="tests/missing.wav";g_Sounds.push_back(tone);g_ObjectHistory.Capture(g_Objects);
     assert(g_ObjectHistory.Undo(g_Objects)&&g_Sounds.empty()&&g_SkyTop[0]==originalSky);
     assert(g_ObjectHistory.Redo(g_Objects)&&g_Sounds.size()==1&&g_SkyTop[0]==.37f);
     StartSimulation();g_SkyTop[0]=.91f;g_Physics.Gravity=-1;g_Sounds.clear();StopSimulation();
@@ -212,7 +213,7 @@ int main() {
     StudioMesh seamed;seamed.Positions={0,0,0,1,0,0,2,0,0,0,0,1,1,0,1,2,0,1};seamed.Faces={{0,3,4,1},{1,4,5,2}};seamed.Seams={Model::Edge(1,4)};Model::Triangulate(seamed);Model::Unwrap(seamed);assert(seamed.Positions.size()/3>=8&&!seamed.Seams.empty());auto island=Model::UVIsland(seamed,0);assert(island.size()<seamed.Positions.size()/3);
     Model::Unwrap(seamed);assert(!seamed.Seams.empty());
     CreateSampleGame();uint64_t editorHash=CompleteDocumentHash();StartSimulation();g_SkyTop[0]=.99f;g_Objects[0].Position[0]=123;g_GameScore=2;StopSimulation();assert(CompleteDocumentHash()==editorHash&&g_GameScore==0);
-    {auto savedData=ReadAssetFile("tests/textured.lunoryx");auto oversized=nlohmann::json::parse(savedData.begin(),savedData.end());auto object=oversized["objects"][0];object["modifiers"]=nlohmann::json::array();object["mesh"]["positions"]=std::vector<float>(MAX_EDIT_VERTICES*3,0);object["mesh"]["normals"]=nlohmann::json::array();object["mesh"]["uv"]=nlohmann::json::array();object["mesh"]["colors"]=nlohmann::json::array();oversized["objects"]=nlohmann::json::array();for(int i=0;i<6;++i){object["id"]=100000+i;oversized["objects"].push_back(object);}auto text=oversized.dump();WriteAssetFile("tests/over-budget.lunoryx",text.data(),text.size());auto count=g_Objects.size();size_t logStart=g_ConsoleOutput.size();assert(!LoadStudioProject("tests/over-budget.lunoryx")&&g_Objects.size()==count);assert(g_ConsoleOutput.find("Project mesh budget exceeded",logStart)!=std::string::npos);std::remove("tests/over-budget.lunoryx");}
+    {auto savedData=ReadAssetFile("tests/textured.lunoryx");auto oversized=nlohmann::json::parse(savedData.begin(),savedData.end());auto object=oversized["objects"][0];object["modifiers"]=nlohmann::json::array();object["mesh"]["positions"]=std::vector<float>(MAX_EDIT_VERTICES*3,0);object["mesh"]["normals"]=nlohmann::json::array();object["mesh"]["uv"]=nlohmann::json::array();object["mesh"]["colors"]=nlohmann::json::array();oversized["objects"]=nlohmann::json::array();for(int i=0;i<6;++i){object["id"]=100000+i;oversized["objects"].push_back(object);}auto text=oversized.dump();WriteAssetFile("tests/over-budget.lunoryx",text.data(),text.size());auto count=g_Objects.size();size_t logStart=g_ConsoleOutput.size();assert(!LoadStudioProject("tests/over-budget.lunoryx")&&g_Objects.size()==count);assert(g_ConsoleOutput.find("budget",logStart)!=std::string::npos);std::remove("tests/over-budget.lunoryx");}
     std::map<std::string,std::vector<unsigned char>> tooManyResources;for(int i=0;i<257;++i)tooManyResources["asset"+std::to_string(i)]={};bool budgetRejected=false;try{GamePackage::Write("unused","unused",tooManyResources);}catch(const std::runtime_error& e){budgetRejected=std::string(e.what()).find("255")!=std::string::npos;}assert(budgetRejected);
     std::promise<void> gate;auto ready=gate.get_future().share();uint64_t beforeJob=StudioSceneFingerprint(g_Objects);QueueModelJob([ready](std::vector<GameObject>& objects){ready.wait();objects[0].Name="Stale worker result";});g_Game.StartupScript=-1;StartSimulation();gate.set_value();g_ModelJob.wait();PollModelJob();assert(!g_ModelBusy&&StudioSceneFingerprint(g_Objects)==beforeJob);StopSimulation();
     CheckPatchRegressions();
@@ -220,5 +221,6 @@ int main() {
     CheckGeometryNodeRegressions();
     CheckGameBuildGUITriggers();
     ShutdownLuaState();
+    CheckAuditRegressions();
     std::cout << "PASS: Lua bounds, stack recovery, hostile metamethods, GLB buffer round trip\n";
 }

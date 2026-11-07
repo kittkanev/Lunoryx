@@ -82,6 +82,7 @@ static void BuildStudioLayout(ImGuiID dockspace,const ImGuiViewport* viewport) {
 static bool g_RequestBuild=false;
 static void StudioMenu() {
     if(ImGui::MenuItem("Build Game"))g_RequestBuild=true;
+    if(ImGui::MenuItem("Open recovery"))RequestProjectAction(2,ProjectRecoveryPath());
     if(ImGui::BeginMenu("Edit")) {
         ImGui::BeginDisabled(g_PhysicsRunning);
         if(ImGui::MenuItem("Undo scene edit","Ctrl+Z")){if(g_ObjectHistory.Undo(g_Objects)){g_SelectedObjectIndex=-1;g_SimulationRunning=false;}}

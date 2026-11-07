@@ -19,12 +19,12 @@ static void RenderGameSettings() {
   ImGui::Checkbox("Resizable window",&g_Game.Resizable);ImGui::Checkbox("Game VSync",&g_Game.VSync);
   ImGui::Checkbox("Built-in score / HUD",&g_Game.DefaultHUD);
   char icon[512];std::snprintf(icon,sizeof(icon),"%s",g_Game.IconPath.c_str());
-  if(ImGui::InputText("Game icon PNG",icon,sizeof(icon)))g_Game.IconPath=icon;
+  if(ImGui::InputText("Game icon PNG",icon,sizeof(icon))){g_Game.IconPath=icon;g_Game.IconData.clear();}
 #ifdef _WIN32
-  if(ImGui::Button("Choose icon...")){auto chosen=GameFileDialog(false);if(!chosen.empty())g_Game.IconPath=chosen;}
+  if(ImGui::Button("Choose icon...")){auto chosen=GameFileDialog(false);if(!chosen.empty()){g_Game.IconPath=chosen;g_Game.IconData.clear();}}
   ImGui::SameLine();
 #endif
-  if(ImGui::Button("Clear icon"))g_Game.IconPath.clear();
+  if(ImGui::Button("Clear icon")){g_Game.IconPath.clear();g_Game.IconData.clear();}
   ImGui::TextWrapped("Square PNG, 16-256 px, recommended 256x256. Embedded in the EXE and game window. Empty = system icon, no Studio branding.");
   ImGui::SeparatorText("Startup and camera");
   if (ImGui::BeginCombo("Startup script",

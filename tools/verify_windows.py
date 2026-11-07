@@ -9,6 +9,8 @@ data=path.read_bytes()
 pe=struct.unpack_from('<I',data,0x3c)[0]
 assert data[pe:pe+4]==b'PE\0\0'
 assert struct.unpack_from('<H',data,pe+24+68)[0]==2, 'Expected Windows GUI subsystem'
+flags=struct.unpack_from('<H',data,pe+24+70)[0]
+assert flags & 0x160 == 0x160, 'Expected ASLR, DEP and high-entropy ASLR'
 imports=subprocess.check_output(['x86_64-w64-mingw32-objdump','-p',str(path)],text=True)
 names=re.findall(r'DLL Name:\s*(\S+)',imports)
 for name in names:

@@ -1,4 +1,4 @@
-LUNORYX STUDIO 1.2.1
+LUNORYX STUDIO 1.2.2
 
 WINDOWS X64
 Запустите Lunoryx.exe. Отдельные SDL/Lua/audio DLL и консоль не нужны.

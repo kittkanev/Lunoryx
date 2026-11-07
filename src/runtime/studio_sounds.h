@@ -1,7 +1,8 @@
 #pragma once
 #include "extensions/audio/audio_backend.h"
 struct StudioSound {
-  uint64_t Id = NewObjectId();
+  uint64_t Id;
+  explicit StudioSound(bool allocateId=true):Id(allocateId?NewObjectId():0){}
   std::string Name = "Sound", Path;
   std::vector<unsigned char> Data;
   float Position[3] = {0, 0, 0}, Volume = 1, Pitch = 1;

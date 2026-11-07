@@ -11,6 +11,7 @@ struct StudioGameSettings {
   uint64_t CameraTarget=0;
   float CameraDistance=6,CameraPitch=22,CameraYaw=0;
   std::string Title="My Game",IconPath;
+  std::vector<unsigned char> IconData;
   int Width=1280,Height=720,WindowMode=1; // window, borderless fullscreen
   bool Resizable=true,VSync=true,DefaultHUD=false;
   std::vector<GameWidget> Widgets;
@@ -26,6 +27,7 @@ inline uint64_t GameSettingsFingerprint(const StudioGameSettings& game) {
   uint64_t h=1469598103934665603ULL;
   auto bytes=[&](const void* ptr,size_t n){auto p=static_cast<const unsigned char*>(ptr);while(n--)h=(h^*p++)*1099511628211ULL;};
   auto text=[&](const std::string& s){bytes(s.data(),s.size());size_t n=s.size();bytes(&n,sizeof(n));};
+  if(!game.IconData.empty())bytes(game.IconData.data(),game.IconData.size());
   bytes(&game.StartupScript,sizeof(game.StartupScript));bytes(&game.CameraTarget,sizeof(game.CameraTarget));
   bytes(&game.CameraDistance,sizeof(float));bytes(&game.CameraPitch,sizeof(float));bytes(&game.CameraYaw,sizeof(float));
   text(game.Title);text(game.IconPath);bytes(&game.Width,sizeof(int));bytes(&game.Height,sizeof(int));bytes(&game.WindowMode,sizeof(int));

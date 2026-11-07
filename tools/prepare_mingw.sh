@@ -2,15 +2,15 @@
 set -euo pipefail
 mkdir -p build/deps
 cd build/deps
-curl --fail --location --retry 3 https://www.lua.org/ftp/lua-5.4.6.tar.gz -o lua.tar.gz
-curl --fail --location --retry 3 https://github.com/libsdl-org/SDL/releases/download/release-2.30.0/SDL2-devel-2.30.0-mingw.tar.gz -o sdl.tar.gz
+curl --proto '=https' --tlsv1.2 --fail --location --connect-timeout 20 --max-time 120 --retry 3 https://www.lua.org/ftp/lua-5.4.8.tar.gz -o lua.tar.gz
+curl --proto '=https' --tlsv1.2 --fail --location --connect-timeout 20 --max-time 120 --retry 3 https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-mingw.tar.gz -o sdl.tar.gz
 sha256sum --check <<'HASHES'
-7d5ea1b9cb6aa0b59ca3dde1c6adcb57ef83a1ba8e5432c0ecd06bf439b3ad88  lua.tar.gz
-d44bd8cd869219f43634a898d7735d0c92d4b2cca129f709dc8b98402b36d5f3  sdl.tar.gz
+4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae  lua.tar.gz
+83a5d74012311edc3c0d40ea6faecbe57ad692aa033fa5dc273cc937e3938ff2  sdl.tar.gz
 HASHES
 tar --no-same-owner -xzf lua.tar.gz
 tar --no-same-owner -xzf sdl.tar.gz
-cd lua-5.4.6/src
+cd lua-5.4.8/src
 mkdir -p mingw-objects
 for source in *.c; do
     case "$source" in lua.c|luac.c) continue ;; esac

@@ -3,7 +3,7 @@ set -euo pipefail
 mkdir -p build/deps
 archive=build/deps/manifold.tar.gz
 if ! test -f "$archive"; then
-  curl --fail --location --retry 3 https://api.github.com/repos/elalish/manifold/tarball/ce50d78021d64507f89e8c9fc2c2e51018117857 -o "$archive"
+  curl --proto '=https' --tlsv1.2 --fail --location --retry 3 https://api.github.com/repos/elalish/manifold/tarball/ce50d78021d64507f89e8c9fc2c2e51018117857 -o "$archive"
 fi
 echo 'c997e35eb62f6ad2b8665cdaa9f0db405ad2f244416a9633fbfce629fb5f471d  build/deps/manifold.tar.gz' | sha256sum --check
 mkdir -p build/deps/manifold

@@ -3,6 +3,8 @@ static nlohmann::json SaveGameSettings(const StudioGameSettings& g,const std::st
   nlohmann::json j={{"startup_script",g.StartupScript},{"camera_target",g.CameraTarget},{"camera_distance",g.CameraDistance},{"camera_pitch",g.CameraPitch},{"camera_yaw",g.CameraYaw},{"title",g.Title},
     {"icon",g.IconPath.empty()?"":RelativeAssetPath(g.IconPath,path)},{"width",g.Width},{"height",g.Height},{"window_mode",g.WindowMode},{"resizable",g.Resizable},{"vsync",g.VSync},{"default_hud",g.DefaultHUD},{"gui",nlohmann::json::array()}};
   for(const auto& w:g.Widgets)j["gui"].push_back({{"id",w.Id},{"text",w.Text},{"type",w.Type},{"x",w.X},{"y",w.Y},{"width",w.Width},{"height",w.Height},{"value",w.Value},{"visible",w.Visible},{"color",{w.Color[0],w.Color[1],w.Color[2],w.Color[3]}},{"text_color",{w.TextColor[0],w.TextColor[1],w.TextColor[2],w.TextColor[3]}}});
+  if(!g.IconData.empty())j["icon_data"]=SaveBinary(g.IconData);
+  if(!g.IconPath.empty()){try{ProjectAssetPath(j["icon"].get<std::string>(),path);}catch(const std::exception&){j["icon_data"]=SaveBinary(ReadAssetFile(g.IconPath,4*1024*1024));j["icon"]="";}}
   return j;
 }
 static StudioGameSettings ReadGameSettings(const nlohmann::json& j,const std::string& path) {
@@ -11,7 +13,8 @@ static StudioGameSettings ReadGameSettings(const nlohmann::json& j,const std::st
   g.CameraDistance=ReadRange(j.at("camera_distance"),.2f,1000);g.CameraPitch=ReadRange(j.at("camera_pitch"),-85,85);g.CameraYaw=ReadRange(j.at("camera_yaw"),-180,180);
   g.Title=j.at("title").get<std::string>();g.IconPath=j.value("icon",std::string());
   if(g.Title.empty()||g.Title.size()>255||g.Title.find('\0')!=std::string::npos||g.IconPath.size()>511||g.IconPath.find('\0')!=std::string::npos)throw std::runtime_error("Invalid game title or icon path");
-  if(!g.IconPath.empty()&&!AbsolutePath(g.IconPath))g.IconPath=NormalizePath(PathDirectory(AbsoluteAssetPath(path))+"/"+g.IconPath);
+  g.IconPath=ProjectAssetPath(g.IconPath,path);
+  if(j.contains("icon_data"))g.IconData=ReadBinary(j.at("icon_data"),4*1024*1024);
   if(j.contains("width"))g.Width=ReadInteger(j.at("width"),320,7680);
   if(j.contains("height"))g.Height=ReadInteger(j.at("height"),200,4320);
   // Preserve old projects' windowed startup and built-in HUD.

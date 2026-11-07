@@ -46,7 +46,7 @@ static int ModelCommand(std::vector<GameObject> &objects, int index,
     if (op < 0)
       throw std::runtime_error("Unknown boolean operation");
     auto result = Model::Boolean(changed, objects[size_t(second)], op);
-    objects.push_back(std::move(result));
+    CheckObjectLimit(objects.size());CheckSceneMeshBudget(objects,result.Vertices.size()/3);objects.push_back(std::move(result));
     return int(objects.size()) - 1;
   } else {
     auto m = Model::Editable(changed);
@@ -95,6 +95,7 @@ static int ModelCommand(std::vector<GameObject> &objects, int index,
       throw std::runtime_error("Unknown mesh operation");
     Model::SetEditable(changed, std::move(m));
   }
+  CheckSceneMeshBudget(objects,changed.Vertices.size()/3,index);
   objects[size_t(index)] = std::move(changed);
   return index;
 }

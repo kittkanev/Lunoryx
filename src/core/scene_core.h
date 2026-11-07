@@ -1,6 +1,7 @@
 #pragma once
 #include "src/core/animation_core.h"
 #include <vector>
+#include <stdexcept>
 #include <string>
 #include <cmath>
 #include <cstdint>
@@ -39,7 +40,8 @@ inline MeshType ParseMeshType(const std::string& typeStr) {
     if (lower == "sphere")   return MeshType::Sphere;
     if (lower == "cylinder") return MeshType::Cylinder;
     if (lower == "plane")    return MeshType::Plane;
-    return MeshType::Cube;
+    if(lower=="cube")return MeshType::Cube;
+    throw std::runtime_error("Unknown primitive type");
 }
 
 struct ObjectProperty {
@@ -58,7 +60,7 @@ inline void ReserveObjectId(uint64_t id){uint64_t old=ObjectIdCounter().load();w
 
 
 struct GameObject {
-    uint64_t Id = NewObjectId();
+    uint64_t Id;
     std::string Name;
     MeshType Type = MeshType::Cube;
     float Position[3] = {0.0f, 0.0f, 0.0f};
@@ -99,8 +101,8 @@ struct GameObject {
     std::vector<StudioGeometryNode> GeometryNodes;
 
 
-    GameObject(const std::string& name, MeshType type = MeshType::Cube)
-        : Name(name), Type(type) {}
+    GameObject(const std::string& name, MeshType type = MeshType::Cube, bool allocateId = true)
+        : Id(allocateId?NewObjectId():0), Name(name), Type(type) {}
 };
 
 // Fixes Bug #2: converts UI degrees to radians before computing quaternion (intrinsic XYZ / Qx * Qy * Qz matching glRotatef order)
@@ -221,9 +223,20 @@ inline void GeneratePrimitiveMeshData(MeshType type, std::vector<float>& outPosi
 }
 
 
+inline void ValidateTransform(const float* position,const float* rotation,const float* scale) {
+    for(int k=0;k<3;++k)if(!std::isfinite(position[k])||std::abs(position[k])>1000000||!std::isfinite(rotation[k])||std::abs(rotation[k])>1000000||!std::isfinite(scale[k])||std::abs(scale[k])<.001f||std::abs(scale[k])>100000)throw std::runtime_error("Transform outside allowed range");
+}
+inline void CheckObjectLimit(size_t count) { if(count>=10000)throw std::runtime_error("Project object limit is 10000"); }
+
+inline void CheckSceneMeshBudget(const std::vector<GameObject>& objects,size_t added,int replaced=-1) {
+    size_t total=added;for(size_t i=0;i<objects.size();++i)if(int(i)!=replaced){total+=objects[i].Vertices.size()/3;if(total>1000000)throw std::runtime_error("Project mesh budget exceeded");}
+    if(total>1000000)throw std::runtime_error("Project mesh budget exceeded");
+}
 // Copy before growing the vector: callers may reference an element of objects.
 inline int DuplicateObject(std::vector<GameObject>& objects, int index, const std::string& name) {
     if (index < 0 || static_cast<size_t>(index) >= objects.size() || name.size()>255) return -1;
+    CheckObjectLimit(objects.size());
+    CheckSceneMeshBudget(objects,objects[index].Vertices.size()/3);
     GameObject copy = objects[index];
     copy.Name = name;
     copy.Selected = false;

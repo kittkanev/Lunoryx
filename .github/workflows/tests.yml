@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y g++ make cmake libsdl2-dev liblua5.4-dev libgl1-mesa-dev libegl1-mesa-dev xvfb xauth ffmpeg
       - name: Install pinned Rust toolchain
@@ -23,12 +23,12 @@ jobs:
       - name: Test geometry, Rust ABI and physics equivalence
         run: make -j2 test test-rust test-kernels test-physics
       - name: Build editor and integration tests
-        run: KEEP_TEST_GLB=1 make -j2 engine test-integration
+        run: KEEP_TEST_GLB=1 make -j2 engine engine-testing test-integration
       - name: Test Studio MCP and audio codecs
-        run: python tools/test_studio_mcp.py ./engine && python tools/test_studio_audio.py
+        run: python tools/test_studio_mcp.py ./engine && python tools/test_audit_security.py ./engine && python tools/test_studio_audio.py
       - name: Test self-contained game and relocated resources
         run: |
-          LUNORYX_GAME_GUI=1 LUNORYX_GAME_SMOKE=1 SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 LUNORYX_CAPTURE_PATH="$PWD/build/game-linux.png" python3 tools/test_game_package.py ./engine
+          LUNORYX_TEST_RUNTIME="$PWD/engine-testing" LUNORYX_GAME_GUI=1 LUNORYX_GAME_SMOKE=1 SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 LUNORYX_CAPTURE_PATH="$PWD/build/game-linux.png" python3 tools/test_game_package.py ./engine
       - name: Measure portable kernels and physics against 1.0.1
         run: |
           make benchmark benchmark-physics benchmark-weld
@@ -37,7 +37,7 @@ jobs:
         run: |
           make test-postprocess test-render test-shadows
           SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 ./tests/viewport_postprocess_tests --bench > build/render-postprocess-linux.csv
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: performance-linux
           path: |
@@ -47,7 +47,7 @@ jobs:
             build/benchmark-linux-environment.txt
             build/render-postprocess-linux.csv
             build/render-parity-linux.csv
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           cache: npm
@@ -57,26 +57,26 @@ jobs:
       - name: Smoke test editor and timeout
         run: |
           mkdir -p build
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_UI_SMOKE=1 LUNORYX_CAPTURE_PATH=build/studio-smoke.png ./engine
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GIZMO_SMOKE=1 LUNORYX_CAPTURE_PATH=build/gizmo-smoke.png ./engine
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/modeling.png ./engine --report-modeling
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/uv.png ./engine --report-uv
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_PRESET=quality LUNORYX_CAPTURE_PATH=build/render-quality.png ./engine --report-rendering
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_PRESET=office LUNORYX_CAPTURE_PATH=build/render-office.png ./engine --report-rendering
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/geometry-nodes.png ./engine --report-nodes
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/sculpt.png ./engine --report-sculpt
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_LEGACY=1 LUNORYX_RENDER_PRESET=office LUNORYX_CAPTURE_PATH=build/render-before.png ./engine --report-rendering
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_UI_SMOKE=1 LUNORYX_CAPTURE_PATH=build/studio-smoke.png ./engine-testing
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GIZMO_SMOKE=1 LUNORYX_CAPTURE_PATH=build/gizmo-smoke.png ./engine-testing
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/modeling.png ./engine-testing --report-modeling
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/uv.png ./engine-testing --report-uv
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_PRESET=quality LUNORYX_CAPTURE_PATH=build/render-quality.png ./engine-testing --report-rendering
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_PRESET=office LUNORYX_CAPTURE_PATH=build/render-office.png ./engine-testing --report-rendering
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/geometry-nodes.png ./engine-testing --report-nodes
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/sculpt.png ./engine-testing --report-sculpt
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_RENDER_LEGACY=1 LUNORYX_RENDER_PRESET=office LUNORYX_CAPTURE_PATH=build/render-before.png ./engine-testing --report-rendering
           for axis in x y z; do
-            timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GIZMO_SMOKE=1 LUNORYX_GIZMO_AXIS="$axis" ./engine
-            timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GIZMO_SMOKE=1 LUNORYX_GIZMO_AXIS="$axis" LUNORYX_GIZMO_NEGATIVE=1 ./engine
+            timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GIZMO_SMOKE=1 LUNORYX_GIZMO_AXIS="$axis" ./engine-testing
+            timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GIZMO_SMOKE=1 LUNORYX_GIZMO_AXIS="$axis" LUNORYX_GIZMO_NEGATIVE=1 ./engine-testing
           done
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_SELECTION_SMOKE=1 ./engine
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GAME_GUI_SMOKE=1 ./engine
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=5 LUNORYX_RUNTIME_SMOKE=1 ./engine
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/animation-docs.png ./engine --report-animation
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/game-ui.png ./engine --report-game-ui
-          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/game-build.png ./engine --report-game-build
-      - uses: actions/upload-artifact@v4
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_SELECTION_SMOKE=1 ./engine-testing
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=8 LUNORYX_GAME_GUI_SMOKE=1 ./engine-testing
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=5 LUNORYX_RUNTIME_SMOKE=1 ./engine-testing
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=3 LUNORYX_CAPTURE_PATH=build/animation-docs.png ./engine-testing --report-animation
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/game-ui.png ./engine-testing --report-game-ui
+          timeout 30s env SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 TEST_TIMEOUT=2 LUNORYX_CAPTURE_PATH=build/game-build.png ./engine-testing --report-game-build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: gltf-validation
           path: |
@@ -105,7 +105,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install cross compiler
         run: sudo apt-get update && sudo apt-get install -y cmake g++-mingw-w64-x86-64
       - name: Install pinned Rust cross toolchain
@@ -113,10 +113,10 @@ jobs:
       - name: Prepare verified Lua and SDL2 dependencies
         run: bash tools/prepare_mingw.sh
       - name: Build editor and Windows tests
-        run: make -j2 -f Makefile.win package && python tools/verify_windows.py build/win/engine.exe
-      - uses: actions/upload-artifact@v4
+        run: make -j2 -f Makefile.win package build/win/engine-testing.exe && python tools/verify_windows.py build/win/engine.exe
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: lua3d-windows-x64
+          name: lunoryx-windows-x64
           path: |
             build/win/*.exe
             build/win/README.md
@@ -129,10 +129,10 @@ jobs:
     needs: mingw
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: lua3d-windows-x64
+          name: lunoryx-windows-x64
       - name: Run MinGW binaries on Windows
         shell: pwsh
         run: |
@@ -148,6 +148,8 @@ jobs:
           & ./engine_tests.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/test_studio_mcp.py ./engine.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/test_audit_security.py ./engine.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -c "import wave,math,struct; f=wave.open('tests/tone.wav','wb'); f.setparams((1,2,22050,0,'NONE','not compressed')); f.writeframes(b''.join(struct.pack('<h',int(math.sin(i*.1)*12000)) for i in range(11025))); f.close()"
           $env:LUNORYX_AUDIO_NULL='1'
@@ -165,7 +167,7 @@ jobs:
           & ./weld_operation.exe | Set-Content -Encoding utf8 build/weld-windows.csv
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           @([Environment]::OSVersion.VersionString, (Get-CimInstance Win32_Processor).Name) | Set-Content -Encoding utf8 build/benchmark-windows-environment.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: performance-windows
           path: |
@@ -194,17 +196,17 @@ jobs:
         run: |
           $env:LUNORYX_GAME_GUI_SMOKE='1'
           $env:TEST_TIMEOUT='8'
-          & ./engine.exe
+          & ./engine-testing.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Remove-Item Env:LUNORYX_GAME_GUI_SMOKE
       - name: Test viewport selection and signed gizmos on Windows
         shell: pwsh
         run: |
-          python -c "import os,subprocess; e=dict(os.environ,TEST_TIMEOUT='8',LUNORYX_SELECTION_SMOKE='1'); subprocess.run(['./engine.exe'],env=e,check=True,timeout=30)"
+          python -c "import os,subprocess; e=dict(os.environ,TEST_TIMEOUT='8',LUNORYX_SELECTION_SMOKE='1'); subprocess.run(['./engine-testing.exe'],env=e,check=True,timeout=30)"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -c "import os,subprocess; base=dict(os.environ,TEST_TIMEOUT='8',LUNORYX_GIZMO_SMOKE='1'); [subprocess.run(['./engine.exe'],env=dict(base,LUNORYX_GIZMO_AXIS=a,**({'LUNORYX_GIZMO_NEGATIVE':'1'} if sign else {})),check=True,timeout=30) for a in ['x','y','z'] for sign in [False,True]]"
+          python -c "import os,subprocess; base=dict(os.environ,TEST_TIMEOUT='8',LUNORYX_GIZMO_SMOKE='1'); [subprocess.run(['./engine-testing.exe'],env=dict(base,LUNORYX_GIZMO_AXIS=a,**({'LUNORYX_GIZMO_NEGATIVE':'1'} if sign else {})),check=True,timeout=30) for a in ['x','y','z'] for sign in [False,True]]"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: performance-render-windows
           path: |
@@ -213,13 +215,14 @@ jobs:
       - name: Test native game packaging and complete the level on Windows
         shell: pwsh
         run: |
+          $env:LUNORYX_TEST_RUNTIME=Join-Path $PWD 'engine-testing.exe'
           $env:LUNORYX_GAME_GUI='1'
           $env:LUNORYX_GAME_SMOKE='1'
           $env:GALLIUM_DRIVER='llvmpipe'
           $env:LUNORYX_CAPTURE_PATH=Join-Path $PWD 'build/game-windows.png'
           python tools/test_game_package.py ./engine.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: lunoryx-game-demo
           path: |

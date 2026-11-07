@@ -3,7 +3,8 @@
 static int l_make_editable(lua_State* L) {
     lua_Integer i=luaL_checkinteger(L,1),levels=luaL_optinteger(L,2,0);
     bool ok=i>=0&&i<lua_Integer(g_Objects.size())&&levels>=0&&levels<=4;
-    lua_pushboolean(L,ok&&MakeEditable(g_Objects[size_t(i)],int(levels)));return 1;
+    if(ok){auto changed=g_Objects[size_t(i)];ok=MakeEditable(changed,int(levels));if(ok){CheckSceneMeshBudget(g_Objects,changed.Vertices.size()/3,int(i));g_Objects[size_t(i)]=std::move(changed);}}
+    lua_pushboolean(L,ok);return 1;
 }
 static int l_sculpt(lua_State* L) {
     lua_Integer i=luaL_checkinteger(L,1);

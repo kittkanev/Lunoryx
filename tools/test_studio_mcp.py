@@ -5,7 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 binary=str(Path(sys.argv[1] if len(sys.argv)>1 else './engine').resolve())
-p=subprocess.Popen([binary,'--mcp'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+p=subprocess.Popen([binary,'--mcp'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,encoding="utf-8")
 seq=0
 def request(method,params=None):
     global seq
@@ -24,9 +24,10 @@ assert json.loads(call('scene_list')['content'][0]['text'])[0]['position']==[12,
 call('undo_objects');assert json.loads(call('scene_list')['content'][0]['text'])[0]['position']==[0,0,0]
 call('redo_objects');assert json.loads(call('scene_list')['content'][0]['text'])[0]['position']==[12,3,4]
 assert not call('run_lua',code="local x=find_object('Original engine box'); assert(x==0); set_property(x,'Health',100)")['isError']
-assert not call('add_sound',path='sound.wav',name='MCP sound')['isError']
-with tempfile.TemporaryDirectory() as tmp:
+
+with tempfile.TemporaryDirectory(dir=Path.cwd()) as tmp:
     project=str(Path(tmp)/'project.lunoryx')
+    assert not call('add_sound',path=str(Path(tmp)/'sound.wav'),name='MCP sound')['isError']
     assert not call('project_save',path=project)['isError']
     data=json.loads(Path(project).read_text());assert data['schema']==2 and data['sounds'][0]['name']=='MCP sound'
     assert not call('remove_object',id=obj)['isError']

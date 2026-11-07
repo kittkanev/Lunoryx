@@ -23,6 +23,7 @@ typedef struct {
 } Voice;
 static Voice voices[64];
 static Voice *find_voice(uint64_t id) {
+  if(!id)return NULL;
   for (int i = 0; i < 64; i++)
     if (voices[i].id == id)
       return &voices[i];
@@ -31,11 +32,13 @@ static Voice *find_voice(uint64_t id) {
 static int ensure_engine(char error[256]) {
   if (!initialized) {
     ma_engine_config config = ma_engine_config_init();
+#ifdef LUNORYX_TESTING
     if (getenv("LUNORYX_AUDIO_NULL")) {
       config.noDevice = 1;
       config.sampleRate = 48000;
       config.channels = 2;
     }
+#endif
     ma_result r = ma_engine_init(&config, &engine);
     if (r != MA_SUCCESS) {
       snprintf(error, 256, "Audio device unavailable (%d)", (int)r);
@@ -66,8 +69,13 @@ int studio_audio_load(uint64_t id, const char *path, char error[256]) {
     snprintf(error, 256, "64 simultaneous sounds maximum");
     return 0;
   }
-  ma_result r = ma_sound_init_from_file(&engine, path, MA_SOUND_FLAG_STREAM,
-                                        NULL, NULL, &v->sound);
+#ifdef _WIN32
+  wchar_t wide[512];
+  if(!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,path,-1,wide,512)){snprintf(error,256,"Invalid UTF-8 audio path");return 0;}
+  ma_result r = ma_sound_init_from_file_w(&engine, wide, MA_SOUND_FLAG_STREAM, NULL, NULL, &v->sound);
+#else
+  ma_result r = ma_sound_init_from_file(&engine, path, MA_SOUND_FLAG_STREAM, NULL, NULL, &v->sound);
+#endif
   if (r != MA_SUCCESS) {
     snprintf(error, 256, "Cannot decode audio (%d)", (int)r);
     return 0;

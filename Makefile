@@ -1,4 +1,5 @@
-CPPFLAGS += -I.
+TESTING ?= 0
+CPPFLAGS += -I. $(if $(filter 1,$(TESTING)),-DLUNORYX_TESTING,)
 CXX = g++
 CXXFLAGS = -Wall -Wextra -Werror -O2 -std=c++11 -MMD -MP -I/usr/include/lua5.4 -I/usr/include/SDL2 -I./third_party/imgui -I./third_party/imgui/backends -isystem ./third_party/include -isystem ./third_party/include/nlohmann
 RUST_LIB = build/rust-linux/release/liblunoryx_kernels.a
@@ -7,8 +8,8 @@ RUST_SOURCES = $(wildcard extensions/rust-kernels/src/*.rs) extensions/rust-kern
 CARGO ?= cargo
 LDFLAGS = $(RUST_LIB) build/deps/manifold-linux/src/libmanifold.a -llua5.4 -lSDL2 -lGL -lm -ldl -lpthread
 
-CXXFLAGS += $(EXTRA_CXXFLAGS)
-LDFLAGS += $(EXTRA_LDFLAGS)
+CXXFLAGS += -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE $(EXTRA_CXXFLAGS)
+LDFLAGS += -pie -Wl,-z,relro,-z,now $(EXTRA_LDFLAGS)
 
 IMGUI_SRC = \
 	third_party/imgui/imgui.cpp \
@@ -21,7 +22,7 @@ IMGUI_SRC = \
 
 SRC = src/main.cpp extensions/ImGuizmo/ImGuizmo.cpp $(IMGUI_SRC)
 OBJS = $(SRC:.cpp=.o) extensions/audio/audio_backend.o extensions/modeling/boolean_adapter.o extensions/xatlas/xatlas.o
-DEPS = $(OBJS:.o=.d) tests/engine_tests.d
+DEPS = $(OBJS:.o=.d) tests/engine_tests.d build/main-testing.d
 
 all: engine
 
@@ -34,7 +35,7 @@ engine: $(OBJS) $(RUST_LIB)
 -include $(DEPS)
 
 clean:
-	rm -f engine $(OBJS) $(DEPS) tests/core_tests tests/engine_tests tests/rust_kernel_tests tests/physics_differential tests/viewport_postprocess_tests tests/render_parity_tests tests/scene_shadow_tests
+	rm -f engine engine-testing build/main-testing.o build/audio-testing.o $(OBJS) $(DEPS) tests/core_tests tests/engine_tests tests/rust_kernel_tests tests/physics_differential tests/viewport_postprocess_tests tests/render_parity_tests tests/scene_shadow_tests tests/modeling_tests tests/animation_tests tests/studio_audio_tests
 
 
 .PHONY: all clean test test-integration test-rust test-kernels benchmark
@@ -50,13 +51,13 @@ tests/core_tests: tests/core_tests.cpp src/core/scene_core.h src/core/scene_tool
 test-integration: tests/engine_tests
 	./tests/engine_tests
 
-tests/engine_tests: tests/engine_tests.cpp src/main.cpp src/core/scene_core.h src/core/scene_tools.h engine_version.h $(filter-out src/main.o,$(OBJS)) $(RUST_LIB)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/engine_tests.cpp $(filter-out src/main.o,$(OBJS)) -o $@ $(LDFLAGS)
+tests/engine_tests: tests/engine_tests.cpp src/main.cpp src/core/scene_core.h src/core/scene_tools.h engine_version.h $(filter-out src/main.o extensions/audio/audio_backend.o,$(OBJS)) build/audio-testing.o $(RUST_LIB)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DLUNORYX_TESTING tests/engine_tests.cpp $(filter-out src/main.o extensions/audio/audio_backend.o,$(OBJS)) build/audio-testing.o -o $@ $(LDFLAGS)
 
 extensions/audio/audio_backend.o: extensions/audio/audio_backend.c extensions/audio/audio_backend.h extensions/audio/miniaudio.h extensions/audio/stb_vorbis.c
 	$(CC) $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -Wno-unused-function -O2 $(EXTRA_CXXFLAGS) -c $< -o $@
 
-tests/studio_audio_tests: tests/studio_audio_tests.c extensions/audio/audio_backend.o
+tests/studio_audio_tests: tests/studio_audio_tests.c build/audio-testing.o
 	$(CC) $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -O2 $^ -lm -ldl -lpthread $(EXTRA_LDFLAGS) -o $@
 
 extensions/modeling/boolean_adapter.o: extensions/modeling/boolean_adapter.cpp extensions/modeling/boolean_adapter.h build/deps/manifold-linux/src/libmanifold.a
@@ -139,3 +140,14 @@ test-shadows: tests/scene_shadow_tests
 
 tests/animation_tests: tests/animation_tests.c src/core/animation_core.h
 	$(CC) $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -O2 $< -lm -o $@
+
+build/audio-testing.o: extensions/audio/audio_backend.c extensions/audio/audio_backend.h extensions/audio/miniaudio.h extensions/audio/stb_vorbis.c
+	mkdir -p build
+	$(CC) $(CPPFLAGS) -DLUNORYX_TESTING -std=c11 -Wall -Wextra -Werror -Wno-unused-function -O2 $(EXTRA_CXXFLAGS) -c $< -o $@
+
+build/main-testing.o: src/main.cpp $(wildcard src/*/*.h)
+	mkdir -p build
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DLUNORYX_TESTING -c $< -o $@
+
+engine-testing: build/main-testing.o build/audio-testing.o $(filter-out src/main.o extensions/audio/audio_backend.o,$(OBJS)) $(RUST_LIB)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(filter-out $(RUST_LIB),$^) $(LDFLAGS) -o $@

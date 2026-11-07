@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdio>
+#include <cstdlib>
+#include <algorithm>
 #include <limits>
 #include <map>
 #include <stdexcept>
@@ -20,6 +22,7 @@ inline std::wstring WidePath(const std::string &s) {
 }
 #else
 #include <unistd.h>
+#include <fcntl.h>
 #endif
 inline std::map<std::string, std::vector<unsigned char>> &VirtualAssets() {
   static std::map<std::string, std::vector<unsigned char>> assets;
@@ -98,6 +101,8 @@ inline std::string AbsoluteAssetPath(const std::string &p) {
 }
 inline std::string PathDirectory(const std::string &p) {
   size_t i = p.find_last_of("/\\");
+  if(i==0)return p.substr(0,1);
+  if(i==2&&p.size()>2&&p[1]==':')return p.substr(0,3);
   return i == std::string::npos ? "." : p.substr(0, i);
 }
 inline std::string RelativeAssetPath(const std::string &asset,
@@ -154,11 +159,7 @@ ReadAssetFile(const std::string &path, size_t limit = 256 * 1024 * 1024) {
 inline bool AssetExists(const std::string &path) {
   if (VirtualAssets().count(NormalizePath(path)))
     return true;
-  FILE *f = AssetOpen(path, "rb");
-  if (!f)
-    return false;
-  std::fclose(f);
-  return true;
+  try { FILE *f = AssetOpen(path, "rb");if(!f)return false;std::fclose(f);return true; } catch(...) { return false; }
 }
 inline void WriteAssetFile(const std::string &path, const void *data,
                            size_t n) {
@@ -179,5 +180,107 @@ inline void ReplaceAssetFile(const std::string &from, const std::string &to) {
 #else
   if (std::rename(from.c_str(), to.c_str()))
     throw std::runtime_error("Cannot replace file");
+#endif
+}
+
+inline void RemoveAssetFile(const std::string& path) {
+#ifdef _WIN32
+  _wremove(WidePath(path).c_str());
+#else
+  std::remove(path.c_str());
+#endif
+}
+// Reject network/device paths before performing any filesystem operation.
+inline void CheckLocalAssetPath(const std::string& path) {
+  if(path.empty()||path.find('\0')!=std::string::npos)throw std::runtime_error("Invalid local path");
+  if(path.size()>1&&path[1]==':'&&(path.size()<3||(path[2]!='/'&&path[2]!='\\')))throw std::runtime_error("Drive-relative path");
+  std::string p=path;std::replace(p.begin(),p.end(),'\\','/');
+  if(p.compare(0,2,"//")==0)throw std::runtime_error("Network and device paths are not allowed");
+#ifdef _WIN32
+  for(size_t at=0;at<p.size();){size_t end=p.find('/',at);if(end==std::string::npos)end=p.size();auto part=p.substr(at,end-at);at=end+1;
+    if(part.size()==2&&part[1]==':'&&part[0]>='A'&&part[0]<='z'&&at==3)continue;
+    if(part.find(':')!=std::string::npos||(!part.empty()&&(part.back()==' '||part.back()=='.')&&part!="."&&part!=".."))throw std::runtime_error("Device or ambiguous path");
+    part=part.substr(0,part.find('.'));for(char& c:part)if(c>='a'&&c<='z')c=char(c-'a'+'A');
+    if(part=="CON"||part=="PRN"||part=="AUX"||part=="NUL"||part=="CONIN$"||part=="CONOUT$"||(part.size()==4&&(part.compare(0,3,"COM")==0||part.compare(0,3,"LPT")==0)&&part[3]>='0'&&part[3]<='9'))throw std::runtime_error("Device path");
+  }
+#endif
+}
+inline std::string CanonicalAssetPath(const std::string& path) {
+  CheckLocalAssetPath(path);
+  std::string full=AbsoluteAssetPath(path),parent=full,suffix;
+  if(full=="/__lunoryx_bundle__")return full;
+  if(full.compare(0,19,"/__lunoryx_bundle__/")==0){if(VirtualAssets().count(full)||full=="/__lunoryx_bundle__")return full;throw std::runtime_error("Missing embedded asset");}
+  for(;;){
+#ifdef _WIN32
+    HANDLE handle=CreateFileW(WidePath(parent).c_str(),FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
+    if(handle!=INVALID_HANDLE_VALUE){wchar_t result[32768];DWORD n=GetFinalPathNameByHandleW(handle,result,32768,FILE_NAME_NORMALIZED);CloseHandle(handle);if(!n||n>=32768)throw std::runtime_error("Cannot resolve path");
+      std::wstring w(result,n);if(w.compare(0,8,L"\\\\?\\UNC\\")==0)throw std::runtime_error("Network path");if(w.compare(0,4,L"\\\\?\\")==0)w.erase(0,4);
+      int count=WideCharToMultiByte(CP_UTF8,0,w.data(),int(w.size()),nullptr,0,nullptr,nullptr);std::string out(size_t(count),' ');WideCharToMultiByte(CP_UTF8,0,w.data(),int(w.size()),&out[0],count,nullptr,nullptr);return NormalizePath(out+suffix);}
+#else
+    char resolved[4096];if(realpath(parent.c_str(),resolved))return NormalizePath(std::string(resolved)+suffix);
+#endif
+    std::string next=PathDirectory(parent);if(next==parent||parent.empty())throw std::runtime_error("Cannot resolve path");
+    suffix="/"+parent.substr(parent.find_last_of('/')+1)+suffix;parent=next.empty()?"/":next;
+  }
+}
+inline std::string ConfinedAssetPath(const std::string& path,const std::string& root) {
+  CheckLocalAssetPath(path);
+  auto base=CanonicalAssetPath(root);
+  auto full=CanonicalAssetPath(AbsolutePath(path)?path:base+"/"+path);
+  auto compareBase=base,compareFull=full;
+#ifdef _WIN32
+  for(char& c:compareBase)if(c>='A'&&c<='Z')c=char(c-'A'+'a');
+  for(char& c:compareFull)if(c>='A'&&c<='Z')c=char(c-'A'+'a');
+#endif
+  if(compareBase.back()!='/')compareBase+='/';
+  if(compareFull!=compareBase.substr(0,compareBase.size()-1)&&compareFull.compare(0,compareBase.size(),compareBase)!=0)throw std::runtime_error("Path is outside the allowed directory");
+  return full;
+}
+inline std::string ScriptAssetPath(const std::string& path) {
+  static const std::string workspace=CanonicalAssetPath(".");
+  return ConfinedAssetPath(path,workspace);
+}
+inline std::string ProjectAssetPath(const std::string& path,const std::string& project) {
+  return path.empty()?path:ConfinedAssetPath(path,PathDirectory(AbsoluteAssetPath(project)));
+}
+
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#else
+#include <sys/stat.h>
+#endif
+#include <random>
+inline FILE* OpenTemporaryAsset(const std::string& destination,std::string& temporary) {
+  // Exclusive creation prevents following pre-existing .tmp symlinks.
+  std::random_device random;
+  for(int attempt=0;attempt<16;++attempt){temporary=destination+"."+std::to_string(random())+"."+std::to_string(random())+".tmp";
+#ifdef _WIN32
+    int fd=_wopen(WidePath(temporary).c_str(),_O_CREAT|_O_EXCL|_O_WRONLY|_O_BINARY,_S_IREAD|_S_IWRITE);
+    if(fd>=0){FILE* file=_fdopen(fd,"wb");if(!file){_close(fd);RemoveAssetFile(temporary);}return file;}
+#else
+    int fd=open(temporary.c_str(),O_CREAT|O_EXCL|O_WRONLY,0600);
+    if(fd>=0){FILE* file=fdopen(fd,"wb");if(!file){close(fd);RemoveAssetFile(temporary);}return file;}
+#endif
+  }
+  throw std::runtime_error("Cannot create temporary output");
+}
+inline void WriteAssetFileAtomic(const std::string& destination,const void* data,size_t size) {
+  std::string temporary;FILE* file=OpenTemporaryAsset(destination,temporary);
+  if(!file)throw std::runtime_error("Cannot open temporary output");
+  bool ok=std::fwrite(data,1,size,file)==size;if(std::fclose(file))ok=false;
+  try{if(!ok)throw std::runtime_error("Cannot finish output");ReplaceAssetFile(temporary,destination);}catch(...){RemoveAssetFile(temporary);throw;}
+}
+inline bool SameAssetFile(const std::string& a,const std::string& b) {
+#ifdef _WIN32
+  HANDLE left=CreateFileW(WidePath(a).c_str(),FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,0,nullptr);
+  HANDLE right=CreateFileW(WidePath(b).c_str(),FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,0,nullptr);
+  BY_HANDLE_FILE_INFORMATION x={},y={};bool same=left!=INVALID_HANDLE_VALUE&&right!=INVALID_HANDLE_VALUE&&GetFileInformationByHandle(left,&x)&&GetFileInformationByHandle(right,&y)&&x.dwVolumeSerialNumber==y.dwVolumeSerialNumber&&x.nFileIndexHigh==y.nFileIndexHigh&&x.nFileIndexLow==y.nFileIndexLow;
+  if(left!=INVALID_HANDLE_VALUE)CloseHandle(left);
+  if(right!=INVALID_HANDLE_VALUE)CloseHandle(right);
+  return same;
+#else
+  struct stat x={},y={};return stat(a.c_str(),&x)==0&&stat(b.c_str(),&y)==0&&x.st_dev==y.st_dev&&x.st_ino==y.st_ino;
 #endif
 }

@@ -1,4 +1,5 @@
 """Exercise the native packer and a relocated, self-contained runtime."""
+import base64
 import json
 import os
 from pathlib import Path
@@ -20,11 +21,11 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     document = json.loads(project.read_text(encoding='utf-8'))
     source_assets = directory / 'assets'
     source_assets.mkdir()
-    (source_assets / 'pickup.wav').write_bytes(bytes(document['sounds'][0]['data']))
+    (source_assets / 'pickup.wav').write_bytes((base64.b64decode(document['sounds'][0]['data']['base64']) if isinstance(document['sounds'][0]['data'],dict) else bytes(document['sounds'][0]['data'])))
     document['sounds'][0]['data'] = []
     document['sounds'][0]['path'] = 'assets/pickup.wav'
     material = document['objects'][0]['materials'][0]
-    (source_assets / 'checker.png').write_bytes(bytes(material['image']))
+    (source_assets / 'checker.png').write_bytes((base64.b64decode(material['image']['base64']) if isinstance(material['image'],dict) else bytes(material['image'])))
     material['image'] = []
     material['texture'] = 'assets/checker.png'
     project.write_text(json.dumps(document), encoding='utf-8')
@@ -37,14 +38,14 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     document['game']['gui']=[dict(id='custom_label',text='Custom HUD',type=0,x=.1,y=.8,width=.4,height=.08,value=.5,visible=True,color=[.1,.2,.3,1],text_color=[1,1,1,1])]
     project.write_text(json.dumps(document),encoding='utf-8')
     original = project.read_bytes()
-    subprocess.run([engine, '--build-game', project, game], check=True, timeout=60)
+    subprocess.run([engine, '--build-game', project, game]+([os.environ['LUNORYX_TEST_RUNTIME']] if os.environ.get('LUNORYX_TEST_RUNTIME') else []), check=True, timeout=60)
     assert project.read_bytes() == original
     mesa = os.environ.get('LUNORYX_MESA_DIR')
     if mesa:
         for dll in Path(mesa).glob('*.dll'):
             shutil.copy2(dll, directory / dll.name)
     if os.name=='nt':
-        # Empty icon explicitly removes all editor icon resources.
+        # Empty icon preserves the default application icon.
         blank_project=directory/'blank.lunoryx'
         blank_document=json.loads(project.read_text(encoding='utf-8'))
         blank_document['game']['icon']=''
@@ -60,7 +61,7 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
         kernel.SizeofResource.argtypes=[ctypes.c_void_p,ctypes.c_void_p];kernel.SizeofResource.restype=ctypes.c_uint32
         kernel.FreeLibrary.argtypes=[ctypes.c_void_p]
         module=kernel.LoadLibraryExW(str(blank_game),None,2|32);assert module
-        try:assert not kernel.FindResourceW(module,101,14),'Empty icon retained Studio logo'
+        try:assert kernel.FindResourceW(module,101,14),'Default application icon missing'
         finally:kernel.FreeLibrary(module)
         blank_project.unlink();blank_game.unlink()
         module=kernel.LoadLibraryExW(str(game),None,2|32);assert module
@@ -89,6 +90,11 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     assert settings['gui'][0]['id']=='custom_label' and settings['icon']=='assets/game-icon.png'
     assert any(e['name']=='assets/game-icon.png' for e in manifest)
 
+    shipping=game
+    if os.environ.get("LUNORYX_TEST_RUNTIME"):
+        shipping=directory/"Shipping.exe"
+        subprocess.run([engine,"--build-game",project,shipping],check=True,timeout=60)
+        subprocess.run([shipping,"--verify-package"],check=True,timeout=60)
     project.unlink()  # The runtime must not need the source document or assets.
     shutil.rmtree(source_assets)
     subprocess.run([game, '--verify-package'], check=True, timeout=60)
@@ -139,5 +145,5 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
             assert Path(capture).is_file(), 'Gameplay completed without producing the required screenshot'
     output = Path('build')
     output.mkdir(exist_ok=True)
-    shutil.copy2(game, output / 'GemTrail.exe')
+    shutil.copy2(shipping, output / 'GemTrail.exe')
 print('PASS: native single-executable packer, UTF-8 paths, relocation, removed source, corrupted payload, overlap and nesting rejection')
