@@ -144,3 +144,8 @@ $(BUILD_DIR)/engine-testing.exe: $(BUILD_DIR)/main-testing.o $(BUILD_DIR)/audio-
 $(BUILD_DIR)/obj/extensions/text-editor/TextEditor.o: extensions/text-editor/TextEditor.cpp extensions/text-editor/TextEditor.h
 	mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wno-error -c $< -o $@
+
+$(BUILD_DIR)/worker_process_tests.exe: tests/worker_process_tests.cpp src/scripting/worker_process.h src/io/secure_asset_io.h
+	mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LDFLAGS) -o $@
+tests: $(BUILD_DIR)/worker_process_tests.exe

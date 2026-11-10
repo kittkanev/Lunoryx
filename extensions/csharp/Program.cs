@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Reflection.PortableExecutable;
 using System.Runtime.Loader;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -10,7 +11,7 @@ using Luaryx;
 Console.InputEncoding=new UTF8Encoding(false);Console.OutputEncoding=new UTF8Encoding(false);
 var protocol=Console.Out;Console.SetOut(Console.Error);
 List<Script> scripts=[];AssemblyLoadContext? context=null;
-var references=(((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))??"").Split(Path.PathSeparator,StringSplitOptions.RemoveEmptyEntries).Concat(Directory.GetFiles(AppContext.BaseDirectory,"*.dll")).Distinct().Where(path=>Path.GetFileName(path).StartsWith("System.")||Path.GetFileName(path) is "netstandard.dll" or "mscorlib.dll" or "Luaryx.Worker.dll").Select(path=>MetadataReference.CreateFromFile(path)).ToList();
+var references=(((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))??"").Split(Path.PathSeparator,StringSplitOptions.RemoveEmptyEntries).Concat(Directory.GetFiles(AppContext.BaseDirectory,"*.dll")).Distinct().Where(path=>Path.GetFileName(path).StartsWith("System.")||Path.GetFileName(path) is "netstandard.dll" or "mscorlib.dll" or "Luaryx.Worker.dll").Where(IsManagedAssembly).Select(path=>MetadataReference.CreateFromFile(path)).ToList();
 if(!references.Any(x=>x.Display==typeof(object).Assembly.Location))references.Add(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
 while(true){string? line=Console.ReadLine();if(line is null)break;if(line.Length>8*1024*1024){protocol.WriteLine("{\"ok\":false,\"error\":\"Request exceeds 8 MiB\"}");continue;}
     try{var request=JsonNode.Parse(line)!.AsObject();var action=request["action"]!.GetValue<string>();Scene.Refresh(request);
@@ -19,7 +20,7 @@ while(true){string? line=Console.ReadLine();if(line is null)break;if(line.Length
             var sources=request["scripts"]!.AsArray();var trees=sources.Select(source=>CSharpSyntaxTree.ParseText(source!["code"]!.GetValue<string>(),new CSharpParseOptions(LanguageVersion.CSharp13),source["name"]!.GetValue<string>(),Encoding.UTF8)).ToArray();
             var compilation=CSharpCompilation.Create("LuaryxProject_"+Guid.NewGuid().ToString("N"),trees,references,new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,optimizationLevel:OptimizationLevel.Release,allowUnsafe:false));
             using var bytes=new MemoryStream();var result=compilation.Emit(bytes);
-            if(!result.Success){var diagnostics=new JsonArray();foreach(var diagnostic in result.Diagnostics.Where(x=>x.Severity==DiagnosticSeverity.Error).Take(64)){var location=diagnostic.Location.GetLineSpan();diagnostics.Add(new JsonObject{["file"]=location.Path,["line"]=location.StartLinePosition.Line+1,["column"]=location.StartLinePosition.Character+1,["message"]=diagnostic.GetMessage()});}protocol.WriteLine(new JsonObject{["ok"]=false,["error"]="C# compilation failed",["diagnostics"]=diagnostics}.ToJsonString());continue;}
+            if(!result.Success){var diagnostics=new JsonArray();foreach(var diagnostic in result.Diagnostics.Where(x=>x.Severity==DiagnosticSeverity.Error).Take(64)){var location=diagnostic.Location.GetLineSpan();diagnostics.Add(new JsonObject{["file"]=location.Path??"",["line"]=location.StartLinePosition.Line+1,["column"]=location.StartLinePosition.Character+1,["message"]=diagnostic.GetMessage()});}protocol.WriteLine(new JsonObject{["ok"]=false,["error"]="C# compilation failed",["diagnostics"]=diagnostics}.ToJsonString());continue;}
             var entryTypes=new HashSet<string>();
             for(int i=0;i<trees.Length;i++)if(!(sources[i]?["module"]?.GetValue<bool>()??false)){
                 var semantic=compilation.GetSemanticModel(trees[i]);
@@ -38,4 +39,9 @@ while(true){string? line=Console.ReadLine();if(line is null)break;if(line.Length
         else throw new InvalidOperationException("Unknown worker request");
         var response=new JsonObject{["ok"]=true,["commands"]=Scene.Commands.DeepClone(),["messages"]=Scene.Messages.DeepClone(),["logs"]=new JsonArray(Scene.Logs.Select(x=>(JsonNode?)JsonValue.Create(x)).ToArray())};protocol.WriteLine(response.ToJsonString());
     }catch(Exception error){protocol.WriteLine(new JsonObject{["ok"]=false,["error"]=(error.InnerException??error).Message}.ToJsonString());}
+}
+
+static bool IsManagedAssembly(string path){
+    try{using var input=File.OpenRead(path);using var image=new PEReader(input);return image.HasMetadata;}
+    catch(BadImageFormatException){return false;}
 }

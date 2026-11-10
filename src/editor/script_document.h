@@ -41,3 +41,28 @@ static void BeginExportGLB(const std::string&);static void PollExportGLB();
 #ifdef __APPLE__
 static void WriteMacGameBundle(const std::string&,const std::string&,const std::map<std::string,std::vector<unsigned char>>&,const std::vector<unsigned char>&);
 #endif
+
+static std::string CheckedScriptText(std::string text){
+  if(text.compare(0,3,"\xEF\xBB\xBF")==0)text.erase(0,3);
+  if(text.size()>65535||text.find('\0')!=std::string::npos)throw std::runtime_error("Script must be UTF-8 text within 65535 bytes, without NUL");
+  (void)nlohmann::json(text).dump(); // strict UTF-8 validation before editor/serialization
+  std::string normalized;normalized.reserve(text.size());
+  for(size_t i=0;i<text.size();++i){if(text[i]=='\r'){normalized+='\n';if(i+1<text.size()&&text[i+1]=='\n')++i;}else normalized+=text[i];}
+  return normalized;
+}
+#ifdef __APPLE__
+extern "C" bool LuaryxScriptNamesEqual(const char*,const char*);
+#endif
+static bool ScriptNamesEqual(const std::string& a,const std::string& b){
+#ifdef _WIN32
+  auto x=WidePath(a),y=WidePath(b);return CompareStringOrdinal(x.c_str(),int(x.size()),y.c_str(),int(y.size()),TRUE)==CSTR_EQUAL;
+#elif defined(__APPLE__)
+  return LuaryxScriptNamesEqual(a.c_str(),b.c_str());
+#else
+  auto x=a,y=b;for(char& c:x)if(c>='A'&&c<='Z')c=char(c-'A'+'a');for(char& c:y)if(c>='A'&&c<='Z')c=char(c-'A'+'a');return x==y;
+#endif
+}
+static void CheckUniqueScriptNames(const ScriptDocuments& docs){
+  for(size_t i=0;i<docs.size();++i)if(docs[i].Allocated){if(!docs[i].Name[0])throw std::runtime_error("Script name cannot be empty");
+    for(size_t j=0;j<i;++j)if(docs[j].Allocated&&ScriptNamesEqual(docs[i].Name,docs[j].Name))throw std::runtime_error("Script filenames must be unique: "+std::string(docs[i].Name));}
+}

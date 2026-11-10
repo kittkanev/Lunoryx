@@ -154,3 +154,8 @@ engine-testing: build/main-testing.o build/audio-testing.o $(filter-out src/main
 
 extensions/text-editor/TextEditor.o: extensions/text-editor/TextEditor.cpp extensions/text-editor/TextEditor.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wno-error -c $< -o $@
+
+tests/worker_process_tests: tests/worker_process_tests.cpp src/scripting/worker_process.h src/io/secure_asset_io.h
+	$(CXX) $(CPPFLAGS) -std=c++17 -Wall -Wextra -Werror -O2 $< -lpthread -o $@
+test-workers: tests/worker_process_tests
+	./tests/worker_process_tests

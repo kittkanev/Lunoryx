@@ -1,6 +1,8 @@
 #pragma once
 static void CheckV13Regressions() {
     StopSimulation();
+    assert(CheckedScriptText("\xEF\xBB\xBF" "-- Привет\r\nreturn 1\r")=="-- Привет\nreturn 1\n");
+    bool encodingRejected=false;try{CheckedScriptText(std::string(1,char(255)));}catch(const std::exception&){encodingRejected=true;}assert(encodingRejected);
     g_Objects.clear();g_Sounds.clear();g_Game=StudioGameSettings();
     for(auto& doc:StudioScripts())doc=ScriptDocument();
     // More events/overlaps than the previous truncation thresholds.
@@ -65,6 +67,7 @@ using Luaryx;using System.Text.Json.Nodes;
 public sealed class Mover:Script {
     Entity cube=null!;
     public override void OnStart(){cube=Scene.Find("Shared")!;cube.SetProperty("score",Helper.Value);Scene.Emit("managed",7);}
+    public override void OnStop(){cube.SetProperty("stopped",true);}
     public override void OnUpdate(float dt){cube.Position=cube.Position+new Vector3(dt,0,0);}
     public override void OnMessage(string name,JsonNode? value){if(name=="lua")cube.SetProperty("reply",value);}
 })CS");
@@ -78,7 +81,7 @@ public sealed class Mover:Script {
         UpdateManagedScripts(.25f);assert(g_ManagedWorker.Running());
         assert(g_Objects[0].Id==shared&&g_Objects[0].Position[0]==.25f);
         assert(g_Objects[0].Properties.at("reply").NumberValue==23);
-        StopManagedScripts();std::strcpy(normal.Code,"public class Broken { INVALID }");
+        StopManagedScripts();assert(g_Objects[0].Properties.at("stopped").BoolValue);std::strcpy(normal.Code,"public class Broken { INVALID }");
         StartManagedScripts();assert(!g_ManagedWorker.Running()&&!g_CSharpDiagnostics.empty());
         std::strcpy(normal.Code,"using Luaryx;public class Hang:Script{public override void OnUpdate(float dt){while(true){}}}");
         StartManagedScripts();assert(g_ManagedWorker.Running());auto start=std::chrono::steady_clock::now();

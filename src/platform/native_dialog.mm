@@ -8,3 +8,7 @@ extern "C" bool LuaryxGamePlist(const char* title,const char* executable,bool ic
     if(icon)info[@"CFBundleIconFile"]=@"Game.icns";
     NSData* data=[NSPropertyListSerialization dataWithPropertyList:info format:NSPropertyListXMLFormat_v1_0 options:0 error:nullptr];if(!data)return false;output->assign(static_cast<const char*>(data.bytes),data.length);return true;
 }}
+
+extern "C" bool LuaryxScriptNamesEqual(const char* a,const char* b){@autoreleasepool{
+  NSString* x=[NSString stringWithUTF8String:a];NSString* y=[NSString stringWithUTF8String:b];return x&&y&&[x compare:y options:NSCaseInsensitiveSearch]==NSOrderedSame;
+}}

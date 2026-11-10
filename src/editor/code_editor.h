@@ -27,7 +27,7 @@ static void RenderCodeEditor(size_t slot) {
     if (previous[slot] != doc.Code) editor->SetText(doc.Code);
     TextEditor::ErrorMarkers errors;
     if (doc.Language) for (const auto& diagnostic : g_CSharpDiagnostics)
-        if (diagnostic.value("file", std::string()) == doc.Name)
+        if (diagnostic.is_object() && diagnostic.contains("file") && diagnostic["file"].is_string() && diagnostic.value("file", std::string()) == doc.Name)
             errors[diagnostic.value("line", 1)] = diagnostic.value("message", std::string());
     editor->SetErrorMarkers(errors);
     if (ImGui::Button("Undo code")) editor->Undo();

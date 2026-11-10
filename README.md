@@ -12,7 +12,7 @@
 </tr>
 </table>
 
-The development branch adds project folders, C# and the Luaryx API. See the [delivery status](docs/work/1.3.0-plan.md); use a published release for its verified platform list. Platform marks identify the operating systems; [artwork credits](assets/platforms/README.md).
+Version 1.3 adds project folders, C# and the Luaryx API. See the published release report for the verified platform list and remaining limits. Platform marks identify the operating systems; [artwork credits](assets/platforms/README.md).
 
 ## Projects and scripts
 
@@ -40,6 +40,8 @@ public sealed class Main : Script {
 ```
 
 C# uses an actual .NET/Roslyn worker. Its scripts have your OS permissions; loaded projects require an explicit trust choice for the current session. A worker deadline stops unresponsive scripts. C# is not a filesystem or network sandbox. Release packages include the runtime; building it requires the .NET 10 SDK.
+
+[Full scripting guide](docs/en/SCRIPTING.md)
 
 ## Editor
 

@@ -48,3 +48,5 @@ __pycache__/
 /tests/*.pre-1.3.bak
 
 /projects.json
+
+/tests/worker_process_tests

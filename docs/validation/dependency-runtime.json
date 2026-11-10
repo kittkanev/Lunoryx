@@ -1,0 +1,8 @@
+{
+  "source": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json",
+  "checked": "2026-11-10",
+  "sdk": "10.0.403",
+  "runtime": "10.0.14",
+  "latest_release": "10.0.14",
+  "latest_release_security": true
+}

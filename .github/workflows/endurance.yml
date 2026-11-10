@@ -1,0 +1,22 @@
+name: Project parser endurance
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 0'
+permissions:
+  contents: read
+jobs:
+  project-parser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: sudo apt-get update && sudo apt-get install -y g++ make cmake libsdl2-dev liblua5.4-dev libgl1-mesa-dev
+      - run: rustup toolchain install 1.85.1 --profile minimal
+      - run: make -j2 engine
+      - name: One-hour deterministic mutation and document lifecycle campaign
+        run: python tools/soak_project_parser.py ./engine --cycles 1000 --seconds 3600 --output build/endurance.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: parser-endurance
+          path: build/endurance.json

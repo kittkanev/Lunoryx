@@ -1,0 +1,242 @@
+[
+  {
+    "id": "SEC-01",
+    "status": "fixed",
+    "resolution": "Pinned directory handles and no-follow reads/atomic writes; Windows denies directory write/delete sharing, including junction mutation. Audio decodes bytes read through the same boundary.",
+    "evidence": "tests/v13_regressions.h; tools/test_audit_security.py"
+  },
+  {
+    "id": "SEC-02",
+    "status": "fixed",
+    "resolution": "SAX preflight budgets before project, package-manifest and GLB DOM allocation; aggregate decoded-image budget. These are conservative estimates, not a custom allocator.",
+    "evidence": "tools/soak_project_parser.py; src/io/json_budget.h"
+  },
+  {
+    "id": "SEC-03",
+    "status": "fixed",
+    "resolution": "Uncooperative mesh and GLB export work runs in deadline-killed child processes with native memory/CPU limits.",
+    "evidence": "tests/worker_process_tests.cpp; tools/test_audit_security.py"
+  },
+  {
+    "id": "GAME-01",
+    "status": "fixed",
+    "resolution": "No silent 4096-event truncation. Explicit 32768 actor/zone pair budget prevents Play or pauses a changed runtime.",
+    "evidence": "tests/v13_regressions.h"
+  },
+  {
+    "id": "GAME-02",
+    "status": "fixed",
+    "resolution": "Complete overlap state within the pair budget; tested with 10000 simultaneous overlaps and exits.",
+    "evidence": "tests/v13_regressions.h"
+  },
+  {
+    "id": "REL-01",
+    "status": "fixed",
+    "resolution": "Scene snapshots include script source, language, module metadata and open state; code editor also has bounded text undo.",
+    "evidence": "src/editor/editor_history.h; src/editor/code_editor.h"
+  },
+  {
+    "id": "REL-02",
+    "status": "fixed",
+    "resolution": "Oversized history states produce a visible warning; history is bounded to 128 MiB and 64 states.",
+    "evidence": "src/editor/editor_history.h; src/editor/editor_ui.h"
+  },
+  {
+    "id": "REL-03",
+    "status": "fixed",
+    "resolution": "Completed scene operations request a checkpoint; configurable 1–60-second recovery defaults to five seconds, including during Play.",
+    "evidence": "src/main.cpp; src/editor/editor_preferences.h"
+  },
+  {
+    "id": "MEM-01",
+    "status": "fixed",
+    "resolution": "Texture cache has a 128 MiB budget and a 256-entry LRU bound.",
+    "evidence": "src/render/material_render.h; native rendering tests"
+  },
+  {
+    "id": "MEM-02",
+    "status": "fixed",
+    "resolution": "Container writing and CRC validation stream bounded chunks; resource deduplication uses hashes plus byte comparison, without duplicate vector map keys.",
+    "evidence": "src/io/game_package.h; tools/test_game_package.py"
+  },
+  {
+    "id": "MEM-03",
+    "status": "fixed",
+    "resolution": "History accounts for game icon storage and script sources; oversized snapshots are reported.",
+    "evidence": "src/editor/editor_history.h"
+  },
+  {
+    "id": "PERF-01",
+    "status": "fixed",
+    "resolution": "A spatial grid replaces all-pairs candidate discovery; legacy collision-response differential fixtures remain covered. Dense overlapping worlds can still be costly.",
+    "evidence": "tests/physics_differential.cpp; src/core/spatial_index.h"
+  },
+  {
+    "id": "PERF-02",
+    "status": "fixed",
+    "resolution": "Swept static collision stops a fast mover at a thin wall. This is AABB physics, not a general rigid-body CCD solver.",
+    "evidence": "tests/v13_regressions.h"
+  },
+  {
+    "id": "SEC-04",
+    "status": "external_requirement",
+    "resolution": "No Authenticode publisher certificate is available. Windows is unsigned; macOS has an explicit ad-hoc signature, not Developer ID notarization.",
+    "evidence": "Release signing verification"
+  },
+  {
+    "id": "SEC-05",
+    "status": "partial",
+    "resolution": "Dependency inventory, binary hashes, pinned NuGet lock and current .NET security runtime are recorded. An inventory/advisory lookup cannot prove every vendored dependency vulnerability-free.",
+    "evidence": "SBOM.cdx.json; extensions/csharp/packages.lock.json"
+  },
+  {
+    "id": "SEC-06",
+    "status": "partial",
+    "resolution": "Deterministic mutation/load/undo soak and a scheduled one-hour project-parser endurance workflow are supplied. No claim of completed exhaustive or coverage-guided format fuzzing.",
+    "evidence": "tools/soak_project_parser.py; .github/workflows/endurance.yml"
+  },
+  {
+    "id": "SEC-07",
+    "status": "contract",
+    "resolution": "CRC32 detects accidental corruption only. Download authenticity relies on the release origin and build provenance; archives carry SHA-256 inventories. Local modified game containers are not authenticated.",
+    "evidence": "src/io/game_package.h; release provenance"
+  },
+  {
+    "id": "SEC-08",
+    "status": "fixed",
+    "resolution": "MCP defaults to read-only. Mutations require --allow-write; Lua additionally requires --allow-lua. Hidden calls are also denied and audited.",
+    "evidence": "tools/test_mcp_capabilities.py"
+  },
+  {
+    "id": "GAME-03",
+    "status": "contract",
+    "resolution": "A swept pass-through emits enter and exit during the same simulation tick. This deliberate edge contract is tested.",
+    "evidence": "tests/game_features_tests.h"
+  },
+  {
+    "id": "REL-04",
+    "status": "fixed",
+    "resolution": "Executable permission changes use the still-open output descriptor; failure removes the anchored temporary output. Rename failure also cleans up.",
+    "evidence": "src/io/game_package.h"
+  },
+  {
+    "id": "REL-05",
+    "status": "fixed",
+    "resolution": "Schema/format 3 explicitly reads schemas 1–3 and creates a pre-migration backup. Older engine versions cannot be expected to read schema 3.",
+    "evidence": "src/editor/editor_project.h"
+  },
+  {
+    "id": "REL-06",
+    "status": "fixed",
+    "resolution": "Luaryx entities and C# Entity objects retain stable IDs across removals. Legacy index APIs remain for compatibility.",
+    "evidence": "tests/v13_regressions.h; src/scripting/luaryx_runtime.h"
+  },
+  {
+    "id": "REL-07",
+    "status": "fixed",
+    "resolution": "Luaryx.find and C# Scene.Find reject duplicate names; use stable IDs. Legacy find_object still returns its historical first match.",
+    "evidence": "src/scripting/luaryx_runtime.h; extensions/csharp/Scene.cs"
+  },
+  {
+    "id": "REL-08",
+    "status": "fixed",
+    "resolution": "Join rejects animated, textured, procedural, controller or custom-property inputs instead of silently discarding their data. Character generation creates a new object.",
+    "evidence": "tests/engine_tests.cpp; src/core/scene_tools.h"
+  },
+  {
+    "id": "REL-09",
+    "status": "fixed",
+    "resolution": "Play recovery serializes the saved edit world with current script source, never the disposable simulated positions.",
+    "evidence": "tests/v13_regressions.h"
+  },
+  {
+    "id": "MEM-04",
+    "status": "fixed",
+    "resolution": "Texture keys include file identity, size and write timestamp (or embedded content hash), and texture generations invalidate cached bindings.",
+    "evidence": "src/render/material_render.h"
+  },
+  {
+    "id": "MEM-07",
+    "status": "fixed",
+    "resolution": "Cache admission preserves the active geometry working set; oversubscribed meshes use the immediate renderer rather than evicting and re-uploading visible entries every frame.",
+    "evidence": "src/render/render_geometry.h"
+  },
+  {
+    "id": "MEM-05",
+    "status": "fixed",
+    "resolution": "Audio uses bounded encoded-byte reads and streaming decoders; aggregate backend encoded data is limited to 64 MiB. Document/undo copies remain bounded by their own budgets.",
+    "evidence": "extensions/audio/audio_backend.c; native audio tests"
+  },
+  {
+    "id": "MEM-06",
+    "status": "limited_evidence",
+    "resolution": "Record observed RSS/descriptors during the 1000-cycle soak and sanitizer checks. These do not prove leak freedom for hour-long GPU sessions on every driver.",
+    "evidence": "parser-soak.json; sanitizer CI"
+  },
+  {
+    "id": "PERF-05",
+    "status": "fixed",
+    "resolution": "GLB JSON is preflighted before tinygltf DOM creation; decoded images have an aggregate budget in addition to dimension/file/scene limits.",
+    "evidence": "src/io/scene_assets.h"
+  },
+  {
+    "id": "PERF-04",
+    "status": "fixed",
+    "resolution": "Spatial queries find trigger candidates; kill/checkpoint processing reuses touched zone IDs instead of scanning all zones for each actor.",
+    "evidence": "src/runtime/gameplay_runtime.h"
+  },
+  {
+    "id": "PERF-03",
+    "status": "fixed",
+    "resolution": "Simulation keeps up to two seconds of backlog and exposes any further dropped time in the debugger. It does not silently throw away every heavy frame remainder.",
+    "evidence": "src/core/scene_tools.h; src/editor/editor_debug.h"
+  },
+  {
+    "id": "PERF-06",
+    "status": "fixed",
+    "resolution": "UI GLB export captures a scene snapshot and runs a bounded worker exchange asynchronously, with completion reported on the UI thread.",
+    "evidence": "src/scripting/export_worker.h"
+  },
+  {
+    "id": "COMP-01",
+    "status": "fixed",
+    "resolution": "Windows long-path-aware manifest and extended-length absolute Unicode file paths are enabled. Individual document/path field limits still apply.",
+    "evidence": "assets/windows.manifest; src/io/asset_io.h"
+  },
+  {
+    "id": "COMP-02",
+    "status": "contract",
+    "resolution": "Static GLB import/export is supported; ignored animation/skinning/extensions are reported. Full glTF animation/skinning interoperability is not advertised.",
+    "evidence": "src/io/scene_assets.h; docs/en/README.md"
+  },
+  {
+    "id": "COMP-03",
+    "status": "contract",
+    "resolution": "Container bounds are now 4096 entries and 1 GiB payload, including the required C# runtime; limits are explicit, not unlimited.",
+    "evidence": "src/io/game_package.h; tests/engine_tests.cpp"
+  },
+  {
+    "id": "QA-01",
+    "status": "limited_evidence",
+    "resolution": "Tests cover named regressions, native platforms, sanitizer checks, a mutation soak and actual UI input. Finite checks are not proof of all race conditions or leaks being absent.",
+    "evidence": "CI and Verification.mp4"
+  },
+  {
+    "id": "QA-02",
+    "status": "limited_evidence",
+    "resolution": "Native Windows/macOS and Linux software-OpenGL checks are required. No claim covers every GPU model, operating-system version or third-party driver.",
+    "evidence": "Native CI matrix"
+  },
+  {
+    "id": "COMP-04",
+    "status": "fixed",
+    "resolution": "Project owner selected GPL-3.0; LICENSE, NOTICE and contribution terms are present. Third-party licenses and platform trademarks retain their terms.",
+    "evidence": "LICENSE; NOTICE; CONTRIBUTING.md"
+  },
+  {
+    "id": "QA-03",
+    "status": "fixed",
+    "resolution": "Release publication consumes the successful immutable CI run, tested native artifacts, video evidence, hashes and provenance; exactly four uploaded release assets.",
+    "evidence": "tools/package_release.py; .github/workflows/release.yml"
+  }
+]

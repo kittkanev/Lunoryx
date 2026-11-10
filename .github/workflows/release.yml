@@ -3,111 +3,95 @@ on:
   workflow_dispatch:
     inputs:
       source_run:
-        description: Successful build run for the release commit
+        description: Successful Build and tests run for the current main commit
         required: true
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: lunoryx-studio-prerelease
+  group: lunoryx-release
   cancel-in-progress: false
 jobs:
   publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: write
       actions: read
       id-token: write
       attestations: write
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.head_sha == github.sha
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      SOURCE_RUN: ${{ github.event.workflow_run.id }}
-      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      SOURCE_RUN: ${{ inputs.source_run }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-      - name: Read version from tested source
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Require the successful immutable main build
         run: |
-          version=$(python -c 'import re; print(re.search(r"LUNORYX_VERSION \"([^\"]+)\"", open("engine_version.h").read())[1])')
-          echo "RELEASE_TAG=v$version" >> "$GITHUB_ENV"
-          echo "RELEASE_TITLE=Lunoryx Studio v$version" >> "$GITHUB_ENV"
-      - name: Check publication state
+          mkdir -p build/release
+          gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN" > build/source-run.json
+          gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN/jobs?per_page=100" > build/source-jobs.json
+          python - <<'PYCHECK'
+          import json, os, re, subprocess
+          from pathlib import Path
+          run=json.loads(Path('build/source-run.json').read_text())
+          jobs=json.loads(Path('build/source-jobs.json').read_text())['jobs']
+          commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          assert run['name']=='Build and tests' and run['head_branch']=='main'
+          assert run['repository']['full_name']==os.environ['GH_REPO']
+          assert run['head_sha']==commit and run['status']=='completed' and run['conclusion']=='success'
+          assert jobs and all(j['conclusion']=='success' for j in jobs)
+          version=re.search(r'LUNORYX_VERSION "([^"]+)"',Path('engine_version.h').read_text())[1]
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write(f'RELEASE_SHA={commit}\nRELEASE_TAG=v{version}\n')
+          PYCHECK
+      - name: Enforce immutable published tags
         id: state
         run: |
-          state=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' 2>/dev/null || true)
-          if [ -n "$state" ]; then
-            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          if gh release view "$RELEASE_TAG" --json isDraft > build/existing-release.json 2>/dev/null; then
             tag_sha=$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq '.sha')
-            if [ "$tag_sha" != "$RELEASE_SHA" ]; then
-              echo 'Refusing to replace an existing release commit' >&2
-              exit 1
-            elif [ "$state" = false ]; then
-              echo 'published=true' >> "$GITHUB_OUTPUT"
-            fi
+            test "$tag_sha" = "$RELEASE_SHA" || { echo 'Refusing to replace a release tag'; exit 1; }
+            published=$(python -c "import json; print(str(not json.load(open('build/existing-release.json'))['isDraft']).lower())")
+            echo "published=$published" >> "$GITHUB_OUTPUT"
           fi
-      - name: Download the tested Windows artifact
-        if: steps.state.outputs.published != 'true'
-        run: gh run download "$SOURCE_RUN" --name lunoryx-windows-x64 --dir build/artifact
-      - name: Package executable, instructions and licenses
+      - name: Download tested native artifacts and actual video evidence
         if: steps.state.outputs.published != 'true'
         run: |
-          python tools/package_release.py --artifact-dir build/artifact --output-dir build/release
-          test -s "build/release/Lunoryx-${RELEASE_TAG}-windows-x64.zip"
-          test -s build/release/Lunoryx.exe
-          test -s build/release/SHA256SUMS.txt
-      - name: Download visual evidence from the tested run
-        if: steps.state.outputs.published != 'true'
-        run: |
-          gh run download "$SOURCE_RUN" --name gltf-validation --dir build/visual
-          cp "docs/release-notes-${RELEASE_TAG}.md" build/release/REPORT.md
-          python - <<'PYREPORT'
-          import os
+          gh run download "$SOURCE_RUN" --name lunoryx-windows-x64 --dir build/windows
+          gh run download "$SOURCE_RUN" --name lunoryx-macos-universal --dir build/macos
+          gh run download "$SOURCE_RUN" --name lunoryx-verification --dir build/evidence
+          python tools/package_release.py --artifact-dir build/windows --output-dir build/release
+          cp build/macos/Lunoryx-macos-universal.zip build/release/
+          cp build/evidence/Verification.mp4 build/release/
+          python tools/build_release_report.py --run build/source-run.json --jobs build/source-jobs.json --evidence build/evidence --release-dir build/release
+          python - <<'PYASSETS'
           from pathlib import Path
-          with Path('build/release/REPORT.md').open('a', encoding='utf-8') as report:
-              report.write(f"\n\nПроверенный коммит: `{os.environ['RELEASE_SHA']}`.\n")
-              report.write(f"\n[Успешный CI](https://github.com/{os.environ['GH_REPO']}/actions/runs/{os.environ['SOURCE_RUN']}).\n")
-          PYREPORT
-          find build/visual -name '*.png' -exec cp {} build/release/ \;
-      - name: Attach the tested standalone sample game
+          expected={'Lunoryx-windows-x64.zip','Lunoryx-macos-universal.zip','Verification.mp4','Audit-report.html'}
+          assert {p.name for p in Path('build/release').iterdir() if p.is_file()}==expected
+          assert all((Path('build/release')/n).stat().st_size>0 for n in expected)
+          PYASSETS
+      - name: Attest exactly four verified files
         if: steps.state.outputs.published != 'true'
-        run: |
-          gh run download "$SOURCE_RUN" --name lunoryx-game-demo --dir build/game
-          cp build/game/GemTrail.exe build/release/GemTrail.exe
-          cp build/game/game-windows.png build/release/game-windows.png
-      - name: Attach reproducible performance evidence
-        if: steps.state.outputs.published != 'true'
-        run: |
-          gh run download "$SOURCE_RUN" --name performance-linux --dir build/perf-linux
-          gh run download "$SOURCE_RUN" --name performance-windows --dir build/perf-windows
-          gh run download "$SOURCE_RUN" --name performance-render-windows --dir build/perf-render
-          find build/perf-linux build/perf-windows build/perf-render -type f \( -name '*.csv' -o -name '*.txt' \) -exec cp {} build/release/ \;
-          cp docs/PERFORMANCE.md build/release/PERFORMANCE.md
-          (cd build/release && sha256sum GemTrail.exe REPORT.md PERFORMANCE.md *.png *.csv benchmark-*-environment.txt >> SHA256SUMS.txt)
-      - name: Attest verified release files
-        if: steps.state.outputs.published != 'true'
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
         with:
-          subject-path: build/release/*
-      - name: Create draft and upload verified files
+          subject-path: |
+            build/release/Lunoryx-windows-x64.zip
+            build/release/Lunoryx-macos-universal.zip
+            build/release/Verification.mp4
+            build/release/Audit-report.html
+      - name: Publish the four-file release
         if: steps.state.outputs.published != 'true'
         run: |
-          if [ '${{ steps.state.outputs.exists }}' != true ]; then
-            gh release create "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --prerelease --draft
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --target "$RELEASE_SHA" --title "Lunoryx Studio $RELEASE_TAG" --notes-file "docs/release-notes-$RELEASE_TAG.md" --draft
           fi
-          gh release upload "$RELEASE_TAG" build/release/*.zip build/release/*.exe build/release/*.txt build/release/*.md build/release/*.png build/release/*.csv
-          prerelease=true; latest=false
-          if [[ "$RELEASE_TAG" != *-* ]]; then prerelease=false; latest=true; fi
-          gh release edit "$RELEASE_TAG" --target "$RELEASE_SHA" --title "$RELEASE_TITLE" --notes-file build/release/REPORT.md --draft=false --prerelease="$prerelease" --latest="$latest"
-      - name: Retire the superseded 1.2.0 beta
-        if: env.RELEASE_TAG == 'v1.2.0'
-        run: |
-          if gh release view v1.2.0-beta.1 >/dev/null 2>&1; then
-            gh release edit v1.2.0-beta.1 --draft=true --latest=false
-          fi
-      - name: Verify published release
-        run: |
-          gh release view "$RELEASE_TAG" --json url,isDraft,isPrerelease,targetCommitish,assets
+          gh release upload "$RELEASE_TAG" build/release/Lunoryx-windows-x64.zip build/release/Lunoryx-macos-universal.zip build/release/Verification.mp4 build/release/Audit-report.html --clobber
+          gh release view "$RELEASE_TAG" --json assets > build/release-assets.json
+          python - <<'PYVERIFY'
+          import json
+          assets=json.load(open('build/release-assets.json'))['assets']
+          assert len(assets)==4
+          assert {a['name'] for a in assets}=={'Lunoryx-windows-x64.zip','Lunoryx-macos-universal.zip','Verification.mp4','Audit-report.html'}
+          PYVERIFY
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest=true
+      - name: Verify publication
+        run: gh release view "$RELEASE_TAG" --json url,isDraft,isPrerelease,targetCommitish,assets

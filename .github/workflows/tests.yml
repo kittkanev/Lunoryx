@@ -15,13 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y g++ make cmake libsdl2-dev liblua5.4-dev libgl1-mesa-dev libegl1-mesa-dev xvfb xauth ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y g++ make cmake libsdl2-dev liblua5.4-dev libgl1-mesa-dev libegl1-mesa-dev xvfb xauth ffmpeg xdotool xclip
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.85.1 --profile minimal
       - name: Build bilingual offline manuals
         run: python tools/build_manual.py && git diff --exit-code -- src/editor/editor_guide_data.h docs/en docs/ru
       - name: Test geometry, Rust ABI and physics equivalence
-        run: make -j2 test test-rust test-kernels test-physics
+        run: make -j2 test test-rust test-kernels test-physics test-workers
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '10.0.403'
@@ -99,6 +99,14 @@ jobs:
             build/game-ui.png
             build/game-build.png
             build/render-before.png
+      - name: Project parser and document soak
+        run: python tools/soak_project_parser.py ./engine --cycles 1000
+      - name: Record real native project and coding workflow
+        run: xvfb-run -a -s '-screen 0 1440x900x24' python tools/record_verification.py ./engine --output build/evidence/Verification.mp4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lunoryx-verification
+          path: build/evidence/
       - name: Address, undefined behavior and leak checks
         run: |
           make clean
@@ -152,6 +160,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force tests | Out-Null
           & ./rust_kernel_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./worker_process_tests.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ./physics_differential.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -274,7 +284,7 @@ jobs:
       - name: Build .NET runtime and native editor
         run: |
           dotnet publish extensions/csharp/Luaryx.Worker.csproj -c Release -r '${{ matrix.rid }}' --self-contained true -p:RestoreLockedMode=true -o Runtime
-          LUNORYX_CSHARP_WORKER="$PWD/Runtime/Luaryx.Worker" make -j2 -f Makefile.mac engine engine-testing test test-integration test-rust test-kernels test-physics
+          LUNORYX_CSHARP_WORKER="$PWD/Runtime/Luaryx.Worker" make -j2 -f Makefile.mac engine engine-testing test test-integration test-rust test-kernels test-physics test-workers
       - name: Test native MCP and parser boundaries
         run: |
           python3 tools/test_studio_mcp.py ./engine
@@ -299,3 +309,32 @@ jobs:
         with:
           name: lunoryx-macos-${{ matrix.architecture }}
           path: build/macos-${{ matrix.architecture }}.tar.gz
+
+  macos-universal:
+    needs: macos
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: lunoryx-macos-*
+          path: build/mac-artifacts
+          merge-multiple: true
+      - name: Merge both verified architectures and managed runtimes
+        run: |
+          python3 tools/merge_macos.py build/mac-artifacts/macos-arm64.tar.gz build/mac-artifacts/macos-x86_64.tar.gz --output build/universal/Lunoryx.app
+          python3 tools/generate_sbom.py --root build/universal --output build/universal/SBOM.cdx.json
+          build/universal/Lunoryx.app/Contents/MacOS/Lunoryx --mcp < /dev/null
+          codesign --verify --deep --strict build/universal/Lunoryx.app
+          python3 - <<'PYHASH'
+          import hashlib
+          from pathlib import Path
+          root=Path('build/universal')
+          (root/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(f.read_bytes()).hexdigest()+'  '+f.relative_to(root).as_posix()+'\n' for f in sorted(root.rglob('*')) if f.is_file()))
+          PYHASH
+          ditto -c -k --keepParent build/universal build/Lunoryx-macos-universal.zip
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lunoryx-macos-universal
+          path: build/Lunoryx-macos-universal.zip

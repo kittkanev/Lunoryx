@@ -9,6 +9,8 @@ CXXFLAGS = -Wall -Wextra -Werror -Wno-deprecated-declarations -O2 -std=c++17 -MM
 GRAPHICS_LIBS = -L$(SDL_PREFIX)/lib -lSDL2 -framework OpenGL
 LDFLAGS = $(RUST_LIB) build/deps/manifold-linux/src/libmanifold.a -L$(LUA_PREFIX)/lib -llua $(GRAPHICS_LIBS) -framework Cocoa -framework CoreAudio -framework AudioToolbox -framework AudioUnit -lpthread $(EXTRA_LDFLAGS)
 OBJS += src/platform/native_dialog.o
+engine engine-testing tests/engine_tests: src/platform/native_dialog.o
+-include src/platform/native_dialog.d
 
 src/platform/native_dialog.o: src/platform/native_dialog.mm
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -fobjc-arc -c $< -o $@

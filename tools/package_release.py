@@ -1,59 +1,35 @@
-"""Create the Windows prerelease bundle from the exact CI artifact."""
+"""Package the tested Windows editor and its real managed runtime."""
 import argparse
 import hashlib
-import re
 import shutil
 import struct
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
-VERSION = re.search(r'#define LUNORYX_VERSION "([^"]+)"', Path('engine_version.h').read_text()).group(1)
-NAME = 'Lunoryx'
-
-
-def validate_pe(path):
-    data = path.read_bytes()
-    if len(data) < 64 or data[:2] != b'MZ':
-        raise ValueError(f'Not a PE binary: {path}')
-    offset = struct.unpack_from('<I', data, 0x3c)[0]
-    if data[offset:offset + 4] != b'PE\0\0' or struct.unpack_from('<H', data, offset + 4)[0] != 0x8664:
-        raise ValueError(f'Not a Windows x64 PE binary: {path}')
-
-
-def package(artifact, output):
-    validate_pe(artifact / 'engine.exe')
-    binary=(artifact / 'engine.exe').read_bytes()
-    pe=struct.unpack_from('<I',binary,0x3c)[0]
-    if struct.unpack_from('<H',binary,pe+24+68)[0] != 2:
-        raise ValueError('Release executable must use the Windows GUI subsystem')
-    if (artifact / 'SDL2.dll').exists():
-        raise ValueError('Expected a standalone build without SDL2.dll')
-    output.mkdir(parents=True, exist_ok=True)
-    stage = output / f'{NAME}-v{VERSION}-windows-x64'
-    if stage.exists():
-        shutil.rmtree(stage)
-    stage.mkdir()
-    shutil.copy2(artifact / 'engine.exe', stage / f'{NAME}.exe')
-    shutil.copy2(artifact / 'README.md', stage / 'README.md')
-    shutil.copy2('docs/README-FIRST.txt', stage / 'README-FIRST.txt')
-    for directory in ('examples', 'docs', 'licenses', 'assets'):
-        shutil.copytree(artifact / directory, stage / directory)
-    archive = output / f'{stage.name}.zip'
-    with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
-        for path in sorted(stage.rglob('*')):
-            if path.is_file():
-                bundle.write(path, Path(stage.name) / path.relative_to(stage))
-    for name in (f'{NAME}.exe',):
-        shutil.copy2(stage / name, output / name)
-    assets = [archive, output / f'{NAME}.exe']
-    (output / 'SHA256SUMS.txt').write_text(''.join(
-        f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n' for path in assets), encoding='utf-8')
-    print(f'Packaged {NAME} {VERSION}: {archive}')
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--artifact-dir', required=True, type=Path)
-    parser.add_argument('--output-dir', required=True, type=Path)
-    args = parser.parse_args()
-    package(args.artifact_dir, args.output_dir)
+p=argparse.ArgumentParser()
+p.add_argument('--artifact-dir',required=True)
+p.add_argument('--output-dir',required=True)
+a=p.parse_args();artifact=Path(a.artifact_dir);output=Path(a.output_dir)
+binary=(artifact/'engine.exe').read_bytes()
+assert binary[:2]==b'MZ'
+pe=struct.unpack_from('<I',binary,0x3c)[0]
+assert binary[pe:pe+4]==b'PE\0\0' and struct.unpack_from('<H',binary,pe+4)[0]==0x8664
+assert struct.unpack_from('<H',binary,pe+24+68)[0]==2,'Expected a Windows GUI executable'
+assert (artifact/'Runtime/Luaryx.Worker.exe').is_file(),'Self-contained C# runtime is required'
+stage=output/'windows-stage/Lunoryx';stage.mkdir(parents=True,exist_ok=False)
+shutil.copy2(artifact/'engine.exe',stage/'Lunoryx.exe')
+for name in ['README.md','README.ru.md','LICENSE','NOTICE']:
+    shutil.copy2(name,stage/name)
+for folder in ['Runtime','examples','docs','assets','licenses']:
+    shutil.copytree(artifact/folder,stage/folder)
+commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+(stage/'BUILD.txt').write_text(f'Lunoryx source commit: {commit}\nSource: https://github.com/kittkanev/Lunoryx\nUnzip the whole folder; keep Runtime next to Lunoryx.exe.\n')
+subprocess.run([sys.executable,'tools/generate_sbom.py','--root',str(stage),'--output',str(stage/'SBOM.cdx.json')],check=True)
+(stage/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(f.read_bytes()).hexdigest()+'  '+f.relative_to(stage).as_posix()+'\n' for f in sorted(stage.rglob('*')) if f.is_file()))
+archive=output/'Lunoryx-windows-x64.zip'
+with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as bundle:
+    for f in sorted(stage.rglob('*')):
+        if f.is_file():bundle.write(f,Path('Lunoryx')/f.relative_to(stage))
+print(f'Packaged tested editor + runtime: {archive}')

@@ -28,8 +28,13 @@ for packages in lock['dependencies'].values():
         if package.get('contentHash'):
             item['properties']=[dict(name='lunoryx:nuget-content-sha512-base64',value=package['contentHash'])]
         components.append(item)
+for deps in root.rglob('Luaryx.Worker.deps.json'):
+    for library in json.loads(deps.read_text())['libraries']:
+        if library.startswith('runtimepack.'):
+            name,runtime_version=library.split('/',1);key=(name,runtime_version)
+            if key not in seen:components.append(dict(type='library',name=name,version=runtime_version));seen.add(key)
 for file in sorted(root.rglob('*')):
-    if file.is_file() and file.suffix.lower() in ('.exe','.dll','.dylib','.so','.a') or file.is_file() and file.name in ('Lunoryx','Luaryx.Worker'):
+    if file.is_file() and (file.suffix.lower() in ('.exe','.dll','.dylib','.so','.a') or file.name in ('Lunoryx','Luaryx.Worker')):
         components.append(dict(type='file',name=str(file.relative_to(root)),hashes=[dict(alg='SHA-256',content=hashlib.sha256(file.read_bytes()).hexdigest())]))
 document=dict(bomFormat='CycloneDX',specVersion='1.5',version=1,
     metadata=dict(timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),component=dict(type='application',name='Lunoryx',version=version,licenses=[dict(license=dict(id='GPL-3.0-only'))]),properties=[dict(name='lunoryx:source-commit',value=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())]),components=components)
