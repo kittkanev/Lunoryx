@@ -67,7 +67,7 @@ public:
   }
   std::string Exchange(const std::string& request,int milliseconds=3000,size_t limit=64*1024*1024){
     if(!Running()||request.size()>limit)throw std::runtime_error("Worker request unavailable or exceeds budget");
-    auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(milliseconds);std::string input=request+"\n";
+    auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(milliseconds);std::string input=request+"\n";size_t scanFrom=0;
 #ifdef _WIN32
     std::atomic<bool> sent(false),writeFailed(false);std::thread writer;
 #else
@@ -87,13 +87,12 @@ public:
       char buffer[8192];ssize_t n=read(Output,buffer,sizeof(buffer));if(n>0){Pending.append(buffer,size_t(n));progressed=true;}else if(n==0)throw std::runtime_error("Worker output closed");else if(errno!=EAGAIN&&errno!=EINTR)throw std::runtime_error("Cannot read worker output");
 #endif
       if(Pending.size()>limit)throw std::runtime_error("Worker output exceeds budget");
-      size_t end=Pending.find('\n');if(end!=std::string::npos
+      size_t end=Pending.find('\n',scanFrom);if(end==std::string::npos)scanFrom=Pending.size();if(end!=std::string::npos
 #ifdef _WIN32
         &&sent
 #endif
       ){
 #ifdef _WIN32
-        if(!sent){std::this_thread::sleep_for(std::chrono::milliseconds(1));continue;}
         writer.join();
 #endif
         auto line=Pending.substr(0,end);Pending.erase(0,end+1);return line;}

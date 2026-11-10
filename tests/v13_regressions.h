@@ -52,6 +52,11 @@ static void CheckV13Regressions() {
     auto sourcePath=ConfinedAssetPath("scripts/Helpers.luaryx",g_ProjectDirectory);
     const std::string external="return {answer=43}";WriteAssetFileAtomic(sourcePath,external.data(),external.size());
     assert(OpenProjectFolder(folder.u8string()));InitLuaState();CheckLua("assert(require('Helpers').answer==43)");
+    g_ObjectHistory.Capture(g_Objects);std::strcpy(StudioScripts()[1].Code,"-- edited source");g_ObjectHistory.Capture(g_Objects);
+    assert(g_ObjectHistory.Undo(g_Objects)&&std::string(StudioScripts()[1].Code)==external);
+    assert(g_ObjectHistory.Redo(g_Objects)&&std::string(StudioScripts()[1].Code)=="-- edited source");assert(g_ObjectHistory.Undo(g_Objects));
+    auto& duplicate=StudioScripts()[4];duplicate.Allocated=true;std::strcpy(duplicate.Name,"helpers.LUARYX");bool duplicateRejected=false;
+    try{CheckUniqueScriptNames(StudioScripts());}catch(const std::exception&){duplicateRejected=true;}assert(duplicateRejected);duplicate=ScriptDocument();
     // Recovery while playing keeps the edit-world geometry and current source.
     StartSimulation();g_Objects.back().Position[0]=999;
     std::strcpy(StudioScripts()[1].Code,"return {answer=44}");assert(SaveRecoverySnapshot());
