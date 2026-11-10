@@ -288,7 +288,7 @@ static bool LoadStudioProject(const std::string& path) {
         g_Physics.Continuous=continuous;g_Physics.DroppedTime=0;g_Physics.Gravity=gravity;g_Physics.Ground=ground;g_Physics.Accumulator=0;g_PhysicsRunning=false;g_SimulationRunning=false;g_PlaySnapshot.clear();g_SelectedObjectIndex=-1;
         g_Studio.RequestDocument=-2;g_Studio.ActiveScript=0;g_Studio.HasSculptUndo=false;g_ObjectHistory.Clear();g_ObjectHistory.Capture(g_Objects);
         g_CSharpTrusted=false;
-        g_ProjectDirectory=root.contains("project")?PathDirectory(AbsoluteAssetPath(path)):std::string();g_ProjectName=projectName;g_ShowProjectPicker=false;
+        g_ProjectDirectory=root.contains("project")?CanonicalAssetPath(PathDirectory(AbsoluteAssetPath(path))):std::string();g_ProjectName=projectName;g_ShowProjectPicker=false;
         ScriptAssetRoot()=g_ProjectDirectory;
         if(path.compare(0,sizeof("/__lunoryx_bundle__/")-1,"/__lunoryx_bundle__/")==0)ScriptAssetRoot()="/__lunoryx_bundle__";
         if(g_LuaState)InitLuaState();

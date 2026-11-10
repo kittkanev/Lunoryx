@@ -33,7 +33,7 @@ jobs:
         run: python tools/test_mcp_capabilities.py ./engine && python tools/test_studio_mcp.py ./engine && python tools/test_audit_security.py ./engine && python tools/test_studio_audio.py
       - name: Test self-contained game and relocated resources
         run: |
-          LUNORYX_TEST_RUNTIME="$PWD/engine-testing" LUNORYX_GAME_GUI=1 LUNORYX_GAME_SMOKE=1 SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 LUNORYX_CAPTURE_PATH="$PWD/build/game-linux.png" python3 tools/test_game_package.py ./engine
+          LUNORYX_TEST_RUNTIME="$PWD/engine-testing" LUNORYX_GAME_GUI=1 LUNORYX_GAME_SMOKE=1 SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 LUNORYX_CAPTURE_PATH="$PWD/build/game-linux.png" python3 tools/test_game_package.py ./engine --managed
       - name: Measure portable kernels and physics against 1.0.1
         run: |
           make benchmark benchmark-physics benchmark-weld
@@ -248,7 +248,7 @@ jobs:
           $env:LUNORYX_GAME_SMOKE='1'
           $env:GALLIUM_DRIVER='llvmpipe'
           $env:LUNORYX_CAPTURE_PATH=Join-Path $PWD 'build/game-windows.png'
-          python tools/test_game_package.py ./engine.exe
+          python tools/test_game_package.py ./engine.exe --managed
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

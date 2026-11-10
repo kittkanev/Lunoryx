@@ -239,7 +239,9 @@ inline std::string CanonicalAssetPath(const std::string& path) {
 #include "src/io/secure_asset_io.h"
 inline std::string ConfinedAssetPath(const std::string& path,const std::string& root) {
   CheckLocalAssetPath(path);
-  auto base=CanonicalAssetPath(root);
+  auto absoluteRoot=AbsoluteAssetPath(root);std::shared_ptr<AssetDirectoryAnchor> existing;
+  {std::lock_guard<std::recursive_mutex> lock(AssetPolicyMutex());auto known=AssetRootAnchors().find(absoluteRoot);if(known!=AssetRootAnchors().end())existing=known->second.lock();}
+  auto base=existing?existing->Path:CanonicalAssetPath(root);
   auto full=CanonicalAssetPath(AbsolutePath(path)?path:base+"/"+path);
   auto compareBase=base,compareFull=full;
 #ifdef _WIN32

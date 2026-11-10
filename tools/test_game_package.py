@@ -11,6 +11,7 @@ import tempfile
 import zlib
 
 engine = Path(sys.argv[1]).resolve()
+managed = '--managed' in sys.argv[2:]
 Path("build").mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     directory = Path(root) / 'Игра с пробелами'
@@ -19,6 +20,9 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     game = directory / ('GemTrail.exe' if os.name == 'nt' else 'GemTrail')
     subprocess.run([engine, '--create-example', project], check=True, timeout=60)
     document = json.loads(project.read_text(encoding='utf-8'))
+    if managed:
+        document['scripts'][0]['code'] += "\nlocal previous_update=on_update\nlocal managed_ready=false\nfunction on_message(name,value)\n if name=='packaged_csharp' and tonumber(value)==42 then managed_ready=true end\nend\nfunction on_update(dt)\n assert(managed_ready,'Packaged C# worker/message missing')\n if previous_update then previous_update(dt) end\nend\n"
+        document['scripts'].append(dict(name='Packaged.cs',code='using Luaryx; public class Packaged:Script { public override void OnStart(){Scene.Emit("packaged_csharp",42);} }',language=1,module=False,open=False))
     source_assets = directory / 'assets'
     source_assets.mkdir()
     (source_assets / 'pickup.wav').write_bytes((base64.b64decode(document['sounds'][0]['data']['base64']) if isinstance(document['sounds'][0]['data'],dict) else bytes(document['sounds'][0]['data'])))
@@ -145,5 +149,5 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
             assert Path(capture).is_file(), 'Gameplay completed without producing the required screenshot'
     output = Path('build')
     output.mkdir(exist_ok=True)
-    shutil.copy2(shipping, output / 'GemTrail.exe')
+    shutil.copy2(shipping, output / ('GemTrail-managed.exe' if managed else 'GemTrail.exe'))
 print('PASS: native single-executable packer, UTF-8 paths, relocation, removed source, corrupted payload, overlap and nesting rejection')
