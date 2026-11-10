@@ -285,6 +285,11 @@ static Entry *Get(const GameObject &object, const MeshView &mesh) {
     Release(existing->second);
     g_Entries.erase(existing);
   }
+  // Keep the active working set resident. Oversubscribed scenes use the
+  // immediate renderer instead of evicting/re-uploading every visible mesh.
+  const size_t estimate=(mesh.Positions.size()+mesh.Normals.size()+mesh.Colors.size()+mesh.UV.size())*sizeof(float)+mesh.Indices.size()*(sizeof(uint32_t)+sizeof(Vertex));
+  if(estimate>Budget)return nullptr;
+  if(estimate>Budget-g_Bytes){bool stale=false;for(const auto& entry:g_Entries)if(entry.second.Seen+1<g_Frame){stale=true;break;}if(!stale)return nullptr;}
   Entry candidate;
   Build(candidate, object, mesh);
   candidate.Seen = g_Frame;
@@ -295,6 +300,7 @@ static Entry *Get(const GameObject &object, const MeshView &mesh) {
     for (auto it = g_Entries.begin(); it != g_Entries.end(); ++it)
       if (it->second.Seen < oldest->second.Seen)
         oldest = it;
+    if(oldest->second.Seen+1>=g_Frame)return nullptr;
     g_Bytes -= oldest->second.Bytes;
     Release(oldest->second);
     g_Entries.erase(oldest);

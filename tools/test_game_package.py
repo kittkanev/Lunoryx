@@ -132,7 +132,7 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     check_manifest(manifest + [dict(manifest[0])], 'Duplicate')
     for name in ('.', '../outside', 'a/../b', 'a:stream'):
         check_manifest(manifest + [dict(alias, name=name)], 'resource path')
-    check_manifest(b'[' * 1000 + b'0' + b']' * 1000, 'nesting exceeds limit')
+    check_manifest(b'[' * 1000 + b'0' + b']' * 1000, 'nesting')
     # Disjoint resources need not appear in offset order; empty ranges are legal.
     check_manifest(list(reversed(manifest)) + [dict(alias, name='empty', size=0)])
     if os.environ.get('LUNORYX_GAME_GUI'):

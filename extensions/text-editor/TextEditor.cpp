@@ -319,7 +319,8 @@ void TextEditor::AddUndo(UndoRecord& aValue)
 	mUndoBuffer.back() = aValue;
 	++mUndoIndex;
 	// Each document is at most 64 KiB; bound its undo records as well.
-	while (mUndoBuffer.size() > 128) { mUndoBuffer.erase(mUndoBuffer.begin()); --mUndoIndex; }
+	size_t undoBytes=0;for(const auto& record:mUndoBuffer)undoBytes+=record.mAdded.size()+record.mRemoved.size();
+	while (mUndoBuffer.size() > 128 || (undoBytes>2*1024*1024 && mUndoBuffer.size()>1)) { undoBytes-=mUndoBuffer.front().mAdded.size()+mUndoBuffer.front().mRemoved.size();mUndoBuffer.erase(mUndoBuffer.begin()); --mUndoIndex; }
 }
 
 TextEditor::Coordinates TextEditor::ScreenPosToCoordinates(const ImVec2& aPosition) const
@@ -712,11 +713,11 @@ void TextEditor::HandleKeyboardInputs()
 		io.WantCaptureKeyboard = true;
 		io.WantTextInput = true;
 
-		if (!IsReadOnly() && ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Z))
+		if (!IsReadOnly() && ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Z, false))
 			Undo();
 		else if (!IsReadOnly() && !ctrl && !shift && alt && ImGui::IsKeyPressed(ImGuiKey_Backspace))
 			Undo();
-		else if (!IsReadOnly() && ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Y))
+		else if (!IsReadOnly() && ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Y, false))
 			Redo();
 		else if (!ctrl && !alt && ImGui::IsKeyPressed(ImGuiKey_UpArrow))
 			MoveUp(1, shift);
@@ -746,17 +747,17 @@ void TextEditor::HandleKeyboardInputs()
 			mOverwrite ^= true;
 		else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Insert))
 			Copy();
-		else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_C))
+		else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_C, false))
 			Copy();
 		else if (!IsReadOnly() && !ctrl && shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Insert))
 			Paste();
-		else if (!IsReadOnly() && ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_V))
+		else if (!IsReadOnly() && ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_V, false))
 			Paste();
-		else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_X))
+		else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_X, false))
 			Cut();
 		else if (!ctrl && shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Delete))
 			Cut();
-		else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_A))
+		else if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_A, false))
 			SelectAll();
 		else if (!IsReadOnly() && !ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Enter))
 			EnterCharacter('\n', false);
@@ -2008,7 +2009,7 @@ const TextEditor::Palette & TextEditor::GetDarkPalette()
 {
 	const static Palette p = { {
 			0xff7f7f7f,	// Default
-			0xffd69c56,	// Keyword	
+			0xffd69c56,	// Keyword
 			0xff00ff00,	// Number
 			0xff7070e0,	// String
 			0xff70a0e0, // Char literal
@@ -2036,7 +2037,7 @@ const TextEditor::Palette & TextEditor::GetLightPalette()
 {
 	const static Palette p = { {
 			0xff7f7f7f,	// None
-			0xffff0c06,	// Keyword	
+			0xffff0c06,	// Keyword
 			0xff008000,	// Number
 			0xff2020a0,	// String
 			0xff304070, // Char literal
@@ -2064,7 +2065,7 @@ const TextEditor::Palette & TextEditor::GetRetroBluePalette()
 {
 	const static Palette p = { {
 			0xff00ffff,	// None
-			0xffffff00,	// Keyword	
+			0xffffff00,	// Keyword
 			0xff00ff00,	// Number
 			0xff808000,	// String
 			0xff808000, // Char literal

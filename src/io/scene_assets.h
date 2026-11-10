@@ -41,8 +41,9 @@ inline bool BoundedImageLoad(tinygltf::Image *image, int index,
       *error += "Image dimensions exceed import budget";
     return false;
   }
+  if(data){auto& remaining=*static_cast<size_t*>(data);size_t decoded=size_t(w)*h*8;if(decoded>remaining){if(error)*error+="Total decoded image budget exceeded";return false;}remaining-=decoded;}
   return tinygltf::LoadImageData(image, index, error, warning, width, height,
-                                 bytes, length, data);
+                                 bytes, length, nullptr);
 }
 inline std::vector<unsigned char> EncodeImage(const tinygltf::Image &image) {
   std::vector<unsigned char> data;
@@ -199,7 +200,7 @@ static std::vector<GameObject> ReadGLBObjects(const std::string &path,
   fs.GetFileSizeInBytes = nullptr;
   fs.user_data = &importRoot;
   reader.SetFsCallbacks(fs);
-  reader.SetImageLoader(BoundedImageLoad, nullptr);
+  size_t decodedBudget=128*1024*1024;reader.SetImageLoader(BoundedImageLoad, &decodedBudget);
   if (!reader.LoadBinaryFromMemory(&model, &error, &warning, bytes.data(),
                                    unsigned(bytes.size()),
                                    PathDirectory(AbsoluteAssetPath(path))))

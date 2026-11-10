@@ -77,14 +77,14 @@ public:
 #ifdef _WIN32
       writer=std::thread([&](){size_t at=0;while(at<input.size()){DWORD n=0;if(!WriteFile(Input,input.data()+at,DWORD(std::min(size_t(16384),input.size()-at)),&n,nullptr)||!n){writeFailed=true;break;}at+=n;}sent=true;});
 #endif
-      for(;;){if(std::chrono::steady_clock::now()>=deadline)throw std::runtime_error("Worker deadline exceeded; operation cancelled");
+      for(;;){bool progressed=false;if(std::chrono::steady_clock::now()>=deadline)throw std::runtime_error("Worker deadline exceeded; operation cancelled");
 #ifdef _WIN32
       if(writeFailed)throw std::runtime_error("Worker input closed");
       DWORD available=0;if(!PeekNamedPipe(Output,nullptr,0,nullptr,&available,nullptr))throw std::runtime_error("Worker exited");
-      if(available){char buffer[8192];DWORD n=0;if(!ReadFile(Output,buffer,std::min(DWORD(sizeof(buffer)),available),&n,nullptr)||!n)throw std::runtime_error("Worker output closed");Pending.append(buffer,n);}else if(WaitForSingleObject(Process,0)==WAIT_OBJECT_0)throw std::runtime_error("Worker exited");
+      if(available){char buffer[8192];DWORD n=0;if(!ReadFile(Output,buffer,std::min(DWORD(sizeof(buffer)),available),&n,nullptr)||!n)throw std::runtime_error("Worker output closed");Pending.append(buffer,n);progressed=true;}else if(WaitForSingleObject(Process,0)==WAIT_OBJECT_0)throw std::runtime_error("Worker exited");
 #else
-      if(at<input.size()){ssize_t n=write(Input,input.data()+at,std::min(size_t(16384),input.size()-at));if(n>0)at+=size_t(n);else if(n<0&&errno!=EAGAIN&&errno!=EINTR)throw std::runtime_error("Worker input closed");}
-      char buffer[8192];ssize_t n=read(Output,buffer,sizeof(buffer));if(n>0)Pending.append(buffer,size_t(n));else if(n==0)throw std::runtime_error("Worker output closed");else if(errno!=EAGAIN&&errno!=EINTR)throw std::runtime_error("Cannot read worker output");
+      if(at<input.size()){ssize_t n=write(Input,input.data()+at,std::min(size_t(16384),input.size()-at));if(n>0){at+=size_t(n);progressed=true;}else if(n<0&&errno!=EAGAIN&&errno!=EINTR)throw std::runtime_error("Worker input closed");}
+      char buffer[8192];ssize_t n=read(Output,buffer,sizeof(buffer));if(n>0){Pending.append(buffer,size_t(n));progressed=true;}else if(n==0)throw std::runtime_error("Worker output closed");else if(errno!=EAGAIN&&errno!=EINTR)throw std::runtime_error("Cannot read worker output");
 #endif
       if(Pending.size()>limit)throw std::runtime_error("Worker output exceeds budget");
       size_t end=Pending.find('\n');if(end!=std::string::npos
@@ -93,10 +93,11 @@ public:
 #endif
       ){
 #ifdef _WIN32
+        if(!sent){std::this_thread::sleep_for(std::chrono::milliseconds(1));continue;}
         writer.join();
 #endif
         auto line=Pending.substr(0,end);Pending.erase(0,end+1);return line;}
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      if(!progressed)std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }}catch(...){Stop();
 #ifdef _WIN32
       if(writer.joinable())writer.join();

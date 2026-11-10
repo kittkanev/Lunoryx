@@ -25,6 +25,22 @@ static void CheckV13Regressions() {
 
     const auto folder=ProjectFS::temp_directory_path()/ProjectFS::path("lunoryx-test-"+std::to_string(std::random_device{}()));
     assert(CreateProjectFolder("UTF-8 project / Проект",folder.u8string()));
+    CreateAssetDirectories(g_ProjectDirectory,"pinned");
+    auto confined=ConfinedAssetPath("pinned/asset.txt",g_ProjectDirectory);
+#ifdef _WIN32
+    {AssetParentAnchor anchor(confined);
+    auto writable=CreateFileW(WidePath(g_ProjectDirectory+"/pinned").c_str(),GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+    assert(writable==INVALID_HANDLE_VALUE);assert(GetLastError()==ERROR_SHARING_VIOLATION||GetLastError()==ERROR_ACCESS_DENIED);
+    const char safe[]="safe";WriteAssetFileAtomic(confined,safe,4);assert(ReadAssetFile(confined)==std::vector<unsigned char>({'s','a','f','e'}));}
+#else
+    auto outside=folder/"outside";ProjectFS::create_directory(outside);const std::string sentinel="outside";
+    WriteAssetFileAtomic((outside/"asset.txt").u8string(),sentinel.data(),sentinel.size());
+    ProjectFS::rename(folder/"pinned",folder/"original");ProjectFS::create_directory_symlink(outside,folder/"pinned");
+    bool readRejected=false,writeRejected=false;try{ReadAssetFile(confined);}catch(const std::exception&){readRejected=true;}
+    try{WriteAssetFileAtomic(confined,"bad",3);}catch(const std::exception&){writeRejected=true;}
+    assert(readRejected&&writeRejected);assert(ReadAssetFile((outside/"asset.txt").u8string())==std::vector<unsigned char>(sentinel.begin(),sentinel.end()));
+    ProjectFS::remove(folder/"pinned");ProjectFS::rename(folder/"original",folder/"pinned");
+#endif
     auto& module=StudioScripts()[1];module.Allocated=true;module.Module=true;
     std::strcpy(module.Name,"Helpers.luaryx");std::strcpy(module.Code,"return {answer=42}");
     InitLuaState();CheckLua("assert(require('Helpers').answer==42); assert(require('Helpers')==require('Helpers'))");
@@ -55,7 +71,7 @@ public sealed class Mover:Script {
         auto& helper=StudioScripts()[3];helper.Allocated=true;helper.Module=true;helper.Language=1;
         std::strcpy(helper.Name,"Helper.cs");std::strcpy(helper.Code,"public static class Helper { public const int Value=17; }");
         InitLuaState();CheckLua("function on_message(name,value) if name=='managed' then luaryx.find('Shared'):property('received',tonumber(value)) end end");
-        g_CSharpTrusted=true;StartManagedScripts();assert(g_ManagedWorker.Running());
+        g_CSharpTrusted=true;StartManagedScripts();if(!g_ManagedWorker.Running())std::cerr<<"C# start failure: "<<g_LastLuaError<<"\n"<<g_ConsoleOutput.substr(g_ConsoleOutput.size()>4096?g_ConsoleOutput.size()-4096:0);assert(g_ManagedWorker.Running());
         assert(g_Objects.back().Properties.at("score").NumberValue==17);
         assert(g_Objects.back().Properties.at("received").NumberValue==7);
         CheckLua("remove_object(0);luaryx.emit('lua','23')");

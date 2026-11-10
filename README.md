@@ -49,7 +49,7 @@ C# uses an actual .NET/Roslyn worker. Its scripts have your OS permissions; load
 - Undo/redo, recovery snapshots, Lua diagnostics and MCP automation.
 - Standalone game packages carry their scene, resources and required managed runtime.
 
-Lua has instruction and memory limits. MCP starts with read-only capabilities; `--allow-write` enables mutations and `--allow-lua` additionally enables script execution. Lua execution through MCP requires both switches. See [security guidance](SECURITY.md) and [previous audit remediation](docs/AUDIT-REMEDIATION.md).
+Lua has instruction and memory limits. MCP starts with read-only capabilities; `--allow-write` enables mutations and `--allow-lua` additionally enables script execution. Lua execution through MCP requires both switches. See [security guidance](docs/AUDIT-REMEDIATION.md) and [previous audit remediation](docs/AUDIT-REMEDIATION.md).
 
 <a id="build-linux"></a>
 ## Build on Linux

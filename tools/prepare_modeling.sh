@@ -10,7 +10,7 @@ mkdir -p build/deps/manifold
 tar --no-same-owner -xzf "$archive" --strip-components=1 -C build/deps/manifold
 cmake_bin=${CMAKE:-cmake}
 build_dir=build/deps/manifold-linux
-options=()
+options=(-DCMAKE_POSITION_INDEPENDENT_CODE=ON)
 if [ "${1:-}" = windows ]; then
   build_dir=build/deps/manifold-windows
   options+=(-DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix)
