@@ -14,7 +14,7 @@
   {
     "id": "SEC-03",
     "status": "fixed",
-    "resolution": "Uncooperative mesh and GLB export work runs in deadline-killed child processes with native memory/CPU limits.",
+    "resolution": "Uncooperative mesh and GLB export work runs in deadline-killed child processes with native CPU limits, Windows/Linux memory limits and a best-effort macOS data limit.",
     "evidence": "tests/worker_process_tests.cpp; tools/test_audit_security.py"
   },
   {

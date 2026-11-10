@@ -25,7 +25,7 @@ version = re.search(r'LUNORYX_VERSION "([^"]+)"', Path('engine_version.h').read_
 info = dict(CFBundleIdentifier='org.lunoryx.studio', CFBundleName='Lunoryx',
             CFBundleDisplayName='Lunoryx Studio', CFBundleExecutable='Lunoryx',
             CFBundlePackageType='APPL', CFBundleShortVersionString=version,
-            CFBundleVersion=version, LSMinimumSystemVersion='13.0',
+            CFBundleVersion=version, LSMinimumSystemVersion='15.0',
             NSHighResolutionCapable=True, CFBundleIconFile='Lunoryx.icns')
 with (contents / 'Info.plist').open('wb') as f:
     plistlib.dump(info, f)
@@ -50,6 +50,22 @@ for size in (16, 32, 128, 256, 512):
 subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(resources/'Lunoryx.icns')], check=True)
 subprocess.run(['dylibbundler', '-od', '-b', '-x', str(contents/'MacOS/Lunoryx'),
                 '-d', str(contents/'Frameworks'), '-p', '@executable_path/../Frameworks/'], check=True)
+# Homebrew now supplies SDL2 through sdl2-compat, which dlopens SDL3.
+# Bundle that hidden dependency explicitly; otool alone cannot discover it.
+try:
+    sdl3_prefix=subprocess.check_output(['brew','--prefix','sdl3'],text=True).strip()
+    sdl3=Path(sdl3_prefix)/'lib/libSDL3.dylib'
+    if sdl3.exists():
+        target=contents/'Frameworks/libSDL3.dylib'
+        shutil.copy2(sdl3,target)
+        subprocess.run(['dylibbundler','-of','-b','-x',str(target),'-d',str(contents/'Frameworks'),'-p','@loader_path/'],check=True)
+        subprocess.run(['install_name_tool','-id','@loader_path/libSDL3.dylib',str(target)],check=True)
+except subprocess.CalledProcessError:
+    raise SystemExit('Cannot bundle the SDL3 dependency required by sdl2-compat')
+for native in [contents/'MacOS/Lunoryx',*(contents/'Frameworks').glob('*.dylib')]:
+    dependencies=subprocess.check_output(['otool','-L',str(native)],text=True)
+    if any(line.lstrip().startswith(('/opt/homebrew/','/usr/local/')) for line in dependencies.splitlines()[1:]):
+        raise SystemExit(f'Unbundled Homebrew dependency: {native}\n{dependencies}')
 # Sign inner native libraries first, then the enclosing bundle. No publisher
 # certificate is implied: this is an explicit ad-hoc signature for local use.
 for library in sorted((contents/'Frameworks').glob('*.dylib')):

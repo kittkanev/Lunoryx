@@ -1,6 +1,11 @@
 #pragma once
 static void CheckV13Regressions() {
-    StopSimulation();
+    StopSimulation();InitLuaState();size_t finalizerObjects=g_Objects.size();
+    CheckLua("function host_finalizer() add_object('forbidden finalizer','cube') end");
+    // Trusted host-created userdata/tables can have finalizers even though the
+    // script-facing setmetatable wrapper rejects them.
+    lua_newtable(g_LuaState);lua_newtable(g_LuaState);lua_getglobal(g_LuaState,"host_finalizer");lua_setfield(g_LuaState,-2,"__gc");lua_setmetatable(g_LuaState,-2);lua_setglobal(g_LuaState,"retained");
+    ShutdownLuaState();assert(g_Objects.size()==finalizerObjects);
     assert(CheckedScriptText("\xEF\xBB\xBF" "-- Привет\r\nreturn 1\r")=="-- Привет\nreturn 1\n");
     bool encodingRejected=false;try{CheckedScriptText(std::string(1,char(255)));}catch(const std::exception&){encodingRejected=true;}assert(encodingRejected);
     g_Objects.clear();g_Sounds.clear();g_Game=StudioGameSettings();
@@ -27,6 +32,7 @@ static void CheckV13Regressions() {
 
     const auto folder=ProjectFS::temp_directory_path()/ProjectFS::path("lunoryx-test-"+std::to_string(std::random_device{}()));
     assert(CreateProjectFolder("UTF-8 project / Проект",folder.u8string()));
+    assert(ScriptAssetPath("check.txt")==NormalizePath(g_ProjectDirectory+"/check.txt"));
     CreateAssetDirectories(g_ProjectDirectory,"pinned");
     auto confined=ConfinedAssetPath("pinned/asset.txt",g_ProjectDirectory);
 #ifdef _WIN32
@@ -94,7 +100,7 @@ public sealed class Mover:Script {
         assert(std::chrono::steady_clock::now()-start<std::chrono::seconds(3));
         std::cout<<"PASS: real C# compilation/modules, Lua messages, stable IDs, diagnostics and deadline cancellation\n";
     }else std::cout<<"SKIP: C# worker not installed; release CI must provide LUNORYX_CSHARP_WORKER\n";
-    ShutdownLuaState();g_ProjectDirectory.clear();g_ProjectName.clear();g_OpenedProject.clear();
+    ShutdownLuaState();g_ProjectDirectory.clear();ScriptAssetRoot().clear();g_ProjectName.clear();g_OpenedProject.clear();
     // Drop pinned handles before cleanup on Windows.
     {std::lock_guard<std::recursive_mutex> lock(AssetPolicyMutex());ConfinedAssetPolicies().clear();AssetRootAnchors().clear();}
     ProjectFS::remove_all(folder);

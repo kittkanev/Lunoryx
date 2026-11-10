@@ -95,7 +95,7 @@ public:
 #ifdef _WIN32
         writer.join();
 #endif
-        auto line=Pending.substr(0,end);Pending.erase(0,end+1);return line;}
+        auto line=Pending.substr(0,end);Pending.erase(0,end+1);if(!line.empty()&&line.back()=='\r')line.pop_back();return line;}
       if(!progressed){
 #ifdef _WIN32
         WaitForSingleObject(Process,1);
@@ -127,7 +127,10 @@ static void SetNativeWorkerLimits(){
 #else
   struct rlimit memory={1024ull*1024*1024,1024ull*1024*1024};
 #ifdef __APPLE__
-  if(setrlimit(RLIMIT_DATA,&memory))throw std::runtime_error("Cannot enforce native worker data limit");
+  struct rlimit current={};
+  if(getrlimit(RLIMIT_DATA,&current)==0){memory.rlim_cur=std::min(memory.rlim_cur,current.rlim_cur);memory.rlim_max=current.rlim_max;
+    if(setrlimit(RLIMIT_DATA,&memory))std::fprintf(stderr,"macOS native worker: data limit unavailable; byte budgets and deadline remain active\n");}
+
 #else
   memory.rlim_cur=memory.rlim_max=2ull*1024*1024*1024;if(setrlimit(RLIMIT_AS,&memory))throw std::runtime_error("Cannot enforce native worker address-space limit");
 #endif

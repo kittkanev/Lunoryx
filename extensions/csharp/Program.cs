@@ -11,7 +11,7 @@ using Luaryx;
 Console.InputEncoding=new UTF8Encoding(false);Console.OutputEncoding=new UTF8Encoding(false);
 var protocol=Console.Out;Console.SetOut(Console.Error);
 List<Script> scripts=[];AssemblyLoadContext? context=null;
-var references=(((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))??"").Split(Path.PathSeparator,StringSplitOptions.RemoveEmptyEntries).Concat(Directory.GetFiles(AppContext.BaseDirectory,"*.dll")).Distinct().Where(path=>Path.GetFileName(path).StartsWith("System.")||Path.GetFileName(path) is "netstandard.dll" or "mscorlib.dll" or "Luaryx.Worker.dll").Where(IsManagedAssembly).Select(path=>MetadataReference.CreateFromFile(path)).ToList();
+var references=(((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))??"").Split(Path.PathSeparator,StringSplitOptions.RemoveEmptyEntries).Concat(Directory.GetFiles(AppContext.BaseDirectory,"*.dll")).Distinct().Where(path=>Path.GetFileName(path).StartsWith("System.")||Path.GetFileName(path) is "netstandard.dll" or "mscorlib.dll" or "Luaryx.Worker.dll" or "Microsoft.CSharp.dll").Where(IsManagedAssembly).Select(path=>MetadataReference.CreateFromFile(path)).ToList();
 if(!references.Any(x=>x.Display==typeof(object).Assembly.Location))references.Add(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
 while(true){string? line=Console.ReadLine();if(line is null)break;if(line.Length>8*1024*1024){protocol.WriteLine("{\"ok\":false,\"error\":\"Request exceeds 8 MiB\"}");continue;}
     try{var request=JsonNode.Parse(line)!.AsObject();var action=request["action"]!.GetValue<string>();Scene.Refresh(request);

@@ -1,4 +1,6 @@
-# Native macOS build. Homebrew dependencies: sdl2 lua@5.4 cmake pkg-config.
+# Native macOS build.
+export MACOSX_DEPLOYMENT_TARGET ?= 15.0
+# Homebrew dependencies: sdl2 lua@5.4 cmake pkg-config.
 include Makefile
 CXX = clang++
 CC = clang

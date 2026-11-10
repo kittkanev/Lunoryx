@@ -251,9 +251,12 @@ inline std::string ConfinedAssetPath(const std::string& path,const std::string& 
   RegisterConfinedAssetPath(full,base);
   return full;
 }
+inline std::string WorkspaceAssetPath(const std::string& path) {
+  static const std::string workspace=CanonicalAssetPath(".");return ConfinedAssetPath(path,workspace);
+}
+inline std::string& ScriptAssetRoot(){static std::string root;return root;}
 inline std::string ScriptAssetPath(const std::string& path) {
-  static const std::string workspace=CanonicalAssetPath(".");
-  return ConfinedAssetPath(path,workspace);
+  return ScriptAssetRoot().empty()?WorkspaceAssetPath(path):ConfinedAssetPath(path,ScriptAssetRoot());
 }
 inline std::string ProjectAssetPath(const std::string& path,const std::string& project) {
   return path.empty()?path:ConfinedAssetPath(path,PathDirectory(AbsoluteAssetPath(project)));

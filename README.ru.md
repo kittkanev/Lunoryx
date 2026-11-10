@@ -7,7 +7,7 @@
 <table align="center">
 <tr>
 <td align="center"><a href="https://github.com/kittkanev/Lunoryx/releases/latest"><img src="assets/platforms/windows.svg" height="94" alt="Windows" /></a><br/><strong>Windows x64</strong><br/><a href="https://github.com/kittkanev/Lunoryx/releases/latest">Релизы</a></td>
-<td align="center"><a href="https://github.com/kittkanev/Lunoryx/releases/latest"><img src="assets/platforms/macos.png" height="94" alt="macOS Finder" /></a><br/><strong>macOS</strong><br/><a href="https://github.com/kittkanev/Lunoryx/releases/latest">Сборки и загрузки</a></td>
+<td align="center"><a href="https://github.com/kittkanev/Lunoryx/releases/latest"><img src="assets/platforms/macos.png" height="94" alt="macOS Finder" /></a><br/><strong>macOS 15+</strong><br/><a href="https://github.com/kittkanev/Lunoryx/releases/latest">Сборки и загрузки</a></td>
 <td align="center"><a href="#build-linux"><img src="assets/platforms/linux.png" height="94" alt="Linux Tux" /></a><br/><strong>Linux</strong><br/><a href="#build-linux">Сборка из исходников</a></td>
 </tr>
 </table>

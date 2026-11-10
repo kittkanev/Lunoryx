@@ -287,9 +287,11 @@ static bool LoadStudioProject(const std::string& path) {
         g_Objects.swap(objects);g_Studio.Scripts.swap(*scripts);std::copy(top,top+3,g_SkyTop);std::copy(bottom,bottom+3,g_SkyBottom);g_SkyPreset=preset;
         g_Physics.Continuous=continuous;g_Physics.DroppedTime=0;g_Physics.Gravity=gravity;g_Physics.Ground=ground;g_Physics.Accumulator=0;g_PhysicsRunning=false;g_SimulationRunning=false;g_PlaySnapshot.clear();g_SelectedObjectIndex=-1;
         g_Studio.RequestDocument=-2;g_Studio.ActiveScript=0;g_Studio.HasSculptUndo=false;g_ObjectHistory.Clear();g_ObjectHistory.Capture(g_Objects);
-        if(g_LuaState)ClearUpdateCallback(g_LuaState);
         g_CSharpTrusted=false;
         g_ProjectDirectory=root.contains("project")?PathDirectory(AbsoluteAssetPath(path)):std::string();g_ProjectName=projectName;g_ShowProjectPicker=false;
+        ScriptAssetRoot()=g_ProjectDirectory;
+        if(path.compare(0,sizeof("/__lunoryx_bundle__/")-1,"/__lunoryx_bundle__/")==0)ScriptAssetRoot()="/__lunoryx_bundle__";
+        if(g_LuaState)InitLuaState();
         g_OpenedProject=AbsoluteAssetPath(path);std::snprintf(g_ProjectPath,sizeof(g_ProjectPath),"%s",path.c_str());g_SavedDocumentHash=CompleteDocumentHash();
         AppendConsole("Loaded project without executing scripts: "+path+"\n");return true;
     } catch(const std::exception& error){AppendConsole(std::string("Project load failed: ")+error.what()+"\n");return false;}

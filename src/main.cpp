@@ -50,6 +50,7 @@ static const size_t MAX_CONSOLE_LINES = 500;
 std::vector<GameObject> g_Objects;
 int g_SelectedObjectIndex = -1;
 lua_State* g_LuaState = nullptr;
+static bool g_LuaClosing=false;
 static bool g_McpActive=false,g_McpCanWrite=false,g_McpCanRun=false;
 static int l_require_module(lua_State*);
 static void InstallLuaryxApi(lua_State*);
@@ -226,6 +227,7 @@ private:
 // C++ exceptions must not unwind through the Lua C runtime.
 template<int (*Function)(lua_State*)>
 static int LuaBinding(lua_State* L) {
+    if(g_LuaClosing)return luaL_error(L,"Engine API unavailable during Lua finalization");
     char message[512] = {};
     try {
         return Function(L);
@@ -619,7 +621,7 @@ static void ShutdownLuaState() {
     if (g_LuaState) {
         g_LuaBudget.Remaining=1000000;g_LuaBudget.Exhausted=false;
         lua_sethook(g_LuaState,LuaInstructionLimit,LUA_MASKCOUNT,1000);
-        lua_close(g_LuaState);
+        g_LuaClosing=true;lua_close(g_LuaState);g_LuaClosing=false;
         g_LuaState = nullptr;
     }
 }

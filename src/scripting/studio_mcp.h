@@ -115,7 +115,7 @@ static nlohmann::json StudioMcpCall(const std::string &tool,
     }
     if (tool == "project_save" || tool == "project_load" ||
         tool == "export_glb") {
-      std::string path = ScriptAssetPath(args.at("path").get<std::string>());
+      std::string path = WorkspaceAssetPath(args.at("path").get<std::string>());
       if (path.empty() || path.size() > 511 ||
           path.find('\0') != std::string::npos)
         throw std::runtime_error("Invalid path");
@@ -139,7 +139,7 @@ static nlohmann::json StudioMcpCall(const std::string &tool,
     }
     if (tool == "add_sound") {
       StudioSound sound;
-      sound.Path = ScriptAssetPath(args.at("path").get<std::string>());
+      sound.Path = WorkspaceAssetPath(args.at("path").get<std::string>());
       sound.Name = args.value("name", std::string("Sound"));
       if (sound.Path.empty() || sound.Path.size() > 511 ||
           sound.Name.size() > 255 ||
