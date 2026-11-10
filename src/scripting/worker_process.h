@@ -49,7 +49,7 @@ public:
     Stop();
 #ifdef _WIN32
     SECURITY_ATTRIBUTES security={sizeof(SECURITY_ATTRIBUTES),nullptr,TRUE};HANDLE childInput=nullptr,childOutput=nullptr;
-    if(!CreatePipe(&childInput,&Input,&security,0)||!CreatePipe(&Output,&childOutput,&security,0)){if(childInput)CloseHandle(childInput);if(childOutput)CloseHandle(childOutput);Stop();throw std::runtime_error("Cannot create worker pipes");}
+    if(!CreatePipe(&childInput,&Input,&security,1024*1024)||!CreatePipe(&Output,&childOutput,&security,1024*1024)){if(childInput)CloseHandle(childInput);if(childOutput)CloseHandle(childOutput);Stop();throw std::runtime_error("Cannot create worker pipes");}
     SetHandleInformation(Input,HANDLE_FLAG_INHERIT,0);SetHandleInformation(Output,HANDLE_FLAG_INHERIT,0);
     auto quote=[](const std::string& value){std::wstring result=L"\"";size_t slashes=0;for(wchar_t c:WidePath(value)){if(c==L'\\'){++slashes;continue;}if(c==L'\"')result.append(slashes*2+1,L'\\');else result.append(slashes,L'\\');slashes=0;result+=c;}result.append(slashes*2,L'\\');return result+L"\"";};
     auto command=quote(executable);for(const auto& arg:arguments)command+=L" "+quote(arg);
@@ -97,7 +97,14 @@ public:
         writer.join();
 #endif
         auto line=Pending.substr(0,end);Pending.erase(0,end+1);return line;}
-      if(!progressed)std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      if(!progressed){
+#ifdef _WIN32
+        WaitForSingleObject(Process,1);
+#else
+        struct pollfd ready[2]={{Output,POLLIN,0},{Input,short(at<input.size()?POLLOUT:0),0}};
+        if(poll(ready,2,10)<0&&errno!=EINTR)throw std::runtime_error("Cannot wait for worker I/O");
+#endif
+      }
     }}catch(...){Stop();
 #ifdef _WIN32
       if(writer.joinable())writer.join();
