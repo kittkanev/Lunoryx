@@ -96,6 +96,13 @@ int studio_audio_load_memory(uint64_t id, const void *data, size_t size,
   if (v && v->memory && v->encoded_size == size &&
       !memcmp(v->encoded, data, size))
     return 1;
+  size_t used = 0;
+  for (int i = 0; i < 64; ++i)
+    if (voices[i].id != id) used += voices[i].encoded_size;
+  if (size > 64 * 1024 * 1024 - used) {
+    snprintf(error, 256, "Audio encoded-data budget is 64 MiB");
+    return 0;
+  }
   if (v)
     studio_audio_unload(id);
   v = NULL;

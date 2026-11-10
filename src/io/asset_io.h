@@ -1,7 +1,9 @@
 #pragma once
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <algorithm>
+#include <random>
 #include <limits>
 #include <map>
 #include <stdexcept>
@@ -18,6 +20,9 @@ inline std::wstring WidePath(const std::string &s) {
   std::wstring w(size_t(n), L' ');
   MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(), int(s.size()),
                       &w[0], n);
+  if(w.size()>240&&w.size()>2&&w[1]==L':'&&(w[2]==L'/'||w[2]==L'\\')){
+    std::replace(w.begin(),w.end(),L'/',L'\\');w=L"\\\\?\\"+w;
+  }
   return w;
 }
 #else
@@ -28,9 +33,15 @@ inline std::map<std::string, std::vector<unsigned char>> &VirtualAssets() {
   static std::map<std::string, std::vector<unsigned char>> assets;
   return assets;
 }
+inline FILE* SecureOpenIfConfined(const std::string&,const char*,bool&);
+inline bool SecureRemoveAsset(const std::string&);
+inline bool SecureReplaceAsset(const std::string&,const std::string&);
+inline FILE* SecureTemporaryAsset(const std::string&,std::string&);
 inline FILE *AssetOpen(const std::string &path, const char *mode) {
   if (path.empty() || path.find('\0') != std::string::npos)
     return nullptr;
+  if(path.compare(0,sizeof("/__lunoryx_bundle__")-1,"/__lunoryx_bundle__")==0)return nullptr;
+  bool confined=false;FILE* secured=SecureOpenIfConfined(path,mode,confined);if(confined)return secured;
 #ifdef _WIN32
   std::wstring m;
   for (const char *c = mode; *c; ++c)
@@ -173,6 +184,7 @@ inline void WriteAssetFile(const std::string &path, const void *data,
     throw std::runtime_error("Cannot finish writing file: " + path);
 }
 inline void ReplaceAssetFile(const std::string &from, const std::string &to) {
+  if(SecureReplaceAsset(from,to))return;
 #ifdef _WIN32
   if (!MoveFileExW(WidePath(from).c_str(), WidePath(to).c_str(),
                    MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
@@ -184,6 +196,7 @@ inline void ReplaceAssetFile(const std::string &from, const std::string &to) {
 }
 
 inline void RemoveAssetFile(const std::string& path) {
+  if(SecureRemoveAsset(path))return;
 #ifdef _WIN32
   _wremove(WidePath(path).c_str());
 #else
@@ -223,6 +236,7 @@ inline std::string CanonicalAssetPath(const std::string& path) {
     suffix="/"+parent.substr(parent.find_last_of('/')+1)+suffix;parent=next.empty()?"/":next;
   }
 }
+#include "src/io/secure_asset_io.h"
 inline std::string ConfinedAssetPath(const std::string& path,const std::string& root) {
   CheckLocalAssetPath(path);
   auto base=CanonicalAssetPath(root);
@@ -234,6 +248,7 @@ inline std::string ConfinedAssetPath(const std::string& path,const std::string& 
 #endif
   if(compareBase.back()!='/')compareBase+='/';
   if(compareFull!=compareBase.substr(0,compareBase.size()-1)&&compareFull.compare(0,compareBase.size(),compareBase)!=0)throw std::runtime_error("Path is outside the allowed directory");
+  RegisterConfinedAssetPath(full,base);
   return full;
 }
 inline std::string ScriptAssetPath(const std::string& path) {
@@ -252,20 +267,7 @@ inline std::string ProjectAssetPath(const std::string& path,const std::string& p
 #include <sys/stat.h>
 #endif
 #include <random>
-inline FILE* OpenTemporaryAsset(const std::string& destination,std::string& temporary) {
-  // Exclusive creation prevents following pre-existing .tmp symlinks.
-  std::random_device random;
-  for(int attempt=0;attempt<16;++attempt){temporary=destination+"."+std::to_string(random())+"."+std::to_string(random())+".tmp";
-#ifdef _WIN32
-    int fd=_wopen(WidePath(temporary).c_str(),_O_CREAT|_O_EXCL|_O_WRONLY|_O_BINARY,_S_IREAD|_S_IWRITE);
-    if(fd>=0){FILE* file=_fdopen(fd,"wb");if(!file){_close(fd);RemoveAssetFile(temporary);}return file;}
-#else
-    int fd=open(temporary.c_str(),O_CREAT|O_EXCL|O_WRONLY,0600);
-    if(fd>=0){FILE* file=fdopen(fd,"wb");if(!file){close(fd);RemoveAssetFile(temporary);}return file;}
-#endif
-  }
-  throw std::runtime_error("Cannot create temporary output");
-}
+inline FILE* OpenTemporaryAsset(const std::string& destination,std::string& temporary) {return SecureTemporaryAsset(destination,temporary);}
 inline void WriteAssetFileAtomic(const std::string& destination,const void* data,size_t size) {
   std::string temporary;FILE* file=OpenTemporaryAsset(destination,temporary);
   if(!file)throw std::runtime_error("Cannot open temporary output");

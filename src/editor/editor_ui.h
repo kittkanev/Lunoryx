@@ -1,3 +1,4 @@
+#include "src/editor/code_editor.h"
 #pragma once
 #include "imgui_internal.h"
 #include "src/render/viewport_target.h"
@@ -6,11 +7,6 @@
 #include <array>
 #include <fstream>
 
-struct ScriptDocument {
-    bool Open=false,Allocated=false;
-    char Name[64]={};
-    char Code[65536]={};
-};
 struct StudioState {
     bool ShowExplorer=true,ShowProperties=true,ShowTools=true,ShowOutput=true,ShowDocs=false;
     bool FullscreenCode=false,WasFullscreen=false,SceneActive=true,SceneHovered=false;
@@ -23,9 +19,10 @@ struct StudioState {
     ImVec2 SceneMin={0,0},SceneSize={1,1};
     Vec3 BrushWorld={0,0,0};
     CharacterConfig Character;
-    std::array<ScriptDocument,8> Scripts;
+    ScriptDocuments Scripts;
 };
 static StudioState g_Studio;
+static ScriptDocuments& StudioScripts(){return g_Studio.Scripts;}
 static bool g_ModelBusy=false;
 static bool g_ShowNodes=false;
 static bool g_ShowUV=false;
@@ -40,13 +37,16 @@ static void SelectObject(int index,bool toggle=false) {
     g_Objects[size_t(index)].Selected=toggle?!g_Objects[size_t(index)].Selected:true;
     g_SelectedObjectIndex=g_Objects[size_t(index)].Selected?index:-1;
 }
-static void NewScript() {
+static void NewScript(int language=0,bool module=false) {
     for(size_t i=0;i<g_Studio.Scripts.size();++i)if(!g_Studio.Scripts[i].Allocated) {
-        auto& script=g_Studio.Scripts[i];script.Open=true;script.Allocated=true;script.Code[0]='\0';
-        std::snprintf(script.Name,sizeof(script.Name),"Script %d.lua",int(i)+1);
-        g_Studio.ActiveScript=int(i);g_Studio.RequestDocument=int(i);return;
+        auto& script=g_Studio.Scripts[i];script.Open=true;script.Allocated=true;script.Code[0]='\0';script.Module=module;script.Language=language;
+        std::snprintf(script.Name,sizeof(script.Name),"%s%d.%s",module?"Module":"Script",int(i)+1,language?"cs":"luaryx");
+        if(language)std::snprintf(script.Code,sizeof(script.Code),"using Luaryx;\n\npublic %sclass %s%d%s\n{\n%s}\n",module?"static ":"sealed ",module?"Module":"Script",int(i)+1,module?"":" : Script",module?"    public static float Speed = 2f;\n":"    public override void OnStart()\n    {\n        Scene.Log(\"C# connected to Luaryx\");\n    }\n\n    public override void OnUpdate(float dt)\n    {\n        // Scene.Get(id) keeps a stable handle after other objects are removed.\n    }\n");
+        else std::snprintf(script.Code,sizeof(script.Code),"%s",module?"local Module = {}\n\nfunction Module.greet()\n    return \"Hello from a Luaryx module\"\nend\n\nreturn Module\n":"-- Luaryx: shared scene API, stable handles and project modules.\nlocal actor = luaryx.create(\"Luaryx Cube\", \"cube\")\nactor:position(0, 1, 0)\n\nfunction on_update(dt)\n    -- actor remains valid when other objects are removed.\nend\n");
+        g_TextHistories[i]=TextEditHistory();g_TextHistories[i].Capture(script.Code);
+        g_Studio.ActiveScript=int(i);g_Studio.RequestDocument=int(i);g_ObjectHistory.Capture(g_Objects);if(!g_ProjectDirectory.empty())SyncProjectFiles();return;
     }
-    AppendConsole("All eight script slots are in use. Close a tab to create another.\n");
+    AppendConsole("All 32 script slots are in use. Delete an unused script to create another.\n");
 }
 static void InitializeStudio() {
     auto& main=g_Studio.Scripts[0];main.Open=true;main.Allocated=true;
@@ -81,6 +81,8 @@ static void BuildStudioLayout(ImGuiID dockspace,const ImGuiViewport* viewport) {
 #include "src/editor/editor_gui.h"
 static bool g_RequestBuild=false;
 static void StudioMenu() {
+    if(ImGui::MenuItem("Projects"))RequestProjectAction(5);
+    if(ImGui::MenuItem("Save project","Ctrl+S"))SaveCurrentProject();
     if(ImGui::MenuItem("Build Game"))g_RequestBuild=true;
     if(ImGui::MenuItem("Open recovery"))RequestProjectAction(2,ProjectRecoveryPath());
     if(ImGui::BeginMenu("Edit")) {
@@ -107,7 +109,7 @@ static void StudioMenu() {
     }
     if(ImGui::BeginMenu("Scripts")) {
         if(ImGui::MenuItem("New Script"))NewScript();
-        if(ImGui::MenuItem("Run Active Script","F5")&&g_Studio.Scripts[g_Studio.ActiveScript].Open)ExecuteLuaScript(g_Studio.Scripts[g_Studio.ActiveScript].Code);
+        if(ImGui::MenuItem("Run Active Script","F5")&&g_Studio.Scripts[g_Studio.ActiveScript].Open)RunStudioScript(size_t(g_Studio.ActiveScript));
         if(ImGui::MenuItem("Full Screen Editor","F11",&g_Studio.FullscreenCode)&&g_Studio.FullscreenCode)g_Studio.RequestDocument=g_Studio.ActiveScript;
         if(ImGui::MenuItem("Delete Active Script")){g_Studio.Scripts[g_Studio.ActiveScript].Allocated=false;g_Studio.Scripts[g_Studio.ActiveScript].Open=false;}
         ImGui::EndMenu();
@@ -222,10 +224,10 @@ static void RenderWorkspace(float distance,float pitch,float yaw,const float tar
                 char tabLabel[96];std::snprintf(tabLabel,sizeof(tabLabel),"%s###Script%d",doc.Name,int(i));
                 if(ImGui::BeginTabItem(tabLabel,&doc.Open,tabFlags)) {
                     g_Studio.ActiveScript=int(i);if(g_Studio.RequestDocument==int(i))g_Studio.RequestDocument=-1;
-                    if(ImGui::Button("Run (F5)")) { ExecuteLuaScript(doc.Code); }
+                    if(ImGui::Button("Run (F5)")) { RunStudioScript(i); }
                     ImGui::SameLine();
                     ImGui::SetNextItemWidth(200);ImGui::InputText("Name",doc.Name,sizeof(doc.Name));
-                    ImGui::InputTextMultiline("##Code",doc.Code,sizeof(doc.Code),ImVec2(-FLT_MIN,-FLT_MIN),ImGuiInputTextFlags_AllowTabInput);
+                    RenderCodeEditor(i);
                     ImGui::EndTabItem();
                 }
                 ImGui::PopID();
@@ -253,7 +255,9 @@ static void RenderExplorer() {
             for(size_t i=0;i<g_Studio.Scripts.size();++i)if(g_Studio.Scripts[i].Allocated) {
                 ImGui::PushID(int(i));if(ImGui::Selectable(g_Studio.Scripts[i].Name,g_Studio.ActiveScript==int(i)&&!g_Studio.SceneActive)){g_Studio.Scripts[i].Open=true;g_Studio.RequestDocument=int(i);}ImGui::PopID();
             }
-            if(ImGui::Button("New Script")) { NewScript(); }
+            if(ImGui::Button("Create..."))ImGui::OpenPopup("Create project script");
+            if(ImGui::BeginPopup("Create project script")){if(ImGui::MenuItem("Luaryx script"))NewScript(0,false);if(ImGui::MenuItem("Luaryx module"))NewScript(0,true);if(ImGui::MenuItem("C# script"))NewScript(1,false);if(ImGui::MenuItem("C# module"))NewScript(1,true);ImGui::EndPopup();}
+            ImGui::TextDisabled("%s",g_ProjectDirectory.empty()?"Open a project folder to keep script files on disk.":"Scripts are stored in the project scripts/ folder.");
             ImGui::TreePop();
         }
         if(ImGui::Selectable("Sounds / Audio"))g_ShowAudio=true;
@@ -349,7 +353,7 @@ static void RenderTools(float& distance,float& pitch,float& yaw,float target[3])
                 if(ImGui::Button("Snap Selected"))for(auto& o:g_Objects)if(o.Selected)SnapObject(o,g_Studio.Snap);
                 if(ImGui::Button("Join Selected Meshes")) {
                     std::vector<int> selection;for(size_t i=0;i<g_Objects.size();++i)if(g_Objects[i].Selected)selection.push_back(int(i));
-                    int merged=MergeObjects(g_Objects,selection,"Joined Mesh");if(merged>=0)SelectObject(merged);else AppendConsole("Join needs at least two valid objects within the mesh limit.\n");
+                    int merged=MergeObjects(g_Objects,selection,"Joined Mesh");if(merged>=0)SelectObject(merged);else AppendConsole("Join needs plain static meshes. Bake procedural geometry and remove animation, custom properties and textured materials first; duplicate originals if needed.\n");
                 }
                 RenderModelTools();
                 ImGui::TextWrapped("Join bakes transforms and colors into one mesh. It is not a boolean union.");
@@ -439,6 +443,8 @@ static void RenderDocs() {
     }ImGui::End();
 }
 static void RenderStudio(float& distance,float& pitch,float& yaw,float target[3],float dt) {
+    if(g_ObjectHistory.LastCaptureRejected){ImGui::OpenPopup("Undo budget warning");}
+    if(ImGui::BeginPopupModal("Undo budget warning",nullptr,ImGuiWindowFlags_AlwaysAutoResize)){ImGui::TextWrapped("%s",g_ObjectHistory.Warning.c_str());if(ImGui::Button("Acknowledge")){g_ObjectHistory.LastCaptureRejected=false;ImGui::CloseCurrentPopup();}ImGui::EndPopup();}
     RenderWorkspace(distance,pitch,yaw,target,dt);
     RenderEditorSettings();
     if(g_RequestBuild){g_ShowBuild=true;g_RequestBuild=false;}RenderBuildWindow();

@@ -1,0 +1,23 @@
+# Native macOS build. Homebrew dependencies: sdl2 lua@5.4 cmake pkg-config.
+include Makefile
+CXX = clang++
+CC = clang
+BREW_PREFIX := $(shell brew --prefix)
+LUA_PREFIX := $(shell brew --prefix lua@5.4)
+SDL_PREFIX := $(shell brew --prefix sdl2)
+CXXFLAGS = -Wall -Wextra -Werror -Wno-deprecated-declarations -O2 -std=c++17 -MMD -MP -I$(LUA_PREFIX)/include/lua -I$(SDL_PREFIX)/include/SDL2 -I./third_party/imgui -I./third_party/imgui/backends -isystem ./third_party/include -isystem ./third_party/include/nlohmann -fstack-protector-strong $(EXTRA_CXXFLAGS)
+GRAPHICS_LIBS = -L$(SDL_PREFIX)/lib -lSDL2 -framework OpenGL
+LDFLAGS = $(RUST_LIB) build/deps/manifold-linux/src/libmanifold.a -L$(LUA_PREFIX)/lib -llua $(GRAPHICS_LIBS) -framework Cocoa -framework CoreAudio -framework AudioToolbox -framework AudioUnit -lpthread $(EXTRA_LDFLAGS)
+OBJS += src/platform/native_dialog.o
+
+src/platform/native_dialog.o: src/platform/native_dialog.mm
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -fobjc-arc -c $< -o $@
+
+tests/viewport_postprocess_tests: tests/viewport_postprocess_tests.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(GRAPHICS_LIBS) $(EXTRA_LDFLAGS) -o $@
+tests/render_parity_tests: tests/render_parity_tests.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(GRAPHICS_LIBS) $(EXTRA_LDFLAGS) -o $@
+tests/scene_shadow_tests: tests/scene_shadow_tests.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(GRAPHICS_LIBS) $(EXTRA_LDFLAGS) -o $@
+tests/studio_audio_tests: tests/studio_audio_tests.c build/audio-testing.o
+	$(CC) $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -O2 $^ -framework CoreAudio -framework AudioToolbox -framework AudioUnit $(EXTRA_LDFLAGS) -o $@

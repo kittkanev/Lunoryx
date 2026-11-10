@@ -1,4 +1,5 @@
 #pragma once
+#include "src/io/asset_io.h"
 #include <cstddef>
 #include <memory>
 #ifndef LUNORYX_RENDER_PARITY_TEST
@@ -16,25 +17,46 @@ static void ClearStudioGeometry();
 struct CachedStudioTexture {
   GLuint Id = 0;
   std::string Error;
+  size_t Bytes=0;uint64_t LastUse=0;
 };
 static std::map<std::string, CachedStudioTexture> g_TextureCache;
 static uint32_t g_TextureGeneration = 1;
+static size_t g_TextureCacheBytes=0;static uint64_t g_TextureClock=0;
+static const size_t kTextureBudget=128*1024*1024;
 static std::string StudioTextureKey(const StudioMaterial &m) {
-  if (m.Image.empty())
-    return m.Texture;
+  try {
+  if (m.Image.empty()) {
+    auto embedded=VirtualAssets().find(NormalizePath(m.Texture));
+    if(embedded!=VirtualAssets().end()){uint64_t h=1469598103934665603ULL;for(auto byte:embedded->second)h=(h^byte)*1099511628211ULL;return m.Texture+":"+std::to_string(h);}
+    std::unique_ptr<FILE,int(*)(FILE*)> file(AssetOpen(m.Texture,"rb"),std::fclose);
+    if(!file)return m.Texture+":missing";
+#ifdef _WIN32
+    BY_HANDLE_FILE_INFORMATION info={};HANDLE handle=reinterpret_cast<HANDLE>(_get_osfhandle(_fileno(file.get())));
+    if(!GetFileInformationByHandle(handle,&info))return m.Texture+":unavailable";
+    return m.Texture+":"+std::to_string(info.nFileIndexHigh)+":"+std::to_string(info.nFileIndexLow)+":"+std::to_string(info.ftLastWriteTime.dwHighDateTime)+":"+std::to_string(info.ftLastWriteTime.dwLowDateTime)+":"+std::to_string(info.nFileSizeLow);
+#else
+    struct stat info={};if(fstat(fileno(file.get()),&info))return m.Texture+":unavailable";
+#ifdef __APPLE__
+    const auto modified=info.st_mtimespec;
+#else
+    const auto modified=info.st_mtim;
+#endif
+    return m.Texture+":"+std::to_string(info.st_ino)+":"+std::to_string(info.st_size)+":"+std::to_string(modified.tv_sec)+":"+std::to_string(modified.tv_nsec);
+#endif
+  }
   uint64_t h = 1469598103934665603ULL;
   for (auto b : m.Image)
     h = (h ^ b) * 1099511628211ULL;
   return "embedded:" + std::to_string(h);
+  }catch(const std::exception&){return m.Texture+":unavailable";}
 }
 static GLuint StudioTexture(const StudioMaterial &material) {
   if (!g_StudioTexturesEnabled || (material.Texture.empty() && material.Image.empty()))
     return 0;
-  if (material.TextureGeneration == g_TextureGeneration)
-    return material.CachedTexture;
   auto key = StudioTextureKey(material);
   auto found = g_TextureCache.find(key);
   if (found != g_TextureCache.end()) {
+    found->second.LastUse=++g_TextureClock;
     material.CachedTexture = found->second.Id;
     material.TextureGeneration = g_TextureGeneration;
     return found->second.Id;
@@ -42,6 +64,8 @@ static GLuint StudioTexture(const StudioMaterial &material) {
   CachedStudioTexture value;
   try {
     auto image = DecodeMaterialImage(material);
+    value.Bytes=size_t(image.width)*image.height*4*4/3+16;
+    while(!g_TextureCache.empty()&&(g_TextureCacheBytes+value.Bytes>kTextureBudget||g_TextureCache.size()>=256)){auto oldest=std::min_element(g_TextureCache.begin(),g_TextureCache.end(),[](const std::pair<const std::string,CachedStudioTexture>& a,const std::pair<const std::string,CachedStudioTexture>& b){return a.second.LastUse<b.second.LastUse;});if(oldest->second.Id)glDeleteTextures(1,&oldest->second.Id);g_TextureCacheBytes-=oldest->second.Bytes;g_TextureCache.erase(oldest);++g_TextureGeneration;}
     glGenTextures(1, &value.Id);
     glBindTexture(GL_TEXTURE_2D, value.Id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -71,6 +95,8 @@ static GLuint StudioTexture(const StudioMaterial &material) {
   }
   material.CachedTexture = value.Id;
   material.TextureGeneration = g_TextureGeneration;
+  value.LastUse=++g_TextureClock;g_TextureCacheBytes+=value.Bytes;
+  ++g_TextureGeneration;material.TextureGeneration=g_TextureGeneration;
   g_TextureCache[key] = value;
   return value.Id;
 }
@@ -79,7 +105,7 @@ static void ClearStudioTextures() {
   for (const auto &t : g_TextureCache)
     if (t.second.Id)
       glDeleteTextures(1, &t.second.Id);
-  g_TextureCache.clear();
+  g_TextureCache.clear();g_TextureCacheBytes=0;
   ++g_TextureGeneration;
 }
 static void RenderLitMeshLegacy(const GameObject &object) {

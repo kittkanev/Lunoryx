@@ -1,9 +1,10 @@
 name: Publish verified Lunoryx release
 on:
-  workflow_run:
-    workflows: [Build and tests]
-    types: [completed]
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Successful build run for the release commit
+        required: true
 permissions:
   contents: read
   actions: read

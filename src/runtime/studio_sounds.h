@@ -19,12 +19,9 @@ static void ConfigureStudioSound(const StudioSound &s) {
 static bool PlayStudioSound(const StudioSound &s) {
   char error[256];
   auto embedded = VirtualAssets().find(NormalizePath(s.Path));
-  bool loaded = !s.Data.empty() ? studio_audio_load_memory(s.Id, s.Data.data(),
-                                                           s.Data.size(), error)
-                : embedded == VirtualAssets().end()
-                    ? studio_audio_load(s.Id, s.Path.c_str(), error)
-                    : studio_audio_load_memory(s.Id, embedded->second.data(),
-                                               embedded->second.size(), error);
+  std::vector<unsigned char> fileBytes;
+  bool loaded=false;
+  try{const auto& bytes=!s.Data.empty()?s.Data:embedded!=VirtualAssets().end()?embedded->second:(fileBytes=ReadAssetFile(s.Path,16*1024*1024));loaded=studio_audio_load_memory(s.Id,bytes.data(),bytes.size(),error);}catch(const std::exception& e){AppendConsole(std::string("Audio: ")+e.what()+"\n");return false;}
   if (!loaded) {
     AppendConsole(std::string(error) + "\n");
     return false;

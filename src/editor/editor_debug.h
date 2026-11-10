@@ -12,6 +12,9 @@ static void RenderDebugPanel() {
     ImGui::Text("Frame %.2f ms | %.0f FPS",1000.f/ImGui::GetIO().Framerate,ImGui::GetIO().Framerate);
     ImGui::Text("Draws %zu | triangles %zu | culled %zu",g_StudioRenderStats.DrawCalls,g_StudioRenderStats.Triangles,g_StudioRenderStats.CulledObjects);
     ImGui::Text("Cache %.2f MiB | deaths %u | checkpoints %u",g_StudioRenderStats.CacheBytes/1048576.,g_DeathCount,g_CheckpointCount);
+    ImGui::Text("Physics backlog %.3f s | dropped %.3f s | candidates %zu",g_Physics.Accumulator,g_Physics.DroppedTime,LastPhysicsMetrics().CandidatePairs);
+    ImGui::Checkbox("Continuous static collision",&g_Physics.Continuous);
+    ImGui::SliderInt("Recovery interval (seconds)",&g_Preferences.RecoverySeconds,1,60);
     if(g_SelectedObjectIndex>=0&&size_t(g_SelectedObjectIndex)<g_Objects.size()){
       const auto& o=g_Objects[size_t(g_SelectedObjectIndex)];
       ImGui::SeparatorText("Selected object");ImGui::Text("%s | stable ID %llu",o.Name.c_str(),(unsigned long long)o.Id);

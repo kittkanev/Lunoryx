@@ -33,7 +33,7 @@ int main() {
         }
         if(fixture%4==0)for(auto& o:reference)o.Dynamic=false;
         auto optimized=reference;
-        PhysicsState state;state.Gravity=number(-15,0);state.Ground=fixture%3!=0;
+        PhysicsState state;state.Continuous=false;state.Gravity=number(-15,0);state.Ground=fixture%3!=0;
         for(int step=0;step<32;++step) {
             if(step==10) {
                 // Cache scope is one step: edits, teleportation and dynamic flag
@@ -74,7 +74,7 @@ int main() {
     for(size_t size:{size_t(1),size_t(2),size_t(4),MAX_EDIT_VERTICES*3+3}) {
         GameObject invalid("Malformed geometry");invalid.Vertices.assign(size,0);Bounds bounds;
         assert(!WorldBounds(invalid,bounds));
-        invalid.Dynamic=true;std::vector<GameObject> scene={invalid};PhysicsState state;
+        invalid.Dynamic=true;std::vector<GameObject> scene={invalid};PhysicsState state;state.Continuous=false;
         PhysicsStep(scene,1.f/120,state); // Must reject malformed bounds without reading past the buffer.
     }
     std::cout<<"PASS: "<<steps<<" physics steps and 2000 bounds fixtures match 1.0.1 bit-for-bit\n";

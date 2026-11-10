@@ -1,3 +1,4 @@
+#include "src/io/json_budget.h"
 #pragma once
 inline std::vector<unsigned char>
 MaterialImageBytes(const StudioMaterial &material) {
@@ -171,6 +172,11 @@ inline StudioMatrix GLBNodeMatrix(const tinygltf::Node &node) {
 static std::vector<GameObject> ReadGLBObjects(const std::string &path,
                                               std::string &report) {
   auto bytes = ReadAssetFile(path, 64 * 1024 * 1024);
+  // Preflight the JSON chunk before tinygltf constructs its DOM.
+  if(bytes.size()<20||std::memcmp(bytes.data(),"glTF",4))throw std::runtime_error("Invalid GLB header");
+  uint32_t jsonSize=uint32_t(bytes[12])|(uint32_t(bytes[13])<<8)|(uint32_t(bytes[14])<<16)|(uint32_t(bytes[15])<<24);
+  if(jsonSize>bytes.size()-20||std::memcmp(bytes.data()+16,"JSON",4))throw std::runtime_error("Invalid GLB JSON chunk");
+  CheckJsonBudget(bytes.begin()+20,bytes.begin()+20+jsonSize);
   tinygltf::TinyGLTF reader;
   tinygltf::Model model;
   std::string error, warning;

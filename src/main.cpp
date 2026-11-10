@@ -32,6 +32,7 @@ extern "C" {
 #include "src/core/geometry_nodes.h"
 #include "src/io/file_output.h"
 #include "src/io/asset_io.h"
+#include "src/scripting/worker_process.h"
 #include "engine_version.h"
 #include "src/editor/editor_transform.h"
 #include "src/editor/editor_camera_math.h"
@@ -49,6 +50,12 @@ static const size_t MAX_CONSOLE_LINES = 500;
 std::vector<GameObject> g_Objects;
 int g_SelectedObjectIndex = -1;
 lua_State* g_LuaState = nullptr;
+static bool g_McpActive=false,g_McpCanWrite=false,g_McpCanRun=false;
+static int l_require_module(lua_State*);
+static void InstallLuaryxApi(lua_State*);
+static int l_object_id(lua_State* L){lua_Integer i=luaL_checkinteger(L,1);if(i<0||size_t(i)>=g_Objects.size())return 0;lua_pushinteger(L,lua_Integer(g_Objects[size_t(i)].Id));return 1;}
+static int l_object_index(lua_State* L){lua_Integer id=luaL_checkinteger(L,1);int result=-1;for(size_t i=0;i<g_Objects.size();++i)if(id>0&&g_Objects[i].Id==uint64_t(id)){result=int(i);break;}lua_pushinteger(L,result);return 1;}
+static int l_find_objects(lua_State* L){const char* name=luaL_checkstring(L,1);lua_newtable(L);int n=0;for(const auto& object:g_Objects)if(object.Name==name){lua_pushinteger(L,lua_Integer(object.Id));lua_rawseti(L,-2,++n);}return 1;}
 bool g_SimulationRunning = true;
 bool g_ShowGrid = true;
 bool g_ShowAxes = true;
@@ -79,6 +86,7 @@ static void AppendConsole(const std::string& msg);
 #include "src/runtime/game_state.h"
 #include "src/core/scene_animation.h"
 #include "src/runtime/gameplay_runtime.h"
+#include "src/editor/script_document.h"
 #include "src/editor/editor_history.h"
 static float g_PlayTop[3],g_PlayBottom[3];
 static int g_PlaySky=0;
@@ -489,6 +497,7 @@ static int l_get_time(lua_State *L) {
 
 // Lua: export_glb(filename)
 static int l_export_glb(lua_State *L) {
+    if(g_McpActive&&!g_McpCanWrite){lua_pushboolean(L,0);return 1;}
     size_t filenameLength=0;
     const char* filename = luaL_checklstring(L, 1, &filenameLength);
     bool res=false;try{res=ExportGLB(ScriptAssetPath(std::string(filename,filenameLength)));}catch(const std::exception& e){AppendConsole(std::string("GLB export failed: ")+e.what()+"\n");}
@@ -590,6 +599,9 @@ static void InitLuaState() {
     lua_register(g_LuaState, "get_time",         LuaBinding<l_get_time>);
     lua_register(g_LuaState, "export_glb",       LuaBinding<l_export_glb>);
     RegisterSoundBindings(g_LuaState);
+    lua_register(g_LuaState,"object_id",LuaBinding<l_object_id>);lua_register(g_LuaState,"object_index",LuaBinding<l_object_index>);lua_register(g_LuaState,"find_objects",LuaBinding<l_find_objects>);lua_register(g_LuaState,"require",LuaBinding<l_require_module>);
+    lua_newtable(g_LuaState);lua_setfield(g_LuaState,LUA_REGISTRYINDEX,"luaryx.modules");
+    lua_newtable(g_LuaState);lua_setfield(g_LuaState,LUA_REGISTRYINDEX,"luaryx.loading");
     lua_register(g_LuaState,"animation_key",LuaBinding<l_animation_key>);
     lua_register(g_LuaState,"animation_config",LuaBinding<l_animation_config>);
     lua_register(g_LuaState,"animation_play",LuaBinding<l_animation_play>);
@@ -600,6 +612,7 @@ static void InitLuaState() {
     lua_register(g_LuaState,"mesh_operation",LuaBinding<l_mesh_operation>);
     lua_register(g_LuaState,"gui_text",LuaBinding<l_gui_text>);lua_register(g_LuaState,"gui_visible",LuaBinding<l_gui_visible>);lua_register(g_LuaState,"gui_value",LuaBinding<l_gui_value>);lua_register(g_LuaState,"trigger_contains",LuaBinding<l_trigger_contains>);
     lua_register(g_LuaState,"input_key",LuaBinding<l_input_key>);lua_register(g_LuaState,"game_score",LuaBinding<l_game_score>);lua_register(g_LuaState,"hud_text",LuaBinding<l_hud_text>);lua_register(g_LuaState,"follow_camera",LuaBinding<l_follow_camera>);lua_register(g_LuaState,"restart_game",LuaBinding<l_restart_game>);
+    InstallLuaryxApi(g_LuaState);
 }
 
 static void ShutdownLuaState() {
@@ -896,11 +909,10 @@ static int ExportAccessor(tinygltf::Model& model,const void* data,size_t bytes,s
 
 #include "src/io/scene_assets.h"
 
-static bool ExportGLB(const std::string& filename) {
-    try {
-        if(filename.empty()||filename.find('\0')!=std::string::npos)return false;
+static tinygltf::Model BuildGLBModel(const std::vector<GameObject>& objects,std::string& report) {
+        size_t decodedBytes=0;
         tinygltf::Model model;model.asset.version="2.0";model.asset.generator=LUNORYX_NAME " " LUNORYX_VERSION;model.buffers.emplace_back();tinygltf::Scene scene;scene.name="Lunoryx Scene";std::map<std::vector<unsigned char>,int> exportedTextures;
-        for(const auto& object:g_Objects){if(!object.Visible)continue;auto data=Model::FromObject(object);if(data.Positions.empty()||data.Faces.empty()){AppendConsole("Skipped empty object: "+object.Name+"\n");continue;}Model::Check(data);if(data.Normals.size()!=data.Positions.size())Model::Triangulate(data);
+        for(const auto& object:objects){if(!object.Visible)continue;auto data=Model::FromObject(object);if(data.Positions.empty()||data.Faces.empty()){report+="Skipped empty object: "+object.Name+"\n";continue;}Model::Check(data);if(data.Normals.size()!=data.Positions.size())Model::Triangulate(data);
             std::vector<double> low={data.Positions[0],data.Positions[1],data.Positions[2]},high=low;for(size_t i=0;i<data.Positions.size();i+=3)for(int k=0;k<3;++k){low[k]=std::min(low[k],double(data.Positions[i+k]));high[k]=std::max(high[k],double(data.Positions[i+k]));}
             int positions=ExportAccessor(model,data.Positions.data(),data.Positions.size()*4,data.Positions.size()/3,TINYGLTF_COMPONENT_TYPE_FLOAT,TINYGLTF_TYPE_VEC3,TINYGLTF_TARGET_ARRAY_BUFFER,low,high);
             int normals=ExportAccessor(model,data.Normals.data(),data.Normals.size()*4,data.Normals.size()/3,TINYGLTF_COMPONENT_TYPE_FLOAT,TINYGLTF_TYPE_VEC3,TINYGLTF_TARGET_ARRAY_BUFFER);
@@ -910,13 +922,19 @@ static bool ExportGLB(const std::string& filename) {
             tinygltf::Mesh mesh;mesh.name=object.Name;
             for(const auto& group:groups){StudioMaterial fallback;std::copy(object.Color,object.Color+3,fallback.Color);fallback.Metallic=object.Metallic;fallback.Roughness=object.Roughness;const auto& source=group.first<object.Materials.size()?object.Materials[group.first]:fallback;
                 tinygltf::Material material;material.name=source.Name;material.doubleSided=object.Type==MeshType::Plane;material.pbrMetallicRoughness.baseColorFactor={source.Color[0],source.Color[1],source.Color[2],1};if(!object.Materials.empty())for(int k=0;k<3;++k)material.pbrMetallicRoughness.baseColorFactor[k]*=object.Color[k];material.pbrMetallicRoughness.metallicFactor=source.Metallic;material.pbrMetallicRoughness.roughnessFactor=source.Roughness;
-                if(!source.Texture.empty()||!source.Image.empty()){auto key=MaterialImageBytes(source);auto cached=exportedTextures.find(key);if(cached!=exportedTextures.end())material.pbrMetallicRoughness.baseColorTexture.index=cached->second;else{auto decoded=DecodeMaterialImage(source);auto encoded=EncodeImage(decoded);auto& binary=model.buffers[0].data;while(binary.size()%4)binary.push_back(0);tinygltf::BufferView imageView;imageView.buffer=0;imageView.byteOffset=binary.size();imageView.byteLength=encoded.size();binary.insert(binary.end(),encoded.begin(),encoded.end());tinygltf::Image image;image.bufferView=int(model.bufferViews.size());image.mimeType="image/png";model.bufferViews.push_back(imageView);tinygltf::Texture texture;texture.source=int(model.images.size());model.images.push_back(std::move(image));int index=int(model.textures.size());exportedTextures.emplace(std::move(key),index);material.pbrMetallicRoughness.baseColorTexture.index=index;model.textures.push_back(texture);}}
+                if(!source.Texture.empty()||!source.Image.empty()){auto key=MaterialImageBytes(source);auto cached=exportedTextures.find(key);if(cached!=exportedTextures.end())material.pbrMetallicRoughness.baseColorTexture.index=cached->second;else{auto decoded=DecodeMaterialImage(source);auto encoded=EncodeImage(decoded);auto& binary=model.buffers[0].data;while(binary.size()%4)binary.push_back(0);tinygltf::BufferView imageView;imageView.buffer=0;imageView.byteOffset=binary.size();imageView.byteLength=encoded.size();binary.insert(binary.end(),encoded.begin(),encoded.end());tinygltf::Image image;image.bufferView=int(model.bufferViews.size());image.mimeType="image/png";model.bufferViews.push_back(imageView);tinygltf::Texture texture;texture.source=int(model.images.size());decodedBytes+=image.image.size();if(decodedBytes>128*1024*1024)throw std::runtime_error("GLB decoded image budget exceeded");model.images.push_back(std::move(image));int index=int(model.textures.size());exportedTextures.emplace(std::move(key),index);material.pbrMetallicRoughness.baseColorTexture.index=index;model.textures.push_back(texture);}}
                 tinygltf::Primitive primitive;primitive.attributes["POSITION"]=positions;primitive.attributes["NORMAL"]=normals;if(uv>=0)primitive.attributes["TEXCOORD_0"]=uv;if(colors>=0)primitive.attributes["COLOR_0"]=colors;primitive.mode=TINYGLTF_MODE_TRIANGLES;primitive.material=int(model.materials.size());model.materials.push_back(std::move(material));primitive.indices=ExportAccessor(model,group.second.data(),group.second.size()*4,group.second.size(),TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT,TINYGLTF_TYPE_SCALAR,TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER);mesh.primitives.push_back(std::move(primitive));
             }
             tinygltf::Node node;node.name=object.Name;node.mesh=int(model.meshes.size());node.translation={object.Position[0],object.Position[1],object.Position[2]};node.scale={object.Scale[0],object.Scale[1],object.Scale[2]};node.rotation=EulerDegreesToQuaternion(object.Rotation[0],object.Rotation[1],object.Rotation[2]);scene.nodes.push_back(int(model.nodes.size()));model.nodes.push_back(std::move(node));model.meshes.push_back(std::move(mesh));
         }
         if(model.buffers[0].data.empty())model.buffers.clear();
         model.scenes.push_back(scene);model.defaultScene=0;
+        return model;
+}
+static bool ExportGLBLocal(const std::vector<GameObject>& objects,const std::string& filename,std::string& report) {
+    try {
+        if(filename.empty()||filename.find('\0')!=std::string::npos)return false;
+        auto model=BuildGLBModel(objects,report);
         std::string temporary;
         try {
             std::unique_ptr<std::FILE,int(*)(std::FILE*)> file(OpenTemporaryAsset(filename,temporary),std::fclose);if(!file)return false;
@@ -925,12 +943,18 @@ static bool ExportGLB(const std::string& filename) {
             ReplaceAssetFile(temporary,filename);return true;
         }catch(...){if(!temporary.empty())RemoveAssetFile(temporary);throw;}
 
-    }catch(const std::exception& e){AppendConsole(std::string("GLB export failed: ")+e.what()+"\n");return false;}
+    }catch(const std::exception& error){report+=std::string("GLB export failed: ")+error.what()+"\n";return false;}
 }
 
 #include "src/render/material_render.h"
 #include "src/editor/editor_audio.h"
 #include "src/editor/editor_ui.h"
+#include "src/scripting/model_worker.h"
+#include "src/scripting/export_worker.h"
+#include "src/scripting/csharp_bridge.h"
+#include "src/platform/native_dialog.h"
+#include "src/editor/project_workspace.h"
+#include "src/platform/mac_game_bundle.h"
 #include "src/runtime/game_runtime.h"
 #include "src/render/render_showcase.h"
 #include "src/examples/example_game.h"
@@ -947,12 +971,18 @@ int main(int argc, char* argv[]) {
 #ifdef _WIN32
     std::vector<std::string> arguments;std::vector<char*> pointers;int wideCount=0;LPWSTR* wide=CommandLineToArgvW(GetCommandLineW(),&wideCount);if(wide){for(int i=0;i<wideCount;++i){int n=WideCharToMultiByte(CP_UTF8,0,wide[i],-1,nullptr,0,nullptr,nullptr);std::string value(size_t(n),' ');WideCharToMultiByte(CP_UTF8,0,wide[i],-1,&value[0],n,nullptr,nullptr);value.resize(size_t(n-1));arguments.push_back(std::move(value));}LocalFree(wide);for(auto& value:arguments)pointers.push_back(&value[0]);pointers.push_back(nullptr);argc=wideCount;argv=pointers.data();}
 #endif
-    try{std::map<std::string,std::vector<unsigned char>> assets;g_PlayerMode=GamePackage::Read(GamePackage::ExecutablePath(),assets);if(g_PlayerMode)VirtualAssets()=std::move(assets);}catch(const std::exception& e){if(argc>1&&std::strcmp(argv[1],"--verify-package")==0)std::cerr<<e.what()<<"\n";else SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Lunoryx - invalid game package",e.what(),nullptr);return 1;}
+    g_ModelWorkerReady=true;if(argc>1&&std::strcmp(argv[1],"--export-worker")==0){SetNativeWorkerLimits();return RunNativeExportWorker();}
+    if(argc>1&&std::strcmp(argv[1],"--model-worker")==0){SetNativeWorkerLimits();return RunNativeModelWorker();}
+    try{std::map<std::string,std::vector<unsigned char>> assets;g_PlayerMode=GamePackage::Read(GamePackage::ExecutablePath(),assets);
+#ifdef __APPLE__
+    if(!g_PlayerMode){auto package=NormalizePath(PathDirectory(GamePackage::ExecutablePath())+"/../Resources/Game.lnx");if(AssetExists(package))g_PlayerMode=GamePackage::Read(package,assets);}
+#endif
+    if(g_PlayerMode)VirtualAssets()=std::move(assets);}catch(const std::exception& e){if(argc>1&&std::strcmp(argv[1],"--verify-package")==0)std::cerr<<e.what()<<"\n";else SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Lunoryx - invalid game package",e.what(),nullptr);return 1;}
     if(argc>1&&std::strcmp(argv[1],"--verify-package")==0){if(!g_PlayerMode)return 2;std::cout<<"PASS: embedded game checksum, manifest and resource ranges\n";return 0;}
     if(!g_PlayerMode&&argc>=3&&std::strcmp(argv[1],"--create-example")==0){InitializeStudio();InitLuaState();CreateSampleGame();bool ok=SaveStudioProject(argv[2]);ShutdownLuaState();return ok?0:1;}
     if(!g_PlayerMode&&argc>=4&&std::strcmp(argv[1],"--build-game")==0){InitializeStudio();InitLuaState();bool ok=LoadStudioProject(argv[2])&&BuildStudioGame(argv[3],argc>4?argv[4]:"");if(!ok)std::cerr<<g_ConsoleOutput;ShutdownLuaState();return ok?0:1;}
 
-    if(!g_PlayerMode&&argc>1&&std::strcmp(argv[1],"--mcp")==0)return RunStudioMcp();
+    if(!g_PlayerMode&&argc>1&&std::strcmp(argv[1],"--mcp")==0){for(int i=2;i<argc;++i){if(std::strcmp(argv[i],"--allow-write")==0)g_McpCanWrite=true;if(std::strcmp(argv[i],"--allow-lua")==0)g_McpCanRun=true;}return RunStudioMcp();}
     SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS","permonitorv2");
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
@@ -1033,8 +1063,12 @@ int main(int argc, char* argv[]) {
       SDL_SetWindowSize(window,g_Game.Width,g_Game.Height);SDL_SetWindowResizable(window,g_Game.Resizable?SDL_TRUE:SDL_FALSE);SDL_GL_SetSwapInterval(g_Game.VSync?1:0);
       if(g_Game.WindowMode==1&&SDL_SetWindowFullscreen(window,SDL_WINDOW_FULLSCREEN_DESKTOP)!=0)AppendConsole(std::string("Fullscreen unavailable: ")+SDL_GetError()+"\n");
       try{auto bytes=(g_Game.IconData.empty()?ReadGameIcon(g_Game.IconPath):ValidateGameIcon(g_Game.IconData));if(!bytes.empty()){int w=0,h=0,c=0;auto* pixels=stbi_load_from_memory(bytes.data(),int(bytes.size()),&w,&h,&c,4);if(pixels){auto* icon=SDL_CreateRGBSurfaceWithFormatFrom(pixels,w,h,32,w*4,SDL_PIXELFORMAT_RGBA32);if(icon){SDL_SetWindowIcon(window,icon);SDL_FreeSurface(icon);}stbi_image_free(pixels);}}}catch(const std::exception& e){AppendConsole(std::string("Game icon: ")+e.what()+"\n");}
+      if(HasManagedScripts()){try{PrepareManagedRuntime();g_CSharpTrusted=true;}catch(const std::exception& error){SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"C# runtime",error.what(),window);return 1;}}
       SDL_ShowWindow(window);StartSimulation();}
-    else ExecuteLuaScript(g_ScriptBuffer);
+    else if(TestEnvironment("TEST_TIMEOUT"))ExecuteLuaScript(g_ScriptBuffer);
+    else g_Objects.clear();
+    g_ShowProjectPicker=!g_PlayerMode&&!TestEnvironment("TEST_TIMEOUT");
+    LoadRecentProjects();
     if(!g_PlayerMode)g_SimulationRunning=false;
     g_ObjectHistory.Capture(g_Objects);g_SavedDocumentHash=CompleteDocumentHash();
     if(argc>1&&std::strcmp(argv[1],"--report-modeling")==0){
@@ -1117,7 +1151,7 @@ int main(int argc, char* argv[]) {
                 if(event.key.keysym.sym==SDLK_F8){g_Preferences.RenderQuality=(g_Preferences.RenderQuality+1)%3;g_Preferences.RenderScale=g_Preferences.RenderQuality==0?.75f:1.f;}
                 if(!g_PlayerMode&&event.key.keysym.sym==SDLK_s&&(event.key.keysym.mod&KMOD_CTRL))SaveCurrentProject();
                 if(!g_PlayerMode&&event.key.keysym.sym==SDLK_F11){g_Studio.FullscreenCode=!g_Studio.FullscreenCode;if(g_Studio.FullscreenCode)g_Studio.RequestDocument=g_Studio.ActiveScript;}
-                if(!g_PlayerMode&&event.key.keysym.sym==SDLK_F5&&g_Studio.Scripts[g_Studio.ActiveScript].Open){InitLuaState();ExecuteLuaScript(g_Studio.Scripts[g_Studio.ActiveScript].Code);}
+                if(!g_PlayerMode&&event.key.keysym.sym==SDLK_F5&&g_Studio.Scripts[g_Studio.ActiveScript].Open)RunStudioScript(size_t(g_Studio.ActiveScript));
                 if(!g_PlayerMode&&!g_ModelBusy&&event.key.keysym.sym==SDLK_F6){if(g_PhysicsRunning)StopSimulation();else StartSimulation();}
             }
             bool flyEnabled=!g_PlayerMode&&!g_PhysicsRunning&&g_Preferences.FreeFly;
@@ -1178,7 +1212,7 @@ int main(int argc, char* argv[]) {
                 }
             }
             AdvancePhysics(g_Objects,g_Physics,runtimeDt);
-            UpdateGameplay();DispatchGameEvents(runtimeStepping);
+            UpdateGameplay();if(g_TriggerBudgetExceeded){g_SimulationRunning=false;g_DebugPaused=true;g_LastLuaError="Trigger/actor pair budget exceeded; simulation paused before dropping events";AppendConsole(g_LastLuaError+"\n");}UpdateManagedScripts(runtimeDt);DispatchGameEvents(runtimeStepping);
         }
 
         UpdateStudioFont(window);
@@ -1221,13 +1255,7 @@ int main(int argc, char* argv[]) {
                 if(ImGui::MenuItem("Save Project","Ctrl+S",false,!g_PhysicsRunning))SaveCurrentProject();
                 if(ImGui::MenuItem("Save Project As...",nullptr,false,!g_PhysicsRunning))g_OpenSaveAs=true;
                 if(ImGui::MenuItem("Load Project"))RequestProjectAction(2,g_ProjectPath);
-                if (ImGui::MenuItem("Export GLB")) {
-                    if (ExportGLB("export.glb")) {
-                        AppendConsole("> Exported binary scene to export.glb\n");
-                    } else {
-                        AppendConsole("> Failed to export GLB\n");
-                    }
-                }
+                if(ImGui::MenuItem("Export GLB"))BeginExportGLB(g_ProjectDirectory.empty()?"export.glb":ConfinedAssetPath("export.glb",g_ProjectDirectory));
                 if (ImGui::MenuItem("Clear Scene")) {
                     RequestProjectAction(3);
                 }
@@ -1252,9 +1280,10 @@ int main(int argc, char* argv[]) {
         }
         ImGui::End();
 
-        bool wasModelBusy=g_ModelBusy;PollModelJob();if(wasModelBusy&&!g_ModelBusy)historyPending=true;
+        PollExportGLB();bool wasModelBusy=g_ModelBusy;PollModelJob();if(wasModelBusy&&!g_ModelBusy)historyPending=true;
         RenderProjectDialogs();if(g_ExitRequested)done=true;
-        RenderStudio(cameraDistance,cameraAngleX,cameraAngleY,cameraTarget,dt);
+        if(!g_ShowProjectPicker)RenderStudio(cameraDistance,cameraAngleX,cameraAngleY,cameraTarget,dt);
+        RenderProjectLauncher();
         gizmoSmoke.Check();if(gizmoSmoke.Done)done=true;
         selectionSmoke.Check();if(selectionSmoke.Done)done=true;
         RenderStudioAudio();
@@ -1271,7 +1300,7 @@ int main(int argc, char* argv[]) {
         int fb_width = (int)(io.DisplaySize.x * io.DisplayFramebufferScale.x);
         int fb_height = (int)(io.DisplaySize.y * io.DisplayFramebufferScale.y);
         if (fb_width <= 0 || fb_height <= 0) {
-            if(!g_PlayerMode&&!g_PhysicsRunning&&SDL_GetTicks()-lastRecovery>=60000){lastRecovery=SDL_GetTicks();if(ProjectDirty())SaveRecoverySnapshot();}
+            if(!g_PlayerMode&&!g_ShowProjectPicker&&(g_RequestRecovery||SDL_GetTicks()-lastRecovery>=Uint32(g_Preferences.RecoverySeconds*1000))){lastRecovery=SDL_GetTicks();g_RequestRecovery=false;if(ProjectDirty())SaveRecoverySnapshot();}
         SDL_GL_SwapWindow(window);
             continue;
         }
@@ -1409,7 +1438,7 @@ int main(int argc, char* argv[]) {
             glPixelStorei(GL_PACK_ALIGNMENT,1);glReadPixels(0,0,fb_width,fb_height,GL_RGB,GL_UNSIGNED_BYTE,pixels.data());
             stbi_flip_vertically_on_write(1);auto write=[](void* context,void* bytes,int n){FILE* out=static_cast<FILE*>(context);std::fwrite(bytes,1,size_t(n),out);};FILE* out=AssetOpen(capturePath,"wb");if(out){stbi_write_png_to_func(write,out,fb_width,fb_height,3,pixels.data(),fb_width*3);std::fclose(out);}stbi_flip_vertically_on_write(0);
         }
-        if(!g_PlayerMode&&!g_PhysicsRunning&&SDL_GetTicks()-lastRecovery>=60000){lastRecovery=SDL_GetTicks();if(ProjectDirty())SaveRecoverySnapshot();}
+        if(!g_PlayerMode&&!g_ShowProjectPicker&&(g_RequestRecovery||SDL_GetTicks()-lastRecovery>=Uint32(g_Preferences.RecoverySeconds*1000))){lastRecovery=SDL_GetTicks();g_RequestRecovery=false;if(ProjectDirty())SaveRecoverySnapshot();}
         SDL_GL_SwapWindow(window);
         if(gameSmoke.Enabled){if(gameSmoke.Phase==0&&g_GameScore==3&&gameSmoke.AudioEnergy>.01){g_RestartGame=true;gameSmoke.Phase=1;}else if(gameSmoke.Phase==1&&g_GameScore==0){bool reset=true;for(const auto& o:g_Objects)if(o.Name.find("Gem ")==0){auto p=o.Properties.find("Collected");reset=reset&&p!=o.Properties.end()&&!p->second.BoolValue;}if(reset){gameSmoke.Passed=true;done=true;}}}
     }
@@ -1419,6 +1448,7 @@ int main(int argc, char* argv[]) {
     SDL_SetRelativeMouseMode(SDL_FALSE);
     // Cleanup
     if(!g_PlayerMode)PersistStudioPreferences();
+    StopManagedScripts();
     ShutdownLuaState();
     studio_audio_shutdown();
     ClearStudioTextures();

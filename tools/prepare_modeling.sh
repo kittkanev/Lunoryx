@@ -5,7 +5,7 @@ archive=build/deps/manifold.tar.gz
 if ! test -f "$archive"; then
   curl --proto '=https' --tlsv1.2 --fail --location --retry 3 https://api.github.com/repos/elalish/manifold/tarball/ce50d78021d64507f89e8c9fc2c2e51018117857 -o "$archive"
 fi
-echo 'c997e35eb62f6ad2b8665cdaa9f0db405ad2f244416a9633fbfce629fb5f471d  build/deps/manifold.tar.gz' | sha256sum --check
+python3 -c "import hashlib; assert hashlib.sha256(open('build/deps/manifold.tar.gz','rb').read()).hexdigest()=='c997e35eb62f6ad2b8665cdaa9f0db405ad2f244416a9633fbfce629fb5f471d'"
 mkdir -p build/deps/manifold
 tar --no-same-owner -xzf "$archive" --strip-components=1 -C build/deps/manifold
 cmake_bin=${CMAKE:-cmake}

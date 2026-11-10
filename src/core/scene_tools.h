@@ -202,6 +202,9 @@ inline int MergeObjects(std::vector<GameObject>& objects,const std::vector<int>&
     std::set<int> unique(selection.begin(),selection.end());
     if(unique.size()<2||name.size()>255||name.find('\0')!=std::string::npos) return -1;
     for(int i:unique) if(i<0||size_t(i)>=objects.size()) return -1;
+    // Joining cannot preserve independent controllers, animation, material slots
+    // or procedural stacks. Refuse until they are explicitly baked/removed.
+    for(int i:unique){const auto& object=objects[size_t(i)];if(!object.UV.empty()||!object.Materials.empty()||!object.Modifiers.empty()||!object.GeometryNodes.empty()||!object.AnimationKeys.empty()||!object.Properties.empty()||object.Character||object.Trigger||object.Dynamic)return -1;}
     GameObject merged(name); merged.Color[0]=merged.Color[1]=merged.Color[2]=1;
     double pivot[3]={0,0,0};
     for(int i:unique) for(int k=0;k<3;++k) pivot[k]+=objects[i].Position[k]/double(unique.size());
@@ -267,9 +270,11 @@ inline int CreateCharacter(std::vector<GameObject>& objects,const std::string& n
     CheckObjectLimit(objects.size());CheckSceneMeshBudget(objects,character.Vertices.size()/3); objects.push_back(std::move(character));return int(objects.size())-1;
 }
 
-struct PhysicsState { double Accumulator=0; float Gravity=-9.81f; bool Ground=true; };
+#include "src/core/spatial_index.h"
+struct PhysicsState { double Accumulator=0; float Gravity=-9.81f; bool Ground=true; bool Continuous=true;double DroppedTime=0; };
 inline void PhysicsStep(std::vector<GameObject> &objects, float dt,
                         const PhysicsState &state) {
+  LastPhysicsMetrics()=PhysicsMetrics();
   std::vector<size_t> dynamic;
   for (size_t i = 0; i < objects.size(); ++i)
     if (objects[i].Dynamic)
@@ -297,8 +302,10 @@ inline void PhysicsStep(std::vector<GameObject> &objects, float dt,
       result = entry.World;
     return entry.Valid;
   };
+  std::vector<Bounds> previousBounds(objects.size());std::vector<Vec3> previousPositions(objects.size());
   for (auto index : dynamic) {
     auto &o = objects[index];
+    previousPositions[index]={o.Position[0],o.Position[1],o.Position[2]};bounds(index,previousBounds[index]);cache[index].Ready=false;
     o.Grounded = false;
     o.Velocity[1] += state.Gravity * dt;
     for (int k = 0; k < 3; ++k)
@@ -319,7 +326,17 @@ inline void PhysicsStep(std::vector<GameObject> &objects, float dt,
       o.Velocity[2] *= drag;
     }
   }
+  BoundsSpatialIndex broad(objects.size());for(size_t i=0;i<objects.size();++i)if(objects[i].Solid&&!objects[i].Trigger){Bounds b;if(bounds(i,b))broad.Update(i,b);}
+  if(state.Continuous)for(auto index:dynamic){auto& object=objects[index];if(!object.Solid||object.Trigger)continue;Bounds end;if(!bounds(index,end))continue;const auto start=previousBounds[index];auto candidates=broad.Query(UnionBounds(start,end));double earliest=1;int hitAxis=-1;float normal=0;
+    for(auto other:candidates){if(other==index||objects[other].Dynamic||!objects[other].Solid||objects[other].Trigger)continue;Bounds target;if(!bounds(other,target))continue;bool overlap=end.Min.x<target.Max.x&&end.Max.x>target.Min.x&&end.Min.y<target.Max.y&&end.Max.y>target.Min.y&&end.Min.z<target.Max.z&&end.Max.z>target.Min.z;if(overlap)continue;
+      const double center[3]={(start.Min.x+start.Max.x)*.5,(start.Min.y+start.Max.y)*.5,(start.Min.z+start.Max.z)*.5};const double half[3]={(start.Max.x-start.Min.x)*.5,(start.Max.y-start.Min.y)*.5,(start.Max.z-start.Min.z)*.5};const double lo[3]={target.Min.x-half[0],target.Min.y-half[1],target.Min.z-half[2]},hi[3]={target.Max.x+half[0],target.Max.y+half[1],target.Max.z+half[2]};double enter=0,exit=1;int axis=-1;float sign=0;bool valid=true;
+      for(int k=0;k<3;++k){double delta=double(object.Position[k])-(k==0?previousPositions[index].x:k==1?previousPositions[index].y:previousPositions[index].z);if(std::abs(delta)<1e-12){if(center[k]<=lo[k]||center[k]>=hi[k]){valid=false;break;}}else{double a=(lo[k]-center[k])/delta,b=(hi[k]-center[k])/delta;float n=delta>0?-1.f:1.f;if(a>b)std::swap(a,b);if(a>enter){enter=a;axis=k;sign=n;}exit=std::min(exit,b);if(enter>exit){valid=false;break;}}}
+      if(valid&&axis>=0&&enter>=0&&enter<earliest&&exit>=0){earliest=enter;hitAxis=axis;normal=sign;}
+    }
+    if(hitAxis>=0){for(int k=0;k<3;++k)object.Position[k]=float((k==0?previousPositions[index].x:k==1?previousPositions[index].y:previousPositions[index].z)+(object.Position[k]-(k==0?previousPositions[index].x:k==1?previousPositions[index].y:previousPositions[index].z))*std::max(0.0,earliest-1e-6));object.Velocity[hitAxis]=-object.Velocity[hitAxis]*object.Restitution;if(hitAxis==1&&normal>0)object.Grounded=true;cache[index].Ready=false;Bounds b;if(bounds(index,b))broad.Update(index,b);++LastPhysicsMetrics().ContinuousHits;}
+  }
   auto contact = [&](size_t i, size_t j) {
+    ++LastPhysicsMetrics().CandidatePairs;
     auto &a = objects[i];
     auto &b = objects[j];
     if (!a.Solid || !b.Solid || a.Trigger || b.Trigger) return;
@@ -332,6 +349,7 @@ inline void PhysicsStep(std::vector<GameObject> &objects, float dt,
         std::min(ba.Max.z, bb.Max.z) - std::max(ba.Min.z, bb.Min.z)};
     if (overlap[0] <= 0 || overlap[1] <= 0 || overlap[2] <= 0)
       return;
+    ++LastPhysicsMetrics().Contacts;
     int axis = overlap[1] < overlap[0] ? 1 : 0;
     if (overlap[2] < overlap[axis])
       axis = 2;
@@ -361,24 +379,17 @@ inline void PhysicsStep(std::vector<GameObject> &objects, float dt,
         b.Grounded = true;
     }
   };
-  // Skip static/static pairs without changing the order of any contact that
-  // the original nested loop resolves (including dynamic/static pairs).
-  for (size_t i = 0; i < objects.size(); ++i) {
-    if (objects[i].Dynamic)
-      for (size_t j = i + 1; j < objects.size(); ++j)
-        contact(i, j);
-    else
-      for (auto at = std::upper_bound(dynamic.begin(), dynamic.end(), i);
-           at != dynamic.end(); ++at)
-        contact(i, *at);
+  for(size_t i=0;i<objects.size();++i){if(!objects[i].Solid||objects[i].Trigger)continue;Bounds current;if(!bounds(i,current))continue;auto candidates=broad.Query(current);size_t last=i;
+    for(;;){auto next=candidates.upper_bound(last);if(next==candidates.end())break;size_t j=*next;last=j;if(!objects[i].Dynamic&&!objects[j].Dynamic)continue;size_t before=LastPhysicsMetrics().Contacts;contact(i,j);if(LastPhysicsMetrics().Contacts!=before){Bounds bi,bj;if(bounds(i,bi)){broad.Update(i,bi);auto added=broad.Query(bi);candidates.insert(added.upper_bound(last),added.end());}if(bounds(j,bj))broad.Update(j,bj);}}
   }
 }
 inline void AdvancePhysics(std::vector<GameObject>& objects,PhysicsState& state,float frameDt) {
     if(!std::isfinite(frameDt)||frameDt<0||!std::isfinite(state.Gravity))return;
     const double step=1.0/120;
-    state.Accumulator+=std::min(frameDt,.1f);
+    state.Accumulator+=frameDt;
     int count=0;while(state.Accumulator>=step&&count++<12){PhysicsStep(objects,float(step),state);state.Accumulator-=step;}
-    if(state.Accumulator>=step)state.Accumulator=std::fmod(state.Accumulator,step);
+    // Keep the bounded backlog rather than silently dropping elapsed time.
+    if(state.Accumulator>2.0){state.DroppedTime+=state.Accumulator-2.0;state.Accumulator=2.0;}
 }
 
 inline bool InverseTransformPoint(const GameObject& o,Vec3 point,Vec3& result) {

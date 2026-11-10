@@ -1,5 +1,7 @@
 #pragma once
-static int ModelCommand(std::vector<GameObject> &objects, int index,
+static bool g_ModelWorkerReady=false;
+static int ModelCommand(std::vector<GameObject>&,int,const std::string&,const nlohmann::json&);
+static int ModelCommandLocal(std::vector<GameObject> &objects, int index,
                         const std::string &action, const nlohmann::json &args) {
   if (index < 0 || size_t(index) >= objects.size())
     throw std::runtime_error("Object index outside scene");

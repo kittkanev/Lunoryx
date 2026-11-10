@@ -1,7 +1,7 @@
 TESTING ?= 0
 CPPFLAGS += -I. $(if $(filter 1,$(TESTING)),-DLUNORYX_TESTING,)
 CXX = g++
-CXXFLAGS = -Wall -Wextra -Werror -O2 -std=c++11 -MMD -MP -I/usr/include/lua5.4 -I/usr/include/SDL2 -I./third_party/imgui -I./third_party/imgui/backends -isystem ./third_party/include -isystem ./third_party/include/nlohmann
+CXXFLAGS = -Wall -Wextra -Werror -O2 -std=c++17 -MMD -MP -I/usr/include/lua5.4 -I/usr/include/SDL2 -I./third_party/imgui -I./third_party/imgui/backends -isystem ./third_party/include -isystem ./third_party/include/nlohmann
 RUST_LIB = build/rust-linux/release/liblunoryx_kernels.a
 RUST_BENCH_LIB = build/rust-bench/release/liblunoryx_kernels.a
 RUST_SOURCES = $(wildcard extensions/rust-kernels/src/*.rs) extensions/rust-kernels/Cargo.toml extensions/rust-kernels/Cargo.lock rust-toolchain.toml
@@ -20,7 +20,7 @@ IMGUI_SRC = \
 	third_party/imgui/backends/imgui_impl_sdl2.cpp \
 	third_party/imgui/backends/imgui_impl_opengl3.cpp
 
-SRC = src/main.cpp extensions/ImGuizmo/ImGuizmo.cpp $(IMGUI_SRC)
+SRC = extensions/text-editor/TextEditor.cpp src/main.cpp extensions/ImGuizmo/ImGuizmo.cpp $(IMGUI_SRC)
 OBJS = $(SRC:.cpp=.o) extensions/audio/audio_backend.o extensions/modeling/boolean_adapter.o extensions/xatlas/xatlas.o
 DEPS = $(OBJS:.o=.d) tests/engine_tests.d build/main-testing.d
 
@@ -151,3 +151,6 @@ build/main-testing.o: src/main.cpp $(wildcard src/*/*.h)
 
 engine-testing: build/main-testing.o build/audio-testing.o $(filter-out src/main.o extensions/audio/audio_backend.o,$(OBJS)) $(RUST_LIB)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(filter-out $(RUST_LIB),$^) $(LDFLAGS) -o $@
+
+extensions/text-editor/TextEditor.o: extensions/text-editor/TextEditor.cpp extensions/text-editor/TextEditor.h
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wno-error -c $< -o $@

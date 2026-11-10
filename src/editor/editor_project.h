@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include "src/io/json_budget.h"
 #include <stdexcept>
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -96,7 +97,7 @@ static StudioMesh ReadModelMesh(const nlohmann::json &j) {
   m.Normals = std::move(normals);
   return m;
 }
-static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::string& path){
+static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::string& path,bool forGame=false){
     j["id"]=o.Id;
     if(!ValidAnimation(o)||o.Trigger<0||o.Trigger>3)throw std::runtime_error("Invalid animation or trigger");
     j["solid"]=o.Solid;j["trigger"]=o.Trigger;
@@ -112,7 +113,7 @@ static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::str
     j["modifiers"]=nlohmann::json::array();
     for(const auto& m:o.Modifiers)j["modifiers"].push_back({{"type",int(m.Type)},{"enabled",m.Enabled},{"axis",m.Axis},{"count",m.Count},{"levels",m.Levels},{"amount",m.Amount},{"offset",SaveVector(m.Offset)}});
     if(!o.Modifiers.empty())j["base_mesh"]=SaveModelMesh(o.BaseMesh);
-    j["materials"]=nlohmann::json::array();for(const auto& m:o.Materials){auto image=m.Image;std::string texture=m.Texture.empty()?"":RelativeAssetPath(m.Texture,path);if(!texture.empty()){try{ProjectAssetPath(texture,path);}catch(const std::exception&){image=MaterialImageBytes(m);texture.clear();}}j["materials"].push_back({{"image",SaveBinary(image)},{"name",m.Name},{"texture",texture},{"color",SaveVector(m.Color)},{"metallic",m.Metallic},{"roughness",m.Roughness}});}
+    j["materials"]=nlohmann::json::array();for(const auto& m:o.Materials){auto image=forGame?std::vector<unsigned char>():m.Image;std::string texture=m.Texture.empty()?"":RelativeAssetPath(m.Texture,path);if(!forGame&&!texture.empty()){try{ProjectAssetPath(texture,path);}catch(const std::exception&){image=MaterialImageBytes(m);texture.clear();}}j["materials"].push_back({{"image",SaveBinary(image)},{"name",m.Name},{"texture",texture},{"color",SaveVector(m.Color)},{"metallic",m.Metallic},{"roughness",m.Roughness}});}
 }
 static void ReadModelFields(const nlohmann::json& j,GameObject& o,const std::string& path){
     o.Solid=j.value("solid",true);if(j.contains("trigger"))o.Trigger=ReadInteger(j.at("trigger"),0,3);
@@ -141,12 +142,20 @@ static void ReadModelFields(const nlohmann::json& j,GameObject& o,const std::str
     }
     if(!o.FaceMaterials.empty()){if(o.FaceMaterials.size()!=o.Faces.size())throw std::runtime_error("Invalid face material count");for(auto slot:o.FaceMaterials)if(slot>=o.Materials.size())throw std::runtime_error("Invalid material slot");}
 }
-static nlohmann::json StudioProjectJson(const std::string& path){
+static nlohmann::json StudioProjectJson(const std::string& path,bool forGame=false){
+        const auto& sceneObjects=g_PhysicsRunning?g_PlaySnapshot:g_Objects;
+        const auto& soundList=g_PhysicsRunning?g_PlaySoundSnapshot:g_Sounds;
+        const auto& settings=g_PhysicsRunning?g_PlayGame:g_Game;
+        const auto& physics=g_PhysicsRunning?g_PlayPhysics:g_Physics;
+        const float* skyTop=g_PhysicsRunning?g_PlayTop:g_SkyTop;
+        const float* skyBottom=g_PhysicsRunning?g_PlayBottom:g_SkyBottom;
+        int skyPreset=g_PhysicsRunning?g_PlaySky:g_SkyPreset;
+
         if(path.empty()||path.find('\0')!=std::string::npos)throw std::runtime_error("Invalid project path");
-        if(g_Objects.size()>10000)throw std::runtime_error("Project object limit is 10000");
+        if(sceneObjects.size()>10000)throw std::runtime_error("Project object limit is 10000");
         size_t totalVertices=0;
         auto finiteRange=[](float value,float low,float high){return std::isfinite(value)&&value>=low&&value<=high;};
-        for(const auto& o:g_Objects) {
+        for(const auto& o:sceneObjects) {
             ValidateTransform(o.Position,o.Rotation,o.Scale);
             if(o.Name.size()>255||o.Name.find('\0')!=std::string::npos)throw std::runtime_error("Invalid object name");
             for(int k=0;k<3;++k)if(!std::isfinite(o.Position[k])||!std::isfinite(o.Rotation[k])||!std::isfinite(o.Scale[k])||!finiteRange(o.Color[k],0,1)||!finiteRange(o.Velocity[k],-10000,10000))throw std::runtime_error("Invalid transform, color or velocity; stop simulation before saving");
@@ -158,11 +167,11 @@ static nlohmann::json StudioProjectJson(const std::string& path){
             for(uint32_t i:o.Indices)if(i>=o.Vertices.size()/3)throw std::runtime_error("Invalid mesh index");
             if(o.Properties.size()>256)throw std::runtime_error("Too many custom properties");
         }
-        for(int k=0;k<3;++k)if(!finiteRange(g_SkyTop[k],0,1)||!finiteRange(g_SkyBottom[k],0,1))throw std::runtime_error("Invalid sky color");
-        if(g_SkyPreset<0||g_SkyPreset>2||!finiteRange(g_Physics.Gravity,-30,0))throw std::runtime_error("Invalid environment settings");
-        nlohmann::json root={{"schema",2},{"objects",nlohmann::json::array()},{"scripts",nlohmann::json::array()},
-            {"sky_top",SaveVector(g_SkyTop)},{"sky_bottom",SaveVector(g_SkyBottom)},{"sky_preset",g_SkyPreset},{"gravity",g_Physics.Gravity},{"ground",g_Physics.Ground}};
-        for(const auto& o:g_Objects) {
+        for(int k=0;k<3;++k)if(!finiteRange(skyTop[k],0,1)||!finiteRange(skyBottom[k],0,1))throw std::runtime_error("Invalid sky color");
+        if(skyPreset<0||skyPreset>2||!finiteRange(physics.Gravity,-30,0))throw std::runtime_error("Invalid environment settings");
+        nlohmann::json root={{"schema",3},{"objects",nlohmann::json::array()},{"scripts",nlohmann::json::array()},
+            {"sky_top",SaveVector(skyTop)},{"sky_bottom",SaveVector(skyBottom)},{"sky_preset",skyPreset},{"gravity",physics.Gravity},{"ground",physics.Ground},{"continuous_collision",physics.Continuous}};
+        for(const auto& o:sceneObjects) {
             nlohmann::json j={{"name",o.Name},{"type",int(o.Type)},{"position",SaveVector(o.Position)},{"rotation",SaveVector(o.Rotation)},{"scale",SaveVector(o.Scale)},
                 {"color",SaveVector(o.Color)},{"metallic",o.Metallic},{"roughness",o.Roughness},{"visible",o.Visible},{"wireframe",o.Wireframe},
                 {"dynamic",o.Dynamic},{"character",o.Character},{"mass",o.Mass},{"bounce",o.Restitution},{"friction",o.Friction},{"speed",o.MoveSpeed},{"jump",o.JumpSpeed},{"velocity",SaveVector(o.Velocity)},
@@ -171,21 +180,23 @@ static nlohmann::json StudioProjectJson(const std::string& path){
                 const auto& v=property.second;
                 j["properties"][property.first]={{"kind",int(v.Type)},{"number",v.NumberValue},{"boolean",v.BoolValue},{"text",v.TextValue}};
             }
-            SaveModelFields(j,o,path);
+            SaveModelFields(j,o,path,forGame);
             root["objects"].push_back(std::move(j));
         }
+        root["format_version"]=3;
+        if(!g_ProjectDirectory.empty())root["project"]={{"name",g_ProjectName},{"directory_format",1}};
         root["sounds"]=nlohmann::json::array();
-        if(g_Sounds.size()>64)throw std::runtime_error("At most 64 sounds per project");
-        for(const auto& sound:g_Sounds){
+        if(soundList.size()>64)throw std::runtime_error("At most 64 sounds per project");
+        for(const auto& sound:soundList){
             if(sound.Name.size()>255||sound.Path.size()>511||sound.Name.find('\0')!=std::string::npos||sound.Path.find('\0')!=std::string::npos||!finiteRange(sound.Volume,0,2)||!finiteRange(sound.Pitch,.1f,4))throw std::runtime_error("Invalid sound settings");
             for(float p:sound.Position)if(!std::isfinite(p))throw std::runtime_error("Invalid sound position");
-            auto bytes=sound.Data;std::string soundPath=sound.Path.empty()?"":RelativeAssetPath(sound.Path,path);if(!soundPath.empty()){try{ProjectAssetPath(soundPath,path);}catch(const std::exception&){bytes=ReadAssetFile(sound.Path,16*1024*1024);soundPath.clear();}}
+            auto bytes=forGame?std::vector<unsigned char>():sound.Data;std::string soundPath=sound.Path.empty()?"":RelativeAssetPath(sound.Path,path);if(!forGame&&!soundPath.empty()){try{ProjectAssetPath(soundPath,path);}catch(const std::exception&){bytes=ReadAssetFile(sound.Path,16*1024*1024);soundPath.clear();}}
             root["sounds"].push_back({{"data",SaveBinary(bytes)},{"name",sound.Name},{"path",soundPath},{"position",SaveVector(sound.Position)},{"volume",sound.Volume},{"pitch",sound.Pitch},{"loop",sound.Loop},{"spatial",sound.Spatial},{"autoplay",sound.Autoplay}});
         }
-        for(const auto& script:g_Studio.Scripts)if(script.Allocated)root["scripts"].push_back({{"name",script.Name},{"code",script.Code},{"open",script.Open}});
+        for(const auto& script:g_Studio.Scripts)if(script.Allocated){root["scripts"].push_back({{"name",script.Name},{"code",script.Code},{"open",script.Open},{"language",script.Language},{"module",script.Module}});if(!g_ProjectDirectory.empty())root["scripts"].back()["file"]=std::string("scripts/")+script.Name;}
 
-    int startup=-1,allocated=0;for(int i=0;i<8;++i)if(g_Studio.Scripts[size_t(i)].Allocated){if(i==g_Game.StartupScript)startup=allocated;++allocated;}
-    root["game"]=SaveGameSettings(g_Game,path);
+    int startup=-1,allocated=0;for(size_t i=0;i<kScriptSlots;++i)if(g_Studio.Scripts[size_t(i)].Allocated){if(int(i)==settings.StartupScript)startup=allocated;++allocated;}
+    root["game"]=SaveGameSettings(settings,path);
     root["game"]["startup_script"]=startup;
     ReadGameSettings(root["game"],path); // Validate editor data before persisting.
     return root;
@@ -198,6 +209,7 @@ static bool SaveStudioProject(const std::string& path){
         auto root=StudioProjectJson(path);
         const std::string document=root.dump();
         if(document.size()>32*1024*1024)throw std::runtime_error("Project exceeds 32 MiB limit");
+        if(AssetExists(path)){auto previous=ReadAssetFile(path,32*1024*1024);try{CheckJsonBudget(previous.begin(),previous.end());auto old=nlohmann::json::parse(previous.begin(),previous.end());if(old.value("schema",1)<3&&!AssetExists(SiblingAssetPath(path,".pre-1.3.bak")))WriteAssetFileAtomic(SiblingAssetPath(path,".pre-1.3.bak"),previous.data(),previous.size());}catch(const nlohmann::json::exception&){} }
         WriteAssetFileAtomic(path,document.data(),document.size());
         g_OpenedProject=AbsoluteAssetPath(path);g_SavedDocumentHash=CompleteDocumentHash();
         AppendConsole("Saved project: "+path+"\n");return true;
@@ -205,9 +217,8 @@ static bool SaveStudioProject(const std::string& path){
         AppendConsole(std::string("Project save failed: ")+error.what()+"\n");return false;
     }
 }
-static std::string ProjectRecoveryPath(){return (g_OpenedProject.empty()?AbsoluteAssetPath(g_ProjectPath):g_OpenedProject)+".autosave.lunoryx";}
+static std::string ProjectRecoveryPath(){return SiblingAssetPath(g_OpenedProject.empty()?AbsoluteAssetPath(g_ProjectPath):g_OpenedProject,".autosave.lunoryx");}
 static bool SaveRecoverySnapshot(){
-    if(g_PhysicsRunning)return false;
     try{auto text=StudioProjectJson(g_OpenedProject.empty()?std::string(g_ProjectPath):g_OpenedProject).dump();if(text.size()>32*1024*1024)throw std::runtime_error("Recovery exceeds 32 MiB limit");WriteAssetFileAtomic(ProjectRecoveryPath(),text.data(),text.size());return true;}
     catch(const std::exception& e){AppendConsole(std::string("Recovery save failed: ")+e.what()+"\n");return false;}
 }
@@ -215,9 +226,10 @@ static bool LoadStudioProject(const std::string& path) {
     try {
         if(path.empty()||path.find('\0')!=std::string::npos)throw std::runtime_error("Invalid project path");
         auto data=ReadAssetFile(path,32*1024*1024);
+        CheckJsonBudget(data.begin(),data.end());
         size_t nodes=0;
         nlohmann::json root=nlohmann::json::parse(data.begin(),data.end(),[&](int depth,nlohmann::json::parse_event_t,nlohmann::json&){if(depth>128||++nodes>4000000)throw std::runtime_error("Project structure exceeds parsing budget");return true;});
-        const int schema=ReadInteger(root.at("schema"),1,2);
+        const int schema=ReadInteger(root.at("schema"),1,3);
         const auto& saved=root.at("objects");if(!saved.is_array()||saved.size()>10000)throw std::runtime_error("Invalid object count");
         std::vector<GameObject> objects;objects.reserve(saved.size());size_t totalVertices=0;
         for(const auto& j:saved) {
@@ -241,17 +253,18 @@ static bool LoadStudioProject(const std::string& path) {
                 v.Type=ObjectProperty::Kind(kind);v.NumberValue=it.value().at("number").get<double>();v.BoolValue=it.value().at("boolean").get<bool>();v.TextValue=it.value().at("text").get<std::string>();
                 if(!SetProperty(o,it.key(),v))throw std::runtime_error("Invalid property value");
             }
-            if(schema==2)ReadModelFields(j,o,path);
+            if(schema>=2)ReadModelFields(j,o,path);
             totalVertices+=o.Vertices.size()/3;if(totalVertices>1000000)throw std::runtime_error("Project mesh budget exceeded");
             for(const auto& previous:objects)if(previous.Id==o.Id)throw std::runtime_error("Duplicate stable object ID");
             objects.push_back(std::move(o));
         }
-        auto scripts=std::unique_ptr<std::array<ScriptDocument,8>>(new std::array<ScriptDocument,8>());
-        const auto& docs=root.at("scripts");if(!docs.is_array()||docs.size()>8)throw std::runtime_error("Invalid script count");
-        for(size_t i=0;i<docs.size();++i){auto name=docs[i].at("name").get<std::string>(),code=docs[i].at("code").get<std::string>();if(name.size()>63||code.size()>65535||name.find('\0')!=std::string::npos||code.find('\0')!=std::string::npos)throw std::runtime_error("Invalid script document");auto& doc=(*scripts)[i];doc.Allocated=true;doc.Open=docs[i].value("open",true);std::snprintf(doc.Name,sizeof(doc.Name),"%s",name.c_str());std::snprintf(doc.Code,sizeof(doc.Code),"%s",code.c_str());}
+        auto scripts=std::unique_ptr<ScriptDocuments>(new ScriptDocuments());
+        const auto& docs=root.at("scripts");if(!docs.is_array()||docs.size()>kScriptSlots)throw std::runtime_error("Invalid script count");
+        for(size_t i=0;i<docs.size();++i){auto name=docs[i].at("name").get<std::string>(),code=docs[i].at("code").get<std::string>();if(name.size()>63||code.size()>65535||name.find('\0')!=std::string::npos||code.find('\0')!=std::string::npos)throw std::runtime_error("Invalid script document");if(root.contains("project")&&path.substr(path.find_last_of("/\\")==std::string::npos?0:path.find_last_of("/\\")+1)=="project.lunoryx"&&docs[i].contains("file")){auto file=docs[i].at("file").get<std::string>();if(file.compare(0,8,"scripts/")!=0)throw std::runtime_error("Script file must stay in scripts/");auto source=ProjectAssetPath(file,path);if(AssetExists(source)){auto bytes=ReadAssetFile(source,65535);code.assign(bytes.begin(),bytes.end());if(code.find('\0')!=std::string::npos)throw std::runtime_error("Script file contains NUL");}}auto& doc=(*scripts)[i];doc.Allocated=true;doc.Language=docs[i].contains("language")?ReadInteger(docs[i].at("language"),0,1):0;doc.Module=docs[i].value("module",false);doc.Open=docs[i].value("open",true);std::snprintf(doc.Name,sizeof(doc.Name),"%s",name.c_str());std::snprintf(doc.Code,sizeof(doc.Code),"%s",code.c_str());}
         float top[3],bottom[3];ReadVector(root.at("sky_top"),top,true);ReadVector(root.at("sky_bottom"),bottom,true);
         int preset=ReadInteger(root.at("sky_preset"),0,2);if(preset<0||preset>2)throw std::runtime_error("Unknown sky preset");
-        float gravity=ReadRange(root.at("gravity"),-30,0);bool ground=root.at("ground").get<bool>();
+        float gravity=ReadRange(root.at("gravity"),-30,0);bool ground=root.at("ground").get<bool>();bool continuous=root.value("continuous_collision",true);
+        std::string projectName=root.contains("project")?root["project"].value("name",std::string("Project")):std::string();if(projectName.size()>128||projectName.find('\0')!=std::string::npos)throw std::runtime_error("Invalid project name");
         std::vector<StudioSound> sounds;
         if(root.contains("sounds")){
             const auto& savedSounds=root.at("sounds");if(!savedSounds.is_array()||savedSounds.size()>64)throw std::runtime_error("Invalid sound count");
@@ -262,6 +275,7 @@ static bool LoadStudioProject(const std::string& path) {
         StudioGameSettings game;
         if(root.contains("game"))game=ReadGameSettings(root["game"],path);
         // Commit only after the complete document has passed validation. Never execute loaded scripts.
+        StopManagedScripts();
         for(const auto& sound:g_Sounds){studio_audio_unload(sound.Id);}
         for(const auto& o:objects)ReserveObjectId(o.Id);
         for(auto& sound:sounds)sound.Id=NewObjectId();
@@ -269,9 +283,11 @@ static bool LoadStudioProject(const std::string& path) {
         g_Game=game;
         StopAnimationPreview();ResetAnimationPlayers();g_ActorSpawns.clear();g_DebugPaused=g_DebugStep=false;
         g_Objects.swap(objects);g_Studio.Scripts.swap(*scripts);std::copy(top,top+3,g_SkyTop);std::copy(bottom,bottom+3,g_SkyBottom);g_SkyPreset=preset;
-        g_Physics.Gravity=gravity;g_Physics.Ground=ground;g_Physics.Accumulator=0;g_PhysicsRunning=false;g_SimulationRunning=false;g_PlaySnapshot.clear();g_SelectedObjectIndex=-1;
+        g_Physics.Continuous=continuous;g_Physics.DroppedTime=0;g_Physics.Gravity=gravity;g_Physics.Ground=ground;g_Physics.Accumulator=0;g_PhysicsRunning=false;g_SimulationRunning=false;g_PlaySnapshot.clear();g_SelectedObjectIndex=-1;
         g_Studio.RequestDocument=-2;g_Studio.ActiveScript=0;g_Studio.HasSculptUndo=false;g_ObjectHistory.Clear();g_ObjectHistory.Capture(g_Objects);
         if(g_LuaState)ClearUpdateCallback(g_LuaState);
+        g_CSharpTrusted=false;
+        g_ProjectDirectory=root.contains("project")?PathDirectory(AbsoluteAssetPath(path)):std::string();g_ProjectName=projectName;g_ShowProjectPicker=false;
         g_OpenedProject=AbsoluteAssetPath(path);std::snprintf(g_ProjectPath,sizeof(g_ProjectPath),"%s",path.c_str());g_SavedDocumentHash=CompleteDocumentHash();
         AppendConsole("Loaded project without executing scripts: "+path+"\n");return true;
     } catch(const std::exception& error){AppendConsole(std::string("Project load failed: ")+error.what()+"\n");return false;}
@@ -285,9 +301,9 @@ static uint64_t CompleteDocumentHash(){
 static int g_PendingProjectAction=0;
 static std::string g_PendingProjectPath;
 static bool g_ExitRequested=false,g_OpenSaveAs=false;
-static void PerformProjectAction(){int action=g_PendingProjectAction;g_PendingProjectAction=0;if(action==1)g_ExitRequested=true;else if(action==2)LoadStudioProject(g_PendingProjectPath);else if(action==3){g_Objects.clear();g_SelectedObjectIndex=-1;}else if(action==4)CreateSampleGame();}
+static void PerformProjectAction(){int action=g_PendingProjectAction;g_PendingProjectAction=0;if(action==1)g_ExitRequested=true;else if(action==2)LoadStudioProject(g_PendingProjectPath);else if(action==3){g_Objects.clear();g_SelectedObjectIndex=-1;}else if(action==4)CreateSampleGame();else if(action==5)g_ShowProjectPicker=true;}
 static void RequestProjectAction(int action,const std::string& path=""){if(g_PhysicsRunning)StopSimulation();g_PendingProjectAction=action;g_PendingProjectPath=path;if(!ProjectDirty())PerformProjectAction();}
-static bool SaveCurrentProject(){return SaveStudioProject(g_OpenedProject.empty()?std::string(g_ProjectPath):g_OpenedProject);}
+static bool SaveCurrentProject(){if(!SyncProjectFiles())return false;return SaveStudioProject(g_OpenedProject.empty()?std::string(g_ProjectPath):g_OpenedProject);}
 static void RenderProjectDialogs(){
     if(g_PendingProjectAction)ImGui::OpenPopup("Unsaved project");
     if(ImGui::BeginPopupModal("Unsaved project",nullptr,ImGuiWindowFlags_AlwaysAutoResize)){

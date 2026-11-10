@@ -1,5 +1,6 @@
 #pragma once
 #include "assets/font_data.h"
+#include "assets/code_font_data.h"
 static float g_FontPixels=0,g_FontDensity=0;
 static void UpdateStudioFont(SDL_Window* window) {
   int width=0,height=0,pixels=0,pixelHeight=0;
@@ -12,5 +13,6 @@ static void UpdateStudioFont(SDL_Window* window) {
   auto& io=ImGui::GetIO();io.Fonts->Clear();
   ImFontConfig config;config.FontDataOwnedByAtlas=false;config.OversampleH=3;config.OversampleV=2;config.PixelSnapH=false;
   io.Fonts->AddFontFromMemoryTTF((void*)kStudioFont,sizeof(kStudioFont),logical*density,&config,io.Fonts->GetGlyphRangesCyrillic());
+  g_CodeFont=io.Fonts->AddFontFromMemoryTTF((void*)kCodeFont,sizeof(kCodeFont),logical*density,&config,io.Fonts->GetGlyphRangesCyrillic());
   io.FontGlobalScale=1/density;io.Fonts->Build();g_FontPixels=logical;g_FontDensity=density;
 }

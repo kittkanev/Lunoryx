@@ -53,10 +53,15 @@ static nlohmann::json StudioMcpScene() {
   }
   return list;
 }
+static std::vector<std::string> g_McpAudit;
+static bool McpToolAllowed(const std::string& tool){if(!g_McpActive)return true;if(tool=="scene_list"||tool=="audit_log")return true;if(tool=="run_lua")return g_McpCanWrite&&g_McpCanRun;return g_McpCanWrite;}
 static nlohmann::json StudioMcpCall(const std::string &tool,
                                     const nlohmann::json &args) {
   try {
     ClearConsole();
+    g_McpAudit.push_back(tool+":"+(McpToolAllowed(tool)?"allowed":"denied"));if(g_McpAudit.size()>256)g_McpAudit.erase(g_McpAudit.begin());
+    if(!McpToolAllowed(tool))return StudioMcpText("Read-only MCP: restart with --allow-write; Lua additionally requires --allow-lua",true);
+    if(tool=="audit_log")return StudioMcpText(nlohmann::json(g_McpAudit).dump());
     if(tool=="mesh_operation"){
       uint64_t id=args.at("id").get<uint64_t>();int index=-1;for(size_t i=0;i<g_Objects.size();++i)if(g_Objects[i].Id==id)index=int(i);
       int result=ModelCommand(g_Objects,index,args.at("action").get<std::string>(),args.value("options",nlohmann::json::object()));g_ObjectHistory.Capture(g_Objects);return StudioMcpText(nlohmann::json({{"index",result},{"id",g_Objects[size_t(result)].Id}}).dump());
@@ -155,6 +160,7 @@ static int RunStudioMcp() {
   _setmode(_fileno(stdin), _O_BINARY);
   _setmode(_fileno(stdout), _O_BINARY);
 #endif
+  g_McpActive=true;
   InitializeStudio();
   InitLuaState();
   g_ObjectHistory.Capture(g_Objects);
@@ -216,7 +222,7 @@ static int RunStudioMcp() {
       else if (method == "tools/list") {
         nlohmann::json tools = nlohmann::json::array();
         for (const auto &t : kStudioMcpTools)
-          tools.push_back({{"name", t.Name},
+          if(McpToolAllowed(t.Name))tools.push_back({{"name", t.Name},
                            {"description", t.Description},
                            {"inputSchema", nlohmann::json::parse(t.Schema)}});
         reply(id, {{"tools", tools}});

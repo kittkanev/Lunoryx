@@ -1,0 +1,19 @@
+Lunoryx Studio
+Copyright the Lunoryx contributors. Engine source is GPL-3.0-only.
+The complete license is in LICENSE. Corresponding source for releases is
+available at https://github.com/kittkanev/Lunoryx under the matching release tag.
+Redistributors must comply with the GPL, including source distribution terms.
+
+Third-party code, fonts and platform marks retain their own licenses:
+see docs/licenses/, extensions/text-editor/LICENSE,
+extensions/text-editor/PROVENANCE.txt and assets/platforms/README.md.
+Dear ImGui, ImGuizmo, Lua, miniaudio, stb, nlohmann/json, tinygltf, xatlas,
+Manifold and ImGuiColorTextEdit: permissive licenses as recorded there.
+SDL2: zlib license. DejaVu fonts: Bitstream/DejaVu terms.
+Rust components and Windows runtime libraries: docs/licenses/Rust-* and
+GCC-Runtime-Exception.txt, winpthreads.txt.
+.NET and Roslyn: Microsoft MIT licenses and bundled ThirdPartyNotices files
+in the self-contained Runtime/CSharp directory. NuGet package versions and
+integrity hashes are recorded in extensions/csharp/packages.lock.json.
+Apple and Microsoft platform marks identify operating systems and do not
+imply endorsement. Their artwork is excluded from the engine GPL grant.

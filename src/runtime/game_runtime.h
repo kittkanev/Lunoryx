@@ -2,7 +2,9 @@
 static void StartSimulation() {
   if (g_PhysicsRunning)
     return;
+  if(!ValidTriggerBudget()){AppendConsole("Play blocked: trigger/actor pair budget is 32768. Reduce active trigger zones or actors.\n");return;}
   StopAnimationPreview();
+  if(!g_PlayerMode&&ProjectDirty())SaveRecoverySnapshot();
   g_DebugPaused=g_DebugStep=false;ResetAnimationPlayers();
   g_PlaySnapshot = g_Objects;
   g_PlaySoundSnapshot = g_Sounds;
@@ -18,15 +20,17 @@ static void StartSimulation() {
   g_SimulationRunning = true;
   InitLuaState();
   int startup = g_Game.StartupScript;
-  if (startup >= 0 && startup < 8 &&
-      g_Studio.Scripts[size_t(startup)].Allocated)
-    ExecuteLuaScript(g_Studio.Scripts[size_t(startup)].Code);
+  if (startup >= 0 && size_t(startup) < kScriptSlots &&
+      g_Studio.Scripts[size_t(startup)].Allocated&&g_Studio.Scripts[size_t(startup)].Language==0)
+    RunStudioScript(size_t(startup));
+  StartManagedScripts();
   ResetGameplay();
   for (const auto &sound : g_Sounds)
     if (sound.Autoplay)
       PlayStudioSound(sound);
 }
 static void StopSimulation() {
+  StopManagedScripts();
   if (g_PhysicsRunning) {
     for (const auto &sound : g_Sounds)
       studio_audio_unload(sound.Id);

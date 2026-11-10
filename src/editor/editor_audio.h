@@ -9,7 +9,9 @@ static bool ImportStudioSound(const std::string &path) {
   if (sound.Name.size() > 255)
     sound.Name.resize(255);
   char error[256];
-  if (!studio_audio_load(sound.Id, path.c_str(), error)) {
+  std::vector<unsigned char> bytes;
+  try{bytes=ReadAssetFile(path,16*1024*1024);}catch(const std::exception& error){AppendConsole(std::string("Import sound: ")+error.what()+"\n");return false;}
+  if (!studio_audio_load_memory(sound.Id,bytes.data(),bytes.size(),error)) {
     AppendConsole(std::string(error) + "\n");
     return false;
   }

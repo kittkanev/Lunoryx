@@ -604,6 +604,7 @@ inline void Weld(StudioMesh &m, const std::set<uint32_t> &selected,
     }
   }
   if (!mapped) {
+  if(selected.size()>4500)throw std::runtime_error("Weld fallback exceeds comparison budget; increase distance or reduce selection");
   for (auto v : selected) {
     if (v >= m.Positions.size() / 3)
       throw std::runtime_error("Invalid vertex selection");

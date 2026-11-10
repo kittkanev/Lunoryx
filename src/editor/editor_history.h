@@ -8,6 +8,7 @@ struct StudioSnapshot {
   int Sky;
   PhysicsState Physics;
   StudioGameSettings Game;
+  std::vector<ScriptSnapshot> Scripts;
   uint64_t Hash = 0;
 };
 inline uint64_t StudioDocumentHash() {
@@ -40,13 +41,17 @@ inline uint64_t StudioDocumentHash() {
   bytes(&g_SkyPreset, sizeof(g_SkyPreset));
   bytes(&g_Physics.Gravity, sizeof(float));
   bytes(&g_Physics.Ground, sizeof(bool));
+  bytes(&g_Physics.Continuous,sizeof(bool));
+  for(const auto& doc:StudioScripts()){bytes(&doc.Allocated,sizeof(bool));if(doc.Allocated){bytes(doc.Name,std::strlen(doc.Name));bytes(doc.Code,std::strlen(doc.Code));bytes(&doc.Module,sizeof(bool));bytes(&doc.Language,sizeof(int));}}
   return h;
 }
 struct StudioHistory {
   std::vector<StudioSnapshot> States;
   size_t Cursor = 0, Bytes = 0;
+  bool LastCaptureRejected=false;
+  std::string Warning;
   static size_t Size(const StudioSnapshot &s) {
-    size_t n = s.Game.IconPath.size()+s.Game.Title.size()+s.Game.Widgets.size()*sizeof(GameWidget);
+    size_t n = sizeof(StudioSnapshot)+s.Game.IconData.capacity()+s.Game.IconPath.capacity()+s.Game.Title.capacity()+s.Game.Widgets.capacity()*sizeof(GameWidget);
     for(const auto& w:s.Game.Widgets)n+=w.Id.size()+w.Text.size();
     n += StudioObjectHistory::Size(s.Objects) +
                s.Sounds.size() * sizeof(StudioSound);
@@ -70,6 +75,7 @@ struct StudioHistory {
     }
     for (const auto &a : s.Sounds)
       n += a.Name.size() + a.Path.size() + a.Data.size();
+    for(const auto& script:s.Scripts)n+=sizeof(ScriptSnapshot)+script.Name.capacity()+script.Code.capacity();
     return n;
   }
   void Capture(const std::vector<GameObject> &) {
@@ -86,10 +92,11 @@ struct StudioHistory {
     s.Sky = g_SkyPreset;
     s.Physics = g_Physics;
     s.Game = g_Game;
+    for(size_t i=0;i<StudioScripts().size();++i){const auto& doc=StudioScripts()[i];if(doc.Allocated)s.Scripts.push_back({i,doc.Name,doc.Code,doc.Open,doc.Module,doc.Language});}
     s.Hash = hash;
     size_t n = Size(s);
-    if (n > 128 * 1024 * 1024)
-      return;
+    if (n > 128 * 1024 * 1024) {LastCaptureRejected=true;Warning="Undo unavailable: this operation exceeds the 128 MiB history budget. Save a project checkpoint before continuing.";return;}
+    LastCaptureRejected=false;Warning.clear();
     while (States.size() > Cursor + 1) {
       Bytes -= Size(States.back());
       States.pop_back();
@@ -103,7 +110,7 @@ struct StudioHistory {
     }
     States.push_back(std::move(s));
     Cursor = States.size() - 1;
-    Bytes += n;
+    Bytes += n;g_RequestRecovery=true;
   }
   void Restore() {
     const auto &s = States[Cursor];
@@ -116,6 +123,8 @@ struct StudioHistory {
     g_SkyPreset = s.Sky;
     g_Physics = s.Physics;
     g_Game = s.Game;
+    for(auto& doc:StudioScripts())doc=ScriptDocument();
+    for(const auto& saved:s.Scripts){auto& doc=StudioScripts()[saved.Slot];doc.Allocated=true;doc.Open=saved.Open;doc.Module=saved.Module;doc.Language=saved.Language;std::snprintf(doc.Name,sizeof(doc.Name),"%s",saved.Name.c_str());std::snprintf(doc.Code,sizeof(doc.Code),"%s",saved.Code.c_str());}
     g_SelectedSound = -1;
     g_SelectedObjectIndex = -1;
     g_SimulationRunning = false;

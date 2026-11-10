@@ -9,7 +9,7 @@ static nlohmann::json SaveGameSettings(const StudioGameSettings& g,const std::st
 }
 static StudioGameSettings ReadGameSettings(const nlohmann::json& j,const std::string& path) {
   StudioGameSettings g;
-  g.StartupScript=ReadInteger(j.at("startup_script"),-1,7);g.CameraTarget=ReadUnsigned(j.at("camera_target"),uint64_t(std::numeric_limits<int64_t>::max()));
+  g.StartupScript=ReadInteger(j.at("startup_script"),-1,int(kScriptSlots)-1);g.CameraTarget=ReadUnsigned(j.at("camera_target"),uint64_t(std::numeric_limits<int64_t>::max()));
   g.CameraDistance=ReadRange(j.at("camera_distance"),.2f,1000);g.CameraPitch=ReadRange(j.at("camera_pitch"),-85,85);g.CameraYaw=ReadRange(j.at("camera_yaw"),-180,180);
   g.Title=j.at("title").get<std::string>();g.IconPath=j.value("icon",std::string());
   if(g.Title.empty()||g.Title.size()>255||g.Title.find('\0')!=std::string::npos||g.IconPath.size()>511||g.IconPath.find('\0')!=std::string::npos)throw std::runtime_error("Invalid game title or icon path");

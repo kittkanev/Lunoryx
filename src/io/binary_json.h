@@ -1,8 +1,8 @@
 #pragma once
 // Base64 bounds JSON DOM growth; keep reading legacy numeric byte arrays.
-static nlohmann::json SaveBinary(const std::vector<unsigned char>& bytes) {
+static nlohmann::json SaveBinary(const std::vector<unsigned char>& bytes,size_t limit=16*1024*1024) {
   static const char alphabet[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  if(bytes.size()>16*1024*1024)throw std::runtime_error("Embedded resource exceeds 16 MiB limit");
+  if(bytes.size()>limit)throw std::runtime_error("Embedded resource exceeds 16 MiB limit");
   std::string out;out.reserve((bytes.size()+2)/3*4);
   for(size_t i=0;i<bytes.size();i+=3){uint32_t value=uint32_t(bytes[i])<<16;if(i+1<bytes.size())value|=uint32_t(bytes[i+1])<<8;if(i+2<bytes.size())value|=bytes[i+2];out+=alphabet[value>>18];out+=alphabet[(value>>12)&63];out+=i+1<bytes.size()?alphabet[(value>>6)&63]:'=';out+=i+2<bytes.size()?alphabet[value&63]:'=';}
   return {{"encoding","base64"},{"base64",out}};

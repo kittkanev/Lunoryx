@@ -14,6 +14,7 @@ struct EditorPreferences {
   bool CachedRenderer = true;
   float FontSize=17;
   int DocsLanguage=0;
+  int RecoverySeconds=5;
 };
 static EditorPreferences g_Preferences;
 static bool g_RenderReport=false;
@@ -23,7 +24,7 @@ static bool SaveEditorPreferences() {
     return false;
   nlohmann::json j = {{"viewport_shading",g_Preferences.ViewportShading},
                       {"free_fly",g_Preferences.FreeFly},{"fly_speed",g_Preferences.FlySpeed},
-                      {"font_size",g_Preferences.FontSize},{"docs_language",g_Preferences.DocsLanguage},
+                      {"recovery_seconds",g_Preferences.RecoverySeconds},{"font_size",g_Preferences.FontSize},{"docs_language",g_Preferences.DocsLanguage},
                       {"orbit", g_Preferences.OrbitSensitivity},
                       {"pan", g_Preferences.PanSensitivity},
                       {"zoom", g_Preferences.ZoomSensitivity},
@@ -45,9 +46,8 @@ static bool SaveEditorPreferences() {
                       {"move_snap", g_Preferences.MoveSnap},
                       {"snap_enabled", g_Preferences.SnapEnabled},
                       {"local_transform", g_Preferences.LocalTransform}};
-  std::string temporary = g_PreferencesPath + ".tmp";
   try {
-    std::string text=j.dump(2);WriteAssetFile(temporary,text.data(),text.size());ReplaceAssetFile(temporary,g_PreferencesPath);
+    std::string text=j.dump(2);WriteAssetFileAtomic(g_PreferencesPath,text.data(),text.size());
   } catch(const std::exception&) { return false; }
   return true;
 }
@@ -95,6 +95,7 @@ static void LoadEditorPreferences() {
     if (p.Theme < 0 || p.Theme > 1)
       throw std::runtime_error("Invalid theme");
     bool grid = j.value("grid", true), axes = j.value("axes", true);
+    p.RecoverySeconds=int(number("recovery_seconds",5,1,60));
     g_Preferences = p;
     g_ShowGrid = grid;
     g_ShowAxes = axes;

@@ -1,9 +1,12 @@
 #pragma once
 #include <array>
 #include <sys/stat.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 #include "src/io/game_icon.h"
 namespace GamePackage {
-static const size_t MaxPayload = 512 * 1024 * 1024;
+static const size_t MaxPayload = 1024ull * 1024 * 1024;
 inline void CheckResourceName(const std::string &name) {
   if (name.empty() || name == "." || name.size() > 511 ||
       name.find('\0') != std::string::npos || AbsolutePath(name) ||
@@ -70,6 +73,10 @@ inline std::string ExecutablePath() {
   WideCharToMultiByte(CP_UTF8, 0, path, int(length), &result[0], n, nullptr,
                       nullptr);
   return result;
+#elif defined(__APPLE__)
+  uint32_t size=0;_NSGetExecutablePath(nullptr,&size);std::vector<char> path(size);
+  if(_NSGetExecutablePath(path.data(),&size))throw std::runtime_error("Cannot find macOS executable");
+  return CanonicalAssetPath(path.data());
 #else
   char path[4096];
   ssize_t n = readlink("/proc/self/exe", path, sizeof(path));
@@ -78,6 +85,11 @@ inline std::string ExecutablePath() {
   return std::string(path, size_t(n));
 #endif
 }
+struct StreamChecksum {
+  uint32_t State=~uint32_t(0);
+  void Add(const void* pointer,size_t n){static const auto table=[](){std::array<uint32_t,256> values={};for(uint32_t i=0;i<256;++i){uint32_t c=i;for(int k=0;k<8;++k)c=(c>>1)^(0xedb88320u&uint32_t(-int(c&1)));values[i]=c;}return values;}();auto bytes=static_cast<const unsigned char*>(pointer);for(size_t i=0;i<n;++i)State=(State>>8)^table[(State^bytes[i])&255];}
+  uint32_t Value()const{return ~State;}
+};
 inline bool Read(const std::string &executable,
                  std::map<std::string, std::vector<unsigned char>> &assets) {
   std::unique_ptr<FILE,int(*)(FILE*)> file(AssetOpen(executable,"rb"),std::fclose);
@@ -105,24 +117,18 @@ inline bool Read(const std::string &executable,
   uint64_t offset=NumberAt(footerBytes,8,8),length=NumberAt(footerBytes,16,8);
   uint32_t checksum=uint32_t(NumberAt(footerBytes,24,4));
   if(NumberAt(footerBytes,28,4)!=1||length<8||length>MaxPayload||offset>footer||length!=footer-offset)throw std::runtime_error("Unsupported or truncated game package");
-  auto bytes=readAt(size_t(offset),size_t(length));offset=0;footer=size_t(length);
-  if (CRC(bytes.data() + size_t(offset), size_t(length)) != checksum)
-    throw std::runtime_error("Game package checksum mismatch");
-  uint64_t manifestSize = NumberAt(bytes, size_t(offset), 8);
-  if (manifestSize > 4 * 1024 * 1024 || manifestSize > length - 8)
-    throw std::runtime_error("Invalid game manifest length");
-  auto manifest = nlohmann::json::parse(
-      bytes.begin() + size_t(offset) + 8,
-      bytes.begin() + size_t(offset) + 8 + size_t(manifestSize),
-      [](int depth, nlohmann::json::parse_event_t, nlohmann::json &) {
-        if (depth > 64)
-          throw std::runtime_error("Game manifest nesting exceeds limit");
-        return true;
-      });
-  if (!manifest.is_array() || manifest.size() > 256)
+  const size_t payloadOffset=size_t(offset);
+  StreamChecksum crc;
+  for(size_t at=0;at<size_t(length);){size_t count=std::min(size_t(1024*1024),size_t(length)-at);auto block=readAt(payloadOffset+at,count);crc.Add(block.data(),block.size());at+=count;}
+  if(crc.Value()!=checksum)throw std::runtime_error("Game package checksum mismatch");
+  auto sizeBytes=readAt(payloadOffset,8);uint64_t manifestSize=NumberAt(sizeBytes,0,8);
+  if(manifestSize>4*1024*1024||manifestSize>length-8)throw std::runtime_error("Invalid game manifest length");
+  auto manifestBytes=readAt(payloadOffset+8,size_t(manifestSize));
+  CheckJsonBudget(manifestBytes.begin(),manifestBytes.end());
+  auto manifest=nlohmann::json::parse(manifestBytes);
+  if (!manifest.is_array() || manifest.size() > 4096)
     throw std::runtime_error("Invalid game manifest");
-  size_t base = size_t(offset) + 8 + size_t(manifestSize),
-         available = footer - base;
+  size_t base=payloadOffset+8+size_t(manifestSize), available=size_t(length)-8-size_t(manifestSize);
   std::map<std::string, std::vector<unsigned char>> parsed;
   struct Resource {
     std::string Key;
@@ -157,81 +163,40 @@ inline bool Read(const std::string &executable,
     if (ranges[i].first < ranges[i - 1].second)
       throw std::runtime_error("Overlapping embedded resource ranges");
   for (const auto &resource : resources)
-    parsed[resource.Key] = std::vector<unsigned char>(
-        bytes.begin() + base + resource.Start,
-        bytes.begin() + base + resource.Start + resource.Size);
+    parsed[resource.Key]=readAt(base+resource.Start,resource.Size);
   assets = std::move(parsed);
   return true;
 }
-inline void
-Write(const std::string &runtime, const std::string &destination,
-      const std::map<std::string, std::vector<unsigned char>> &assets,
-      const std::vector<unsigned char>& icon = {}) {
-  if (assets.size() > 256)
-    throw std::runtime_error(
-        "Game supports at most 255 packed external resources");
-  if (!assets.count("project.lunoryx"))
-    throw std::runtime_error("Game project is missing");
-  for (const auto &resource : assets)
-    CheckResourceName(resource.first);
-  if(SameAssetFile(runtime,destination)||CanonicalAssetPath(runtime)==CanonicalAssetPath(destination))throw std::runtime_error("Choose a game output path different from the editor EXE");
-  auto binary = ReadAssetFile(runtime, 128 * 1024 * 1024);
-  if (binary.size() > 32 &&
-      !std::memcmp(binary.data() + binary.size() - 32, "LNXPCK01", 8))
-    throw std::runtime_error(
-        "Choose the editor executable as a runtime template");
-  nlohmann::json manifest = nlohmann::json::array();
-  size_t total = 0;
-  for (const auto &resource : assets) {
-    if (resource.second.size() > MaxPayload - total)
-      throw std::runtime_error("Game assets exceed 512 MiB budget");
-    manifest.push_back({{"name", resource.first},
-                        {"offset", uint64_t(total)},
-                        {"size", uint64_t(resource.second.size())}});
-    total += resource.second.size();
-  }
-  std::string metadata = manifest.dump();
-  std::vector<unsigned char> payload;
-  Number(payload, metadata.size(), 8);
-  payload.insert(payload.end(), metadata.begin(), metadata.end());
-  for (const auto &resource : assets)
-    payload.insert(payload.end(), resource.second.begin(),
-                   resource.second.end());
-  if (payload.size() > MaxPayload)
-    throw std::runtime_error("Game package exceeds budget");
+inline void Write(const std::string& runtime,const std::string& destination,const std::map<std::string,std::vector<unsigned char>>& assets,const std::vector<unsigned char>& icon={},bool rawPayload=false){
+  if(assets.size()>4096)throw std::runtime_error("Game supports at most 4095 external resources");
+  if(!assets.count("project.lunoryx"))throw std::runtime_error("Game project is missing");
+  for(const auto& asset:assets)CheckResourceName(asset.first);
+  if(SameAssetFile(runtime,destination)||CanonicalAssetPath(runtime)==CanonicalAssetPath(destination))throw std::runtime_error("Choose an output different from the editor executable");
+  size_t total=0;nlohmann::json manifest=nlohmann::json::array();
+  for(const auto& asset:assets){CheckResourceName(asset.first);if(asset.second.size()>MaxPayload-total)throw std::runtime_error("Game assets exceed 1 GiB budget");manifest.push_back({{"name",asset.first},{"offset",uint64_t(total)},{"size",uint64_t(asset.second.size())}});total+=asset.second.size();}
+  auto metadata=manifest.dump();if(metadata.size()>4*1024*1024||metadata.size()+8>MaxPayload-total)throw std::runtime_error("Game manifest/payload budget exceeded");
+  std::string temporary,iconTemporary;FILE* output=nullptr;
+  auto copy=[](FILE* source,FILE* target){std::vector<unsigned char> block(1024*1024);uint64_t copied=0;for(;;){size_t n=std::fread(block.data(),1,block.size(),source);if(n){copied+=n;if(copied>128*1024*1024)throw std::runtime_error("Runtime executable exceeds 128 MiB budget");if(std::fwrite(block.data(),1,n,target)!=n)throw std::runtime_error("Cannot copy runtime executable");}if(n<block.size()){if(std::ferror(source))throw std::runtime_error("Cannot read runtime executable");break;}}return copied;};
+  try{
+    std::unique_ptr<FILE,int(*)(FILE*)> source(AssetOpen(runtime,"rb"),std::fclose);if(!source)throw std::runtime_error("Cannot open runtime template");
+    if(std::fseek(source.get(),0,SEEK_END))throw std::runtime_error("Cannot inspect runtime");
+    long sourceSize=std::ftell(source.get());if(sourceSize<0)throw std::runtime_error("Cannot inspect runtime size");
+    if(sourceSize>=32){char footer[8];if(std::fseek(source.get(),sourceSize-32,SEEK_SET)||std::fread(footer,1,8,source.get())!=8)throw std::runtime_error("Cannot inspect runtime footer");if(!std::memcmp(footer,"LNXPCK01",8))throw std::runtime_error("Choose the editor executable as runtime template");}std::rewind(source.get());
 #ifdef _WIN32
-  // Update PE resources BEFORE appending the package: Windows resource updates
-  // are allowed to rewrite sections and would otherwise truncate the overlay.
-  if(!icon.empty()){
-    std::string iconTemporary;
-    try{
-      FILE* staging=OpenTemporaryAsset(destination+".icon",iconTemporary);
-      if(!staging)throw std::runtime_error("Cannot create icon staging file");
-      bool ok=std::fwrite(binary.data(),1,binary.size(),staging)==binary.size();if(std::fclose(staging))ok=false;
-      if(!ok)throw std::runtime_error("Cannot stage game icon");
-      ReplaceGameExeIcon(iconTemporary,icon);binary=ReadAssetFile(iconTemporary,128*1024*1024);RemoveAssetFile(iconTemporary);
-    }catch(...){if(!iconTemporary.empty())RemoveAssetFile(iconTemporary);throw;}
-  }
+    if(!icon.empty()){std::unique_ptr<FILE,int(*)(FILE*)> staging(OpenTemporaryAsset(destination+".icon",iconTemporary),std::fclose);if(!staging)throw std::runtime_error("Cannot stage icon");copy(source.get(),staging.get());if(std::fclose(staging.release()))throw std::runtime_error("Cannot finish icon staging");ReplaceGameExeIcon(iconTemporary,icon);source.reset(AssetOpen(iconTemporary,"rb"));if(!source)throw std::runtime_error("Cannot open icon runtime");}
 #else
-  (void)icon;
+    (void)icon;
 #endif
-  uint64_t offset = binary.size();
-  uint32_t checksum = CRC(payload.data(), payload.size());
-  binary.insert(binary.end(), payload.begin(), payload.end());
-  const char *magic = "LNXPCK01";
-  binary.insert(binary.end(), magic, magic + 8);
-  Number(binary, offset, 8);
-  Number(binary, payload.size(), 8);
-  Number(binary, checksum, 4);
-  Number(binary, 1, 4);
-  std::string temporary = destination + ".tmp";
-  FILE* out=OpenTemporaryAsset(destination,temporary);if(!out)throw std::runtime_error("Cannot create game output");
-  bool written=std::fwrite(binary.data(),1,binary.size(),out)==binary.size();if(std::fclose(out))written=false;if(!written){RemoveAssetFile(temporary);throw std::runtime_error("Cannot write game output");}
+    output=OpenTemporaryAsset(destination,temporary);if(!output)throw std::runtime_error("Cannot create game output");uint64_t offset=rawPayload?0:copy(source.get(),output);source.reset();
+    StreamChecksum crc;auto write=[&](const void* data,size_t n){if(n&&std::fwrite(data,1,n,output)!=n)throw std::runtime_error("Cannot write game payload");crc.Add(data,n);};
+    std::vector<unsigned char> sizeBytes;Number(sizeBytes,metadata.size(),8);write(sizeBytes.data(),sizeBytes.size());write(metadata.data(),metadata.size());for(const auto& asset:assets)write(asset.second.data(),asset.second.size());
+    std::vector<unsigned char> footer={'L','N','X','P','C','K','0','1'};Number(footer,offset,8);Number(footer,8+metadata.size()+total,8);Number(footer,crc.Value(),4);Number(footer,1,4);
+    if(std::fwrite(footer.data(),1,footer.size(),output)!=footer.size())throw std::runtime_error("Cannot finish game footer");
 #ifndef _WIN32
-  if (chmod(temporary.c_str(), 0755))
-    throw std::runtime_error("Cannot make game executable");
+    if(!rawPayload&&fchmod(fileno(output),0755))throw std::runtime_error("Cannot make game executable");
 #endif
-  ReplaceAssetFile(temporary, destination);
+    bool ok=std::fclose(output)==0;output=nullptr;if(!ok)throw std::runtime_error("Cannot close game output");ReplaceAssetFile(temporary,destination);temporary.clear();if(!iconTemporary.empty())RemoveAssetFile(iconTemporary);
+  }catch(...){if(output)std::fclose(output);if(!temporary.empty())RemoveAssetFile(temporary);if(!iconTemporary.empty())RemoveAssetFile(iconTemporary);throw;}
 }
 } // namespace GamePackage
 static bool BuildStudioGame(const std::string &destination,
@@ -240,37 +205,27 @@ static bool BuildStudioGame(const std::string &destination,
     if (g_PhysicsRunning)
       throw std::runtime_error("Stop simulation before building");
     auto project = StudioProjectJson(
-        g_OpenedProject.empty() ? std::string(g_ProjectPath) : g_OpenedProject);
-    std::map<std::string, std::vector<unsigned char>> assets;
-    for (size_t i = 0; i < g_Sounds.size(); ++i) {
-      if (!g_Sounds[i].Data.empty())
-        continue;
-      std::string name = "assets/sound" + std::to_string(i);
-      assets[name] = ReadAssetFile(g_Sounds[i].Path);
-      project["sounds"][i]["path"] = name;
-    }
-    std::map<std::vector<unsigned char>,std::string> packedTextures;
-    for (size_t i = 0; i < g_Objects.size(); ++i)
-      for (size_t m = 0; m < g_Objects[i].Materials.size(); ++m) {
-        const auto &material = g_Objects[i].Materials[m];
-        if (!material.Texture.empty()||!material.Image.empty()) {
-          std::string name =
-              "assets/texture" + std::to_string(i) + "_" + std::to_string(m);
-          auto bytes=MaterialImageBytes(material);auto existing=packedTextures.find(bytes);if(existing!=packedTextures.end())name=existing->second;else{packedTextures.emplace(bytes,name);assets[name]=std::move(bytes);}
-          project["objects"][i]["materials"][m]["texture"] = name;
-          project["objects"][i]["materials"][m]["image"] = SaveBinary({});
-        }
-      }
+        g_OpenedProject.empty() ? std::string(g_ProjectPath) : g_OpenedProject,true);
+    std::map<std::string,std::vector<unsigned char>> assets;size_t packedBytes=0;
+    std::map<std::pair<uint32_t,size_t>,std::vector<std::string>> buckets;
+    auto pack=[&](const std::string& proposed,std::vector<unsigned char> bytes){auto key=std::make_pair(GamePackage::CRC(bytes.data(),bytes.size()),bytes.size());for(const auto& name:buckets[key])if(assets.at(name)==bytes)return name;if(bytes.size()>GamePackage::MaxPayload-packedBytes||assets.size()>=4095)throw std::runtime_error("Game resource count or size budget exceeded before packing");packedBytes+=bytes.size();buckets[key].push_back(proposed);assets.emplace(proposed,std::move(bytes));return proposed;};
+    for(size_t i=0;i<g_Sounds.size();++i){const auto& sound=g_Sounds[i];auto name=pack("assets/sound"+std::to_string(i),sound.Data.empty()?ReadAssetFile(sound.Path,16*1024*1024):sound.Data);project["sounds"][i]["path"]=name;project["sounds"][i]["data"]=SaveBinary({});}
+    for(size_t i=0;i<g_Objects.size();++i)for(size_t m=0;m<g_Objects[i].Materials.size();++m){const auto& material=g_Objects[i].Materials[m];if(!material.Image.empty()||!material.Texture.empty()){auto name=pack("assets/texture"+std::to_string(i)+"_"+std::to_string(m),MaterialImageBytes(material));project["objects"][i]["materials"][m]["texture"]=name;project["objects"][i]["materials"][m]["image"]=SaveBinary({});}}
     auto icon=(g_Game.IconData.empty()?ReadGameIcon(g_Game.IconPath):ValidateGameIcon(g_Game.IconData));
     if(!icon.empty()){assets["assets/game-icon.png"]=icon;project["game"]["icon"]="assets/game-icon.png";project["game"].erase("icon_data");}
+    if(HasManagedScripts())PackManagedRuntime(assets,project,packedBytes);
     auto text = project.dump();
     if (text.size() > 32 * 1024 * 1024)
       throw std::runtime_error("Game project exceeds 32 MiB budget");
     assets["project.lunoryx"] =
         std::vector<unsigned char>(text.begin(), text.end());
+#ifdef __APPLE__
+    WriteMacGameBundle(destination,runtime.empty()?GamePackage::ExecutablePath():runtime,assets,icon);
+#else
     GamePackage::Write(runtime.empty() ? GamePackage::ExecutablePath()
                                        : runtime,
                        destination, assets, icon);
+#endif
     AppendConsole("Built standalone game: " + destination + "\n");
     return true;
   } catch (const std::exception &e) {

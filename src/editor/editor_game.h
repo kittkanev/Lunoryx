@@ -20,7 +20,7 @@ static void RenderGameSettings() {
   ImGui::Checkbox("Built-in score / HUD",&g_Game.DefaultHUD);
   char icon[512];std::snprintf(icon,sizeof(icon),"%s",g_Game.IconPath.c_str());
   if(ImGui::InputText("Game icon PNG",icon,sizeof(icon))){g_Game.IconPath=icon;g_Game.IconData.clear();}
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
   if(ImGui::Button("Choose icon...")){auto chosen=GameFileDialog(false);if(!chosen.empty()){g_Game.IconPath=chosen;g_Game.IconData.clear();}}
   ImGui::SameLine();
 #endif
@@ -51,14 +51,18 @@ static void RenderGameSettings() {
   ImGui::SliderFloat("Follow pitch", &g_Game.CameraPitch, -85, 85);
   ImGui::SliderFloat("Follow yaw", &g_Game.CameraYaw, -180, 180);
   ImGui::SeparatorText("Output");
+  #ifdef __APPLE__
+  static char path[512] = "Game.app";
+#else
   static char path[512] = "Game.exe";
+#endif
   ImGui::InputText("Game EXE path", path, sizeof(path));
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
   if(ImGui::Button("Choose output EXE...")){auto chosen=GameFileDialog(true);if(!chosen.empty())std::snprintf(path,sizeof(path),"%s",chosen.c_str());}
 #endif
   ImGui::BeginDisabled(g_PhysicsRunning || g_ModelBusy);
   static int result=0;
-  if (ImGui::Button("Build standalone Game.exe"))result=BuildStudioGame(path)?1:-1;
+  if (ImGui::Button("Build standalone game"))result=BuildStudioGame(path)?1:-1;
   if(result)ImGui::TextColored(result>0?ImVec4(.3f,1,.7f,1):ImVec4(1,.4f,.3f,1),"%s",result>0?"Build complete. Your game is ready.":"Build failed. See Output for the exact error.");
   ImGui::EndDisabled();
   ImGui::TextWrapped("One executable includes the scene, imported resources "

@@ -9,3 +9,7 @@ static std::string GameFileDialog(bool save) {
   int n=WideCharToMultiByte(CP_UTF8,0,path,-1,nullptr,0,nullptr,nullptr);std::string result(size_t(n),' ');WideCharToMultiByte(CP_UTF8,0,path,-1,&result[0],n,nullptr,nullptr);result.resize(size_t(n-1));return result;
 }
 #endif
+
+#ifdef __APPLE__
+static std::string GameFileDialog(bool save){return ChooseNativePath(save,false);}
+#endif

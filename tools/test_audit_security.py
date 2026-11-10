@@ -6,7 +6,7 @@ with tempfile.TemporaryDirectory(dir=Path.cwd()) as folder:
     root=Path(folder)
     def session(commands):
         requests=[dict(jsonrpc='2.0',id=i,method='tools/call',params=dict(name=name,arguments=args)) for i,(name,args) in enumerate(commands)]
-        result=subprocess.run([binary,'--mcp'],cwd=root,input=''.join(json.dumps(x)+'\n' for x in requests),text=True,encoding="utf-8",capture_output=True,timeout=15)
+        result=subprocess.run([binary,'--mcp','--allow-write','--allow-lua'],cwd=root,input=''.join(json.dumps(x)+'\n' for x in requests),text=True,encoding="utf-8",capture_output=True,timeout=15)
         assert result.returncode==0,result.stderr
         responses=[json.loads(line)['result'] for line in result.stdout.splitlines()]
         assert len(responses)==len(commands),(result.stdout,result.stderr)
