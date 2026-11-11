@@ -37,9 +37,19 @@ static void CheckV13Regressions() {
     auto confined=ConfinedAssetPath("pinned/asset.txt",g_ProjectDirectory);
 #ifdef _WIN32
     {AssetParentAnchor anchor(confined);
-    auto writable=CreateFileW(WidePath(g_ProjectDirectory+"/pinned").c_str(),GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
-    assert(writable==INVALID_HANDLE_VALUE);assert(GetLastError()==ERROR_SHARING_VIOLATION||GetLastError()==ERROR_ACCESS_DENIED);
-    const char safe[]="safe";WriteAssetFileAtomic(confined,safe,4);assert(ReadAssetFile(confined)==std::vector<unsigned char>({'s','a','f','e'}));}
+    auto outside=folder/"outside";ProjectFS::create_directory(outside);const std::string sentinel="outside";
+    WriteAssetFileAtomic((outside/"asset.txt").u8string(),sentinel.data(),sentinel.size());
+    auto target=WidePath(CanonicalAssetPath(outside.u8string()));std::replace(target.begin(),target.end(),L'/',L'\\');auto substitute=std::wstring(L"\\?")+L"?\\"+target;
+    size_t substituteBytes=substitute.size()*2,printBytes=target.size()*2;std::vector<unsigned char> reparse(16+substituteBytes+2+printBytes+2);
+    DWORD tag=0xA0000003;WORD length=WORD(reparse.size()-8),zero=0,subLength=WORD(substituteBytes),printOffset=WORD(substituteBytes+2),printLength=WORD(printBytes);
+    std::memcpy(reparse.data(),&tag,4);std::memcpy(reparse.data()+4,&length,2);std::memcpy(reparse.data()+8,&zero,2);std::memcpy(reparse.data()+10,&subLength,2);std::memcpy(reparse.data()+12,&printOffset,2);std::memcpy(reparse.data()+14,&printLength,2);std::memcpy(reparse.data()+16,substitute.data(),substituteBytes);std::memcpy(reparse.data()+16+printOffset,target.data(),printBytes);
+    HANDLE writable=CreateFileW(WidePath(g_ProjectDirectory+"/pinned").c_str(),GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);assert(writable!=INVALID_HANDLE_VALUE);
+    DWORD returned=0;assert(DeviceIoControl(writable,0x900A4,reparse.data(),DWORD(reparse.size()),nullptr,0,&returned,nullptr));CloseHandle(writable);
+    HANDLE escaped=RelativeWindowsOpen(anchor.Directory(),"asset.txt",GENERIC_READ,1,0x40,FILE_SHARE_READ);
+    assert(escaped==INVALID_HANDLE_VALUE);
+    bool readRejected=false,writeRejected=false;try{ReadAssetFile(confined);}catch(const std::exception&){readRejected=true;}try{WriteAssetFileAtomic(confined,"bad",3);}catch(const std::exception&){writeRejected=true;}
+    assert(readRejected&&writeRejected);assert(ReadAssetFile((outside/"asset.txt").u8string())==std::vector<unsigned char>(sentinel.begin(),sentinel.end()));
+    assert(RemoveDirectoryW(WidePath(g_ProjectDirectory+"/pinned").c_str()));}
 #else
     auto outside=folder/"outside";ProjectFS::create_directory(outside);const std::string sentinel="outside";
     WriteAssetFileAtomic((outside/"asset.txt").u8string(),sentinel.data(),sentinel.size());

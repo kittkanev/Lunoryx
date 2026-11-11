@@ -176,6 +176,9 @@ inline void Write(const std::string& runtime,const std::string& destination,cons
   for(const auto& asset:assets){CheckResourceName(asset.first);if(asset.second.size()>MaxPayload-total)throw std::runtime_error("Game assets exceed 1 GiB budget");manifest.push_back({{"name",asset.first},{"offset",uint64_t(total)},{"size",uint64_t(asset.second.size())}});total+=asset.second.size();}
   auto metadata=manifest.dump();if(metadata.size()>4*1024*1024||metadata.size()+8>MaxPayload-total)throw std::runtime_error("Game manifest/payload budget exceeded");
   std::string temporary,iconTemporary;FILE* output=nullptr;
+#ifdef _WIN32
+  std::unique_ptr<PrivateIconRuntime> privateIcon;
+#endif
   auto copy=[](FILE* source,FILE* target){std::vector<unsigned char> block(1024*1024);uint64_t copied=0;for(;;){size_t n=std::fread(block.data(),1,block.size(),source);if(n){copied+=n;if(copied>128*1024*1024)throw std::runtime_error("Runtime executable exceeds 128 MiB budget");if(std::fwrite(block.data(),1,n,target)!=n)throw std::runtime_error("Cannot copy runtime executable");}if(n<block.size()){if(std::ferror(source))throw std::runtime_error("Cannot read runtime executable");break;}}return copied;};
   try{
     std::unique_ptr<FILE,int(*)(FILE*)> source(AssetOpen(runtime,"rb"),std::fclose);if(!source)throw std::runtime_error("Cannot open runtime template");
@@ -183,7 +186,7 @@ inline void Write(const std::string& runtime,const std::string& destination,cons
     long sourceSize=std::ftell(source.get());if(sourceSize<0)throw std::runtime_error("Cannot inspect runtime size");
     if(sourceSize>=32){char footer[8];if(std::fseek(source.get(),sourceSize-32,SEEK_SET)||std::fread(footer,1,8,source.get())!=8)throw std::runtime_error("Cannot inspect runtime footer");if(!std::memcmp(footer,"LNXPCK01",8))throw std::runtime_error("Choose the editor executable as runtime template");}std::rewind(source.get());
 #ifdef _WIN32
-    if(!icon.empty()){std::unique_ptr<FILE,int(*)(FILE*)> staging(OpenTemporaryAsset(destination+".icon",iconTemporary),std::fclose);if(!staging)throw std::runtime_error("Cannot stage icon");copy(source.get(),staging.get());if(std::fclose(staging.release()))throw std::runtime_error("Cannot finish icon staging");ReplaceGameExeIcon(iconTemporary,icon);source.reset(AssetOpen(iconTemporary,"rb"));if(!source)throw std::runtime_error("Cannot open icon runtime");}
+    if(!icon.empty()){privateIcon.reset(new PrivateIconRuntime());iconTemporary=privateIcon->Path;std::unique_ptr<FILE,int(*)(FILE*)> staging(AssetOpen(iconTemporary,"wb"),std::fclose);if(!staging)throw std::runtime_error("Cannot stage icon");copy(source.get(),staging.get());if(std::fclose(staging.release()))throw std::runtime_error("Cannot finish icon staging");ReplaceGameExeIcon(iconTemporary,icon);source.reset(AssetOpen(iconTemporary,"rb"));if(!source)throw std::runtime_error("Cannot open icon runtime");}
 #else
     (void)icon;
 #endif

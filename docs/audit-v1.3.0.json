@@ -2,7 +2,7 @@
   {
     "id": "SEC-01",
     "status": "fixed",
-    "resolution": "Pinned directory handles and no-follow reads/atomic writes; Windows denies directory write/delete sharing, including junction mutation. Audio decodes bytes read through the same boundary.",
+    "resolution": "Pinned directory handles and no-follow reads/atomic writes; Windows opens components relative to pinned directory handles with OBJ_DONT_REPARSE, including after a junction mutation. Audio decodes bytes read through the same boundary.",
     "evidence": "tests/v13_regressions.h; tools/test_audit_security.py"
   },
   {

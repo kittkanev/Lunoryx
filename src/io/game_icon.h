@@ -11,6 +11,23 @@ static std::vector<unsigned char> ValidateGameIcon(std::vector<unsigned char> by
 }
 static std::vector<unsigned char> ReadGameIcon(const std::string& path) {return path.empty()?std::vector<unsigned char>():ValidateGameIcon(ReadAssetFile(path,4*1024*1024));}
 #ifdef _WIN32
+#include <sddl.h>
+// Resource update APIs require a pathname. Stage only in an owner-only
+// directory under the current user profile.
+struct PrivateIconRuntime {
+  std::string Path;std::wstring Directory;HANDLE Lock=INVALID_HANDLE_VALUE;
+  PrivateIconRuntime(){
+    wchar_t base[32768];DWORD n=GetTempPathW(32768,base);if(!n||n>=32768)throw std::runtime_error("Cannot find private icon staging directory");
+    PSECURITY_DESCRIPTOR descriptor=nullptr;if(!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(A;;FA;;;OW)(A;;FA;;;SY)(A;;FA;;;BA)",SDDL_REVISION_1,&descriptor,nullptr))throw std::runtime_error("Cannot protect icon staging directory");
+    SECURITY_ATTRIBUTES security={sizeof(SECURITY_ATTRIBUTES),descriptor,FALSE};std::random_device random;
+    for(int attempt=0;attempt<16;++attempt){Directory=std::wstring(base)+L"Lunoryx-icon-"+std::to_wstring(random())+L"-"+std::to_wstring(random());if(CreateDirectoryW(Directory.c_str(),&security))break;Directory.clear();}
+    LocalFree(descriptor);if(Directory.empty())throw std::runtime_error("Cannot create private icon staging directory");
+    Lock=CreateFileW(Directory.c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+    if(Lock==INVALID_HANDLE_VALUE){RemoveDirectoryW(Directory.c_str());throw std::runtime_error("Cannot pin private icon staging directory");}
+    auto wide=Directory+L"\\runtime.exe";int count=WideCharToMultiByte(CP_UTF8,0,wide.data(),int(wide.size()),nullptr,0,nullptr,nullptr);Path.resize(size_t(count));WideCharToMultiByte(CP_UTF8,0,wide.data(),int(wide.size()),&Path[0],count,nullptr,nullptr);
+  }
+  ~PrivateIconRuntime(){if(!Path.empty())DeleteFileW(WidePath(Path).c_str());if(Lock!=INVALID_HANDLE_VALUE)CloseHandle(Lock);if(!Directory.empty())RemoveDirectoryW(Directory.c_str());}
+};
 struct GameIconResource { WORD Type,Language;bool Integer;WORD Id;std::wstring Name; };
 static BOOL CALLBACK GameIconLanguage(HMODULE, LPCWSTR type,LPCWSTR name,WORD language,LONG_PTR data) {
   auto* list=reinterpret_cast<std::vector<GameIconResource>*>(data);GameIconResource r={WORD(reinterpret_cast<ULONG_PTR>(type)),language,IS_INTRESOURCE(name)!=0,0,L""};

@@ -9,7 +9,7 @@ RUST_BENCH_LIB = build/rust-windows-bench/x86_64-pc-windows-gnu/release/liblunor
 RUST_SOURCES = $(wildcard extensions/rust-kernels/src/*.rs) extensions/rust-kernels/Cargo.toml extensions/rust-kernels/Cargo.lock rust-toolchain.toml
 CPPFLAGS = $(if $(filter 1,$(TESTING)),-DLUNORYX_TESTING,) -I. -D_WIN32_WINNT=0x0601 -DSDL_MAIN_HANDLED -DNOMINMAX -I$(LUA_DIR) -I$(SDL_DIR)/include/SDL2 -I./third_party/imgui -I./third_party/imgui/backends -isystem ./third_party/include
 CXXFLAGS = -Wall -Wextra -Werror -O2 -std=c++17 -MMD -MP
-LDLIBS = build/deps/manifold-windows/src/libmanifold.a -L$(LUA_DIR) -llua $(SDL_DIR)/lib/libSDL2.a -lopengl32 -lm -ldinput8 -ldxguid -ldxerr8 -lcomdlg32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lsetupapi -lversion -luuid -lksuser -lavrt
+LDLIBS = build/deps/manifold-windows/src/libmanifold.a -L$(LUA_DIR) -llua $(SDL_DIR)/lib/libSDL2.a -lopengl32 -lm -ldinput8 -ldxguid -ldxerr8 -lcomdlg32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lsetupapi -lversion -luuid -lksuser -lavrt -ladvapi32
 LDFLAGS = -Wl,--dynamicbase,--nxcompat,--high-entropy-va -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lwinpthread -Wl,-Bdynamic
 
 IMGUI_SRC = extensions/text-editor/TextEditor.cpp extensions/ImGuizmo/ImGuizmo.cpp third_party/imgui/imgui.cpp third_party/imgui/imgui_demo.cpp third_party/imgui/imgui_draw.cpp third_party/imgui/imgui_tables.cpp third_party/imgui/imgui_widgets.cpp third_party/imgui/backends/imgui_impl_sdl2.cpp third_party/imgui/backends/imgui_impl_opengl3.cpp
@@ -60,7 +60,7 @@ $(BUILD_DIR)/obj/extensions/audio/audio_backend.o: extensions/audio/audio_backen
 	x86_64-w64-mingw32-gcc $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -Wno-unused-function -O2 -c $< -o $@
 
 $(BUILD_DIR)/studio_audio_tests.exe: tests/studio_audio_tests.c $(BUILD_DIR)/audio-testing.o
-	x86_64-w64-mingw32-gcc $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -O2 $^ -lwinmm -lole32 -luuid -lksuser -lavrt -static-libgcc -o $@
+	x86_64-w64-mingw32-gcc $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -O2 $^ -lwinmm -lole32 -luuid -lksuser -lavrt -ladvapi32 -static-libgcc -o $@
 tests: $(BUILD_DIR)/studio_audio_tests.exe
 
 $(BUILD_DIR)/obj/extensions/modeling/boolean_adapter.o: extensions/modeling/boolean_adapter.cpp extensions/modeling/boolean_adapter.h build/deps/manifold-windows/src/libmanifold.a
@@ -149,3 +149,8 @@ $(BUILD_DIR)/worker_process_tests.exe: tests/worker_process_tests.cpp src/script
 	mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LDFLAGS) -o $@
 tests: $(BUILD_DIR)/worker_process_tests.exe
+
+$(BUILD_DIR)/asset_io_tests.exe: tests/asset_io_tests.cpp src/io/asset_io.h src/io/secure_asset_io.h
+	mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LDFLAGS) -o $@
+tests: $(BUILD_DIR)/asset_io_tests.exe
