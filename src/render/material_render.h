@@ -93,6 +93,8 @@ static GLuint StudioTexture(const StudioMaterial &material) {
     value.Error = e.what();
     AppendConsole(value.Error + "\n");
   }
+  // Failed/missing images also occupy entries; bound those before caching.
+  while(g_TextureCache.size()>=256){auto oldest=std::min_element(g_TextureCache.begin(),g_TextureCache.end(),[](const std::pair<const std::string,CachedStudioTexture>& a,const std::pair<const std::string,CachedStudioTexture>& b){return a.second.LastUse<b.second.LastUse;});if(oldest->second.Id)glDeleteTextures(1,&oldest->second.Id);g_TextureCacheBytes-=oldest->second.Bytes;g_TextureCache.erase(oldest);++g_TextureGeneration;}
   material.CachedTexture = value.Id;
   material.TextureGeneration = g_TextureGeneration;
   value.LastUse=++g_TextureClock;g_TextureCacheBytes+=value.Bytes;
