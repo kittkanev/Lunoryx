@@ -27,7 +27,7 @@ for relative in native:
         raise SystemExit(f'Native library missing from Intel build: {relative}')
     subprocess.run(['lipo', '-create', str(arm/relative), str(intel/relative),
                     '-output', str(app/relative)], check=True)
-    subprocess.run(['lipo', '-verify_arch', 'arm64', 'x86_64', str(app/relative)], check=True)
+    subprocess.run(['lipo', str(app/relative), '-verify_arch', 'arm64', 'x86_64'], check=True)
     subprocess.run(['codesign', '--force', '--sign', '-', str(app/relative)], check=True)
 subprocess.run(['codesign', '--force', '--deep', '--sign', '-', str(app)], check=True)
 subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)

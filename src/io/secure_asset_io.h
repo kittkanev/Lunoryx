@@ -30,7 +30,7 @@ struct AssetDirectoryAnchor {
 #ifdef _WIN32
     if(path.size()<3||path[1]!=':'||path[2]!='/')throw std::runtime_error("Expected a local absolute directory");
     std::string current=path.substr(0,3);size_t at=3;
-    try{for(;;){HANDLE h=CreateFileW(WidePath(current).c_str(),FILE_READ_ATTRIBUTES|FILE_LIST_DIRECTORY,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);if(h==INVALID_HANDLE_VALUE)throw std::runtime_error("Cannot pin asset directory");BY_HANDLE_FILE_INFORMATION info={};if(!GetFileInformationByHandle(h,&info)||!(info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)||(info.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)){CloseHandle(h);throw std::runtime_error("Reparse directories are not permitted");}Handles.push_back(h);if(at>=path.size())break;size_t end=path.find('/',at);if(end==std::string::npos)end=path.size();if(current.back()!='/')current+='/';current+=path.substr(at,end-at);at=end+1;}}
+    try{for(;;){HANDLE h=CreateFileW(WidePath(current).c_str(),FILE_READ_ATTRIBUTES|FILE_LIST_DIRECTORY,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);if(h==INVALID_HANDLE_VALUE)throw std::runtime_error("Cannot pin asset directory (Windows error "+std::to_string(GetLastError())+")");BY_HANDLE_FILE_INFORMATION info={};if(!GetFileInformationByHandle(h,&info)||!(info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)||(info.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)){CloseHandle(h);throw std::runtime_error("Reparse directories are not permitted");}Handles.push_back(h);if(at>=path.size())break;size_t end=path.find('/',at);if(end==std::string::npos)end=path.size();if(current.back()!='/')current+='/';current+=path.substr(at,end-at);at=end+1;}}
     catch(...){for(auto h:Handles)CloseHandle(h);
       Handles.clear();throw;}
 #else
@@ -143,9 +143,9 @@ inline bool SecureRemoveAsset(const std::string& path){
 inline bool SecureReplaceAsset(const std::string& from,const std::string& to){
   std::lock_guard<std::recursive_mutex> lock(AssetPolicyMutex());auto& values=TemporaryAssetOperations();auto it=values.find(from);if(it==values.end())return false;auto& operation=it->second;if(AbsoluteAssetPath(to)!=operation.Destination)throw std::runtime_error("Temporary output destination changed");
 #ifdef _WIN32
-  if(!MoveFileExW(WidePath(operation.Parent->Full(operation.Temporary)).c_str(),WidePath(operation.Parent->Full(operation.Parent->Name)).c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Cannot atomically replace output");
+  if(!MoveFileExW(WidePath(operation.Parent->Full(operation.Temporary)).c_str(),WidePath(operation.Parent->Full(operation.Parent->Name)).c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Cannot atomically replace output (Windows error "+std::to_string(GetLastError())+")");
 #else
-  if(renameat(operation.Parent->Descriptor,operation.Temporary.c_str(),operation.Parent->Descriptor,operation.Parent->Name.c_str()))throw std::runtime_error("Cannot atomically replace output");
+  if(renameat(operation.Parent->Descriptor,operation.Temporary.c_str(),operation.Parent->Descriptor,operation.Parent->Name.c_str()))throw std::runtime_error("Cannot atomically replace output (Windows error "+std::to_string(GetLastError())+")");
 #endif
   values.erase(it);return true;
 }

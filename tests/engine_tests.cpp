@@ -87,7 +87,7 @@ int main() {
     }
     g_Objects.emplace_back("hidden");
     g_Objects.back().Visible = false;
-    assert(ExportGLB("tests/test-scene.glb"));
+    if(!ExportGLB("tests/test-scene.glb")){std::cerr<<g_ConsoleOutput;std::abort();}
     assert(ExportGLB("tests/test-scene.glb")); // writable overwrite on every supported CRT
     std::ifstream file("tests/test-scene.glb", std::ios::binary);
     char magic[4] = {}; file.read(magic, 4);
