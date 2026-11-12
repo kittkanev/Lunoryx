@@ -271,14 +271,14 @@ static bool LoadStudioProject(const std::string& path) {
         if(root.contains("sounds")){
             const auto& savedSounds=root.at("sounds");if(!savedSounds.is_array()||savedSounds.size()>64)throw std::runtime_error("Invalid sound count");
             for(const auto& j:savedSounds){StudioSound sound(false);if(j.contains("data"))sound.Data=ReadBinary(j.at("data"));if(sound.Data.size()>16*1024*1024)throw std::runtime_error("Embedded audio exceeds budget");sound.Name=j.at("name").get<std::string>();sound.Path=j.at("path").get<std::string>();
-                if(sound.Name.size()>255||sound.Path.size()>511||sound.Name.find('\0')!=std::string::npos||sound.Path.find('\0')!=std::string::npos)throw std::runtime_error("Invalid audio path or name");
+                if(sound.Name.size()>255||sound.Path.size()>511||HasEmbeddedNullOrControl(sound.Name)||HasEmbeddedNullOrControl(sound.Path))throw std::runtime_error("Invalid audio path or name");
                 ReadVector(j.at("position"),sound.Position);sound.Volume=ReadRange(j.at("volume"),0,2);sound.Pitch=ReadRange(j.at("pitch"),.1f,4);sound.Loop=j.at("loop").get<bool>();sound.Spatial=j.at("spatial").get<bool>();sound.Autoplay=j.at("autoplay").get<bool>();sound.Path=ProjectAssetPath(sound.Path,path);sounds.push_back(sound);}
         }
         StudioGameSettings game;
         if(root.contains("game"))game=ReadGameSettings(root["game"],path);
         // Commit only after the complete document has passed validation. Never execute loaded scripts.
         StopManagedScripts();
-        for(const auto& sound:g_Sounds){studio_audio_unload(sound.Id);}
+        UnloadAllStudioSounds();ClearStudioTextures();g_PlaySoundSnapshot.clear();g_PlayGame=StudioGameSettings();
         for(const auto& o:objects)ReserveObjectId(o.Id);
         for(auto& sound:sounds)sound.Id=NewObjectId();
         g_Sounds.swap(sounds);g_SelectedSound=-1;

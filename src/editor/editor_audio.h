@@ -1,6 +1,6 @@
 #pragma once
 static bool ImportStudioSound(const std::string &path) {
-  if (path.empty() || path.size() > 511 || g_Sounds.size() >= 64)
+  if (path.empty() || path.size() > 511 || HasEmbeddedNullOrControl(path) || g_Sounds.size() >= 64)
     return false;
   StudioSound sound;
   sound.Path = AbsoluteAssetPath(path);
@@ -48,7 +48,7 @@ static void RenderStudioAudio() {
         sound.Name = name;
       ImGui::TextWrapped("%s", sound.Path.c_str());
       if(sound.Data.empty()&&!AssetExists(sound.Path))ImGui::TextColored(ImVec4(1,.5f,.3f,1),"Missing resource: select a replacement below");
-      if(ImGui::Button("Replace with path above")&&path[0]&&AssetExists(path)){studio_audio_unload(sound.Id);sound.Data.clear();sound.Path=AbsoluteAssetPath(path);}
+      if(ImGui::Button("Replace with path above")&&path[0]&&AssetExists(path)){studio_audio_stop(sound.Id);studio_audio_unload(sound.Id);sound.Data.clear();sound.Path=AbsoluteAssetPath(path);}
 
       ImGui::SliderFloat("Volume", &sound.Volume, 0, 2);
       ImGui::SliderFloat("Pitch / speed", &sound.Pitch, .1f, 4);
@@ -66,6 +66,7 @@ static void RenderStudioAudio() {
         studio_audio_stop(sound.Id);
       ImGui::SameLine();
       if (ImGui::Button("Remove")) {
+        studio_audio_stop(sound.Id);
         studio_audio_unload(sound.Id);
         g_Sounds.erase(g_Sounds.begin() + g_SelectedSound);
         g_SelectedSound = -1;
@@ -77,14 +78,18 @@ static void RenderStudioAudio() {
   ImGui::End();
 }
 static int l_add_sound(lua_State *L) {
-  const char *path = luaL_checkstring(L, 1);
-  const char *name = luaL_optstring(L, 2, "Sound");
-  if (std::strlen(path) > 511 || std::strlen(name) > 255 ||
+  size_t pathLength=0,nameLength=0;
+  const char *path = luaL_checklstring(L, 1, &pathLength);
+  const char *name = luaL_optlstring(L, 2, "Sound", &nameLength);
+  if (pathLength > 511 || nameLength > 255 ||
       g_Sounds.size() >= 64)
     return luaL_error(L, "Invalid sound path, name or sound limit");
+  std::string fullPath(path,pathLength),fullName(name,nameLength);
+  if(HasEmbeddedNullOrControl(fullPath)||HasEmbeddedNullOrControl(fullName))
+    throw std::runtime_error("Sound path and name must not contain NUL or control characters");
   StudioSound sound;
-  sound.Path = ScriptAssetPath(path);
-  sound.Name = name;
+  sound.Path = ScriptAssetPath(fullPath);
+  sound.Name = fullName;
   g_Sounds.push_back(sound);
   lua_pushinteger(L, lua_Integer(g_Sounds.size() - 1));
   return 1;

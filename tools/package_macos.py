@@ -4,15 +4,16 @@ import hashlib
 import json
 import platform
 import plistlib
-import re
 import shutil
 import subprocess
 from pathlib import Path
+from macos_bundle_checks import is_macho, read_version, validate_dependencies
 
 p = argparse.ArgumentParser()
 p.add_argument('--output', default='build/macos/Lunoryx.app')
 p.add_argument('--runtime', required=True)
 args = p.parse_args()
+version = read_version(Path('engine_version.h').read_text())
 app = Path(args.output)
 if app.exists():
     raise SystemExit(f'Refusing to overwrite {app}')
@@ -21,7 +22,6 @@ contents = app / 'Contents'
 resources = contents / 'Resources'
 resources.mkdir()
 shutil.copy2('engine', contents / 'MacOS/Lunoryx')
-version = re.search(r'LUNORYX_VERSION "([^"]+)"', Path('engine_version.h').read_text())[1]
 info = dict(CFBundleIdentifier='org.lunoryx.studio', CFBundleName='Lunoryx',
             CFBundleDisplayName='Lunoryx Studio', CFBundleExecutable='Lunoryx',
             CFBundlePackageType='APPL', CFBundleShortVersionString=version,
@@ -39,15 +39,20 @@ shutil.copy2('assets/lunoryx-logo.png', resources/'assets/lunoryx-logo.png')
 for name in ['LICENSE', 'NOTICE', 'README.md', 'README.ru.md']:
     shutil.copy2(name, resources / name)
 iconset = Path('build/Lunoryx.iconset')
-iconset.mkdir(exist_ok=True)
-for size in (16, 32, 128, 256, 512):
-    for scale in (1, 2):
-        suffix = '@2x' if scale == 2 else ''
-        subprocess.run(['sips', '-z', str(size*scale), str(size*scale),
-                        'assets/lunoryx-logo.png', '--out',
-                        str(iconset / f'icon_{size}x{size}{suffix}.png')], check=True,
-                       stdout=subprocess.DEVNULL)
-subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(resources/'Lunoryx.icns')], check=True)
+if iconset.is_symlink():iconset.unlink()
+elif iconset.exists():shutil.rmtree(iconset)
+iconset.mkdir()
+try:
+    for size in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            suffix = '@2x' if scale == 2 else ''
+            subprocess.run(['sips', '-z', str(size*scale), str(size*scale),
+                            'assets/lunoryx-logo.png', '--out',
+                            str(iconset / f'icon_{size}x{size}{suffix}.png')], check=True,
+                           stdout=subprocess.DEVNULL)
+    subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(resources/'Lunoryx.icns')], check=True)
+finally:
+    shutil.rmtree(iconset)
 subprocess.run(['dylibbundler', '-od', '-b', '-x', str(contents/'MacOS/Lunoryx'),
                 '-d', str(contents/'Frameworks'), '-p', '@executable_path/../Frameworks/'], check=True)
 # Homebrew now supplies SDL2 through sdl2-compat, which dlopens SDL3.
@@ -62,10 +67,16 @@ try:
         subprocess.run(['install_name_tool','-id','@loader_path/libSDL3.dylib',str(target)],check=True)
 except subprocess.CalledProcessError:
     raise SystemExit('Cannot bundle the SDL3 dependency required by sdl2-compat')
-for native in [contents/'MacOS/Lunoryx',*(contents/'Frameworks').glob('*.dylib')]:
+main_commands=subprocess.check_output(['otool','-l',str(contents/'MacOS/Lunoryx')],text=True)
+worker=resources/'CSharp'/arch/'Luaryx.Worker'
+worker_commands=subprocess.check_output(['otool','-l',str(worker)],text=True)
+for native in (f for f in app.rglob('*') if f.is_file() and is_macho(f)):
     dependencies=subprocess.check_output(['otool','-L',str(native)],text=True)
-    if any(line.lstrip().startswith(('/opt/homebrew/','/usr/local/')) for line in dependencies.splitlines()[1:]):
-        raise SystemExit(f'Unbundled Homebrew dependency: {native}\n{dependencies}')
+    commands=subprocess.check_output(['otool','-l',str(native)],text=True)
+    managed=native.is_relative_to(resources/'CSharp')
+    validate_dependencies(native,app,dependencies,commands,
+                          worker_commands if managed else main_commands,
+                          worker if managed else contents/'MacOS/Lunoryx')
 # Sign inner native libraries first, then the enclosing bundle. No publisher
 # certificate is implied: this is an explicit ad-hoc signature for local use.
 for library in sorted((contents/'Frameworks').glob('*.dylib')):

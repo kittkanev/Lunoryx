@@ -12,6 +12,10 @@ void studio_audio_play(uint64_t id);void studio_audio_stop(uint64_t id);
 void studio_audio_configure(uint64_t id,float volume,float pitch,int loop,int spatial,const float position[3]);
 void studio_audio_listener(const float position[3],float volume);
 void studio_audio_unload(uint64_t id);void studio_audio_stop_all(void);void studio_audio_shutdown(void);
+void studio_audio_unload_all(void);
+#ifdef LUNORYX_TESTING
+size_t studio_audio_loaded_count(void);
+#endif
 #ifdef __cplusplus
 }
 #endif

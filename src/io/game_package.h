@@ -7,6 +7,21 @@
 #include "src/io/game_icon.h"
 namespace GamePackage {
 static const size_t MaxPayload = 1024ull * 1024 * 1024;
+inline int SeekFile64(FILE* file,int64_t offset,int origin) {
+#ifdef _WIN32
+  return _fseeki64(file,offset,origin);
+#else
+  static_assert(sizeof(off_t)>=sizeof(int64_t),"64-bit file offsets are required");
+  return fseeko(file,static_cast<off_t>(offset),origin);
+#endif
+}
+inline int64_t TellFile64(FILE* file) {
+#ifdef _WIN32
+  return _ftelli64(file);
+#else
+  return static_cast<int64_t>(ftello(file));
+#endif
+}
 inline void CheckResourceName(const std::string &name) {
   if (name.empty() || name == "." || name.size() > 511 ||
       name.find('\0') != std::string::npos || AbsolutePath(name) ||
@@ -93,11 +108,12 @@ struct StreamChecksum {
 inline bool Read(const std::string &executable,
                  std::map<std::string, std::vector<unsigned char>> &assets) {
   std::unique_ptr<FILE,int(*)(FILE*)> file(AssetOpen(executable,"rb"),std::fclose);
-  if(!file||std::fseek(file.get(),0,SEEK_END))throw std::runtime_error("Cannot open executable");
-  long fileSize=std::ftell(file.get());if(fileSize<64)return false;
+  if(!file||SeekFile64(file.get(),0,SEEK_END))throw std::runtime_error("Cannot open executable");
+  int64_t measured=TellFile64(file.get());if(measured<0)throw std::runtime_error("Cannot inspect executable size");
+  uint64_t fileSize=uint64_t(measured);if(fileSize<64)return false;
   FILE* input=file.get();
-  auto readAt=[input,fileSize](size_t at,size_t count){std::vector<unsigned char> out(count);if(at>size_t(fileSize)||count>size_t(fileSize)-at||std::fseek(input,long(at),SEEK_SET)||std::fread(out.data(),1,count,input)!=count)throw std::runtime_error("Truncated executable");return out;};
-  size_t packageEnd=size_t(fileSize);
+  auto readAt=[input,fileSize](uint64_t at,size_t count){if(at>fileSize||uint64_t(count)>fileSize-at||SeekFile64(input,int64_t(at),SEEK_SET))throw std::runtime_error("Truncated executable");std::vector<unsigned char> out(count);if(std::fread(out.data(),1,count,input)!=count)throw std::runtime_error("Truncated executable");return out;};
+  uint64_t packageEnd=fileSize;
   auto dos=readAt(0,64);
   if(dos[0]=='M'&&dos[1]=='Z'){
     size_t pe=size_t(NumberAt(dos,60,4));
@@ -113,11 +129,11 @@ inline bool Read(const std::string &executable,
   std::vector<unsigned char> footerBytes;
   for(size_t padding=0;padding<8&&packageEnd>=32+padding;++padding){auto candidate=readAt(packageEnd-32-padding,32+padding);bool zeros=true;for(size_t i=32;i<candidate.size();++i)zeros=zeros&&candidate[i]==0;if(zeros&&!std::memcmp(candidate.data(),"LNXPCK01",8)){packageEnd-=padding;candidate.resize(32);footerBytes=std::move(candidate);break;}}
   if(footerBytes.empty())return false;
-  size_t footer=packageEnd-32;
+  uint64_t footer=packageEnd-32;
   uint64_t offset=NumberAt(footerBytes,8,8),length=NumberAt(footerBytes,16,8);
   uint32_t checksum=uint32_t(NumberAt(footerBytes,24,4));
   if(NumberAt(footerBytes,28,4)!=1||length<8||length>MaxPayload||offset>footer||length!=footer-offset)throw std::runtime_error("Unsupported or truncated game package");
-  const size_t payloadOffset=size_t(offset);
+  const uint64_t payloadOffset=offset;
   StreamChecksum crc;
   for(size_t at=0;at<size_t(length);){size_t count=std::min(size_t(1024*1024),size_t(length)-at);auto block=readAt(payloadOffset+at,count);crc.Add(block.data(),block.size());at+=count;}
   if(crc.Value()!=checksum)throw std::runtime_error("Game package checksum mismatch");
@@ -128,7 +144,8 @@ inline bool Read(const std::string &executable,
   auto manifest=nlohmann::json::parse(manifestBytes);
   if (!manifest.is_array() || manifest.size() > 4096)
     throw std::runtime_error("Invalid game manifest");
-  size_t base=payloadOffset+8+size_t(manifestSize), available=size_t(length)-8-size_t(manifestSize);
+  uint64_t base=payloadOffset+8+manifestSize;
+  size_t available=size_t(length)-8-size_t(manifestSize);
   std::map<std::string, std::vector<unsigned char>> parsed;
   struct Resource {
     std::string Key;
@@ -182,9 +199,11 @@ inline void Write(const std::string& runtime,const std::string& destination,cons
   auto copy=[](FILE* source,FILE* target){std::vector<unsigned char> block(1024*1024);uint64_t copied=0;for(;;){size_t n=std::fread(block.data(),1,block.size(),source);if(n){copied+=n;if(copied>128*1024*1024)throw std::runtime_error("Runtime executable exceeds 128 MiB budget");if(std::fwrite(block.data(),1,n,target)!=n)throw std::runtime_error("Cannot copy runtime executable");}if(n<block.size()){if(std::ferror(source))throw std::runtime_error("Cannot read runtime executable");break;}}return copied;};
   try{
     std::unique_ptr<FILE,int(*)(FILE*)> source(AssetOpen(runtime,"rb"),std::fclose);if(!source)throw std::runtime_error("Cannot open runtime template");
-    if(std::fseek(source.get(),0,SEEK_END))throw std::runtime_error("Cannot inspect runtime");
-    long sourceSize=std::ftell(source.get());if(sourceSize<0)throw std::runtime_error("Cannot inspect runtime size");
-    if(sourceSize>=32){char footer[8];if(std::fseek(source.get(),sourceSize-32,SEEK_SET)||std::fread(footer,1,8,source.get())!=8)throw std::runtime_error("Cannot inspect runtime footer");if(!std::memcmp(footer,"LNXPCK01",8))throw std::runtime_error("Choose the editor executable as runtime template");}std::rewind(source.get());
+    if(SeekFile64(source.get(),0,SEEK_END))throw std::runtime_error("Cannot inspect runtime");
+    int64_t sourceSize=TellFile64(source.get());if(sourceSize<0)throw std::runtime_error("Cannot inspect runtime size");
+    if(sourceSize>128*1024*1024)throw std::runtime_error("Runtime executable exceeds 128 MiB budget");
+    if(sourceSize>=32){char footer[8];if(SeekFile64(source.get(),sourceSize-32,SEEK_SET)||std::fread(footer,1,8,source.get())!=8)throw std::runtime_error("Cannot inspect runtime footer");if(!std::memcmp(footer,"LNXPCK01",8))throw std::runtime_error("Choose the editor executable as runtime template");}
+    if(SeekFile64(source.get(),0,SEEK_SET))throw std::runtime_error("Cannot rewind runtime");
 #ifdef _WIN32
     if(!icon.empty()){privateIcon.reset(new PrivateIconRuntime());iconTemporary=privateIcon->Path;std::unique_ptr<FILE,int(*)(FILE*)> staging(AssetOpen(iconTemporary,"wb"),std::fclose);if(!staging)throw std::runtime_error("Cannot stage icon");copy(source.get(),staging.get());if(std::fclose(staging.release()))throw std::runtime_error("Cannot finish icon staging");ReplaceGameExeIcon(iconTemporary,icon);source.reset(AssetOpen(iconTemporary,"rb"));if(!source)throw std::runtime_error("Cannot open icon runtime");}
 #else

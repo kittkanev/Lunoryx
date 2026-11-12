@@ -30,12 +30,8 @@ inline uint64_t StudioDocumentHash() {
     bytes(&s.Spatial, sizeof(s.Spatial));
     bytes(&s.Autoplay, sizeof(s.Autoplay));
   }
-  bytes(&g_Game.StartupScript, sizeof(int));
-  bytes(&g_Game.CameraTarget, sizeof(uint64_t));
-  bytes(&g_Game.CameraDistance, sizeof(float));
-  bytes(&g_Game.CameraPitch, sizeof(float));
-  bytes(&g_Game.CameraYaw, sizeof(float));
-  bytes(g_Game.Title.data(), g_Game.Title.size());
+  // GameSettingsFingerprint above owns the canonical game representation.
+  // Hashing its raw floats again would reintroduce signed-zero differences.
   bytes(g_SkyTop, sizeof(g_SkyTop));
   bytes(g_SkyBottom, sizeof(g_SkyBottom));
   bytes(&g_SkyPreset, sizeof(g_SkyPreset));

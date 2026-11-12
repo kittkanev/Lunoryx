@@ -26,13 +26,14 @@ static std::string g_GuiPressed;
 inline uint64_t GameSettingsFingerprint(const StudioGameSettings& game) {
   uint64_t h=1469598103934665603ULL;
   auto bytes=[&](const void* ptr,size_t n){auto p=static_cast<const unsigned char*>(ptr);while(n--)h=(h^*p++)*1099511628211ULL;};
-  auto text=[&](const std::string& s){bytes(s.data(),s.size());size_t n=s.size();bytes(&n,sizeof(n));};
+  auto text=[&](const std::string& s){bytes(s.data(),s.size());uint64_t n=s.size();bytes(&n,sizeof(n));};
+  auto number=[&](float v){if(v==0.f||!std::isfinite(v))v=0.f;bytes(&v,sizeof(v));};
   if(!game.IconData.empty())bytes(game.IconData.data(),game.IconData.size());
   bytes(&game.StartupScript,sizeof(game.StartupScript));bytes(&game.CameraTarget,sizeof(game.CameraTarget));
-  bytes(&game.CameraDistance,sizeof(float));bytes(&game.CameraPitch,sizeof(float));bytes(&game.CameraYaw,sizeof(float));
+  number(game.CameraDistance);number(game.CameraPitch);number(game.CameraYaw);
   text(game.Title);text(game.IconPath);bytes(&game.Width,sizeof(int));bytes(&game.Height,sizeof(int));bytes(&game.WindowMode,sizeof(int));
   bytes(&game.Resizable,sizeof(bool));bytes(&game.VSync,sizeof(bool));bytes(&game.DefaultHUD,sizeof(bool));
-  for(const auto& w:game.Widgets){text(w.Id);text(w.Text);bytes(&w.Type,sizeof(int));bytes(&w.X,sizeof(float));bytes(&w.Y,sizeof(float));bytes(&w.Width,sizeof(float));bytes(&w.Height,sizeof(float));bytes(&w.Value,sizeof(float));bytes(w.Color,sizeof(w.Color));bytes(w.TextColor,sizeof(w.TextColor));bytes(&w.Visible,sizeof(bool));}
+  for(const auto& w:game.Widgets){text(w.Id);text(w.Text);bytes(&w.Type,sizeof(int));number(w.X);number(w.Y);number(w.Width);number(w.Height);number(w.Value);for(float v:w.Color)number(v);for(float v:w.TextColor)number(v);bytes(&w.Visible,sizeof(bool));}
   return h;
 }
 

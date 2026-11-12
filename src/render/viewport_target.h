@@ -3,6 +3,11 @@
 #include <cmath>
 // OpenGL 2.1 + EXT_framebuffer_object, with core-entry-point fallbacks.
 struct ViewportTarget {
+  ViewportTarget() = default;
+  ViewportTarget(const ViewportTarget &) = delete;
+  ViewportTarget &operator=(const ViewportTarget &) = delete;
+  // Owners must release GL resources before destroying their GL context.
+  ~ViewportTarget() { Destroy(); }
   // Color is always the stable display texture referenced by ImGui draw lists.
   GLuint Framebuffer = 0, Color = 0, Depth = 0;
   GLuint SceneColor = 0, PresentFramebuffer = 0;
@@ -33,6 +38,8 @@ struct ViewportTarget {
     return reinterpret_cast<Function>(pointer);
   }
   bool Initialize() {
+    if (Framebuffer)
+      return true;
     GenFramebuffer = Load<GenFn>("glGenFramebuffers", "glGenFramebuffersEXT");
     GenRenderbuffer =
         Load<GenFn>("glGenRenderbuffers", "glGenRenderbuffersEXT");
@@ -58,7 +65,10 @@ struct ViewportTarget {
     GenFramebuffer(1, &Framebuffer);
     GenRenderbuffer(1, &Depth);
     glGenTextures(1, &Color);
-    return Resize(1, 1);
+    if (Resize(1, 1))
+      return true;
+    Destroy();
+    return false;
   }
   void ConfigurePostProcess(int quality, float exposure = 1,
                             bool forceOffscreen = false,bool hdr=false) {
@@ -69,8 +79,10 @@ struct ViewportTarget {
         std::isfinite(exposure) ? std::max(.25f, std::min(exposure, 4.f)) : 1.f;
     if (PostQuality > 0)
       Post.Initialize();
-    else if (Post.Program)
+    else {
       Post.Destroy();
+      ReleasePostAttachments();
+    }
   }
   bool PostProcessEnabled() const {
     return PostQuality > 0 && Post.Program != 0;
@@ -88,6 +100,32 @@ struct ViewportTarget {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, hdr?GL_RGBA16F:GL_RGBA, width, height, 0, GL_RGBA,
                  hdr?GL_FLOAT:GL_UNSIGNED_BYTE, nullptr);
+  }
+  void ReleasePostAttachments() {
+    if (!SceneColor && !PresentFramebuffer) {
+      AttachedPost = HdrActive = false;
+      return;
+    }
+    GLint texture = 0, framebuffer = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &framebuffer);
+    if (Framebuffer) {
+      BindFramebuffer(GL_FRAMEBUFFER, Framebuffer);
+      AttachTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Color, 0);
+    }
+    if (PresentFramebuffer) {
+      if (GLuint(framebuffer) == PresentFramebuffer) framebuffer = 0;
+      DeleteFramebuffer(1, &PresentFramebuffer);
+      PresentFramebuffer = 0;
+    }
+    if (SceneColor) {
+      if (GLuint(texture) == SceneColor) texture = 0;
+      glDeleteTextures(1, &SceneColor);
+      SceneColor = 0;
+    }
+    AttachedPost = HdrActive = false;
+    BindFramebuffer(GL_FRAMEBUFFER, GLuint(framebuffer));
+    glBindTexture(GL_TEXTURE_2D, GLuint(texture));
   }
   bool Resize(int width, int height) {
     bool post = PostProcessEnabled();
@@ -144,19 +182,9 @@ struct ViewportTarget {
       valid = Check(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
     }
     if (!post) {
-      HdrActive=false;
-      if (PresentFramebuffer) {
-        if (GLuint(oldFramebuffer) == PresentFramebuffer)
-          oldFramebuffer = 0;
-        DeleteFramebuffer(1, &PresentFramebuffer);
-        PresentFramebuffer = 0;
-      }
-      if (SceneColor) {
-        if (GLuint(oldTexture) == SceneColor)
-          oldTexture = 0;
-        glDeleteTextures(1, &SceneColor);
-        SceneColor = 0;
-      }
+      if (GLuint(oldFramebuffer) == PresentFramebuffer) oldFramebuffer = 0;
+      if (GLuint(oldTexture) == SceneColor) oldTexture = 0;
+      ReleasePostAttachments();
     }
     BindFramebuffer(GL_FRAMEBUFFER, GLuint(oldFramebuffer));
     BindRenderbuffer(GL_RENDERBUFFER, GLuint(oldRenderbuffer));
@@ -197,6 +225,7 @@ struct ViewportTarget {
       glDeleteTextures(1, &Color);
     Framebuffer = Color = Depth = SceneColor = PresentFramebuffer = 0;
     Width = Height = 0;
+    PostQuality = 0;PostExposure = 1;
     AttachedPost = ForceOffscreen = HdrRequested=AttachedHDR=HdrActive=false;
   }
 };

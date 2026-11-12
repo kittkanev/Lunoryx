@@ -12,6 +12,11 @@ static std::vector<StudioSound> g_Sounds;
 static std::vector<StudioSound> g_PlaySoundSnapshot;
 static int g_SelectedSound = -1;
 static bool g_ShowAudio = false;
+static void UnloadAllStudioSounds() {
+  studio_audio_stop_all();
+  // Enumerate backend voices as well: scripts may have removed their entries.
+  studio_audio_unload_all();
+}
 static void ConfigureStudioSound(const StudioSound &s) {
   studio_audio_configure(s.Id, s.Volume, s.Pitch, s.Loop, s.Spatial,
                          s.Position);

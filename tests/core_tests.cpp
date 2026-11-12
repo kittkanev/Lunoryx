@@ -4,6 +4,18 @@
 #include <iostream>
 
 int main() {
+    {
+        GameObject object("Finite bounds");object.Vertices={0,0,0,1,1,1,2,2,2};
+        Bounds bounds;assert(WorldBounds(object,bounds));
+        object.Scale[0]=-1;assert(WorldBounds(object,bounds));
+        for(size_t index=0;index<object.Vertices.size();++index){
+            for(float value:{std::numeric_limits<float>::quiet_NaN(),std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()}){
+                float saved=object.Vertices[index];object.Vertices[index]=value;
+                Vec3 lo,hi;LocalBounds(object,lo,hi);assert(!FiniteVec(lo)&&!FiniteVec(hi));
+                assert(!WorldBounds(object,bounds));object.Vertices[index]=saved;
+            }
+        }
+    }
     {GameObject source("Matrix");source.Position[0]=5;source.Position[1]=2;source.Rotation[0]=25;source.Rotation[1]=63;source.Rotation[2]=-41;source.Scale[0]=2;source.Scale[1]=3;source.Scale[2]=.75f;StudioMatrix matrix=StudioObjectMatrix(source);GameObject restored("Restored");assert(StudioApplyMatrix(restored,matrix));StudioMatrix same=StudioObjectMatrix(restored);for(int i=0;i<16;i++)assert(std::abs(matrix.M[i]-same.M[i])<.0001f);StudioMatrix unit=StudioMultiply(matrix,StudioInverse(matrix));for(int i=0;i<16;i++)assert(std::abs(unit.M[i]-(i%5==0?1:0))<.0001f);auto grid=StudioPlanGrid(10000,123456,-34567);assert(grid.CenterX>120000&&grid.CenterZ<-30000&&grid.Extent>10000);StudioObjectHistory history;std::vector<GameObject> objects={source};history.Capture(objects);objects[0].Position[0]=99;history.Capture(objects);assert(history.Undo(objects)&&objects[0].Position[0]==5);assert(history.Redo(objects)&&objects[0].Position[0]==99);}
 
     assert(ParseTestTimeoutMs(nullptr) == 0);

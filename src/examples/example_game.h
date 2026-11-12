@@ -30,8 +30,7 @@ static void CreateSampleGame() {
   StopAnimationPreview();
   if (g_PhysicsRunning)
     StopSimulation();
-  for (const auto &sound : g_Sounds)
-    studio_audio_unload(sound.Id);
+  UnloadAllStudioSounds();ClearStudioTextures();
   g_Objects.clear();
   g_Sounds.clear();
   g_Game = StudioGameSettings();

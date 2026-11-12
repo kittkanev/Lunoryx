@@ -150,6 +150,29 @@ int main(int argc, char **argv) {
     target.ConfigurePostProcess(0);
   }
   target.Post.Destroy();
+  // Repeat resource lifecycle operations against a real GL context. Deleted
+  // IDs must cease to exist immediately, including when Resize is not called.
+  for(int iteration=0;iteration<100;++iteration){
+    assert(target.Resize(48+iteration%7,48+iteration%11));
+    assert(target.Color==stable&&glIsTexture(stable));
+  }
+  using IsFn=GLboolean(APIENTRY*)(GLuint);
+  auto isFramebuffer=ViewportTarget::Load<IsFn>("glIsFramebuffer","glIsFramebufferEXT");
+  auto isRenderbuffer=ViewportTarget::Load<IsFn>("glIsRenderbuffer","glIsRenderbufferEXT");
+  assert(isFramebuffer&&isRenderbuffer);
+  for(int iteration=0;iteration<50;++iteration){
+    target.ConfigurePostProcess(1,1,false,iteration%2==0);assert(target.Resize(64,64));
+    GLuint scene=target.SceneColor,present=target.PresentFramebuffer;
+    assert(scene&&present&&glIsTexture(scene)&&isFramebuffer(present));
+    target.ConfigurePostProcess(0);
+    assert(!target.SceneColor&&!target.PresentFramebuffer&&!glIsTexture(scene)&&!isFramebuffer(present));
+  }
+  GLuint scopedColor=0,scopedDepth=0,scopedFramebuffer=0;
+  {
+    ViewportTarget scoped;assert(scoped.Initialize());assert(scoped.Resize(32,32));
+    scopedColor=scoped.Color;scopedDepth=scoped.Depth;scopedFramebuffer=scoped.Framebuffer;
+  }
+  assert(!glIsTexture(scopedColor)&&!isRenderbuffer(scopedDepth)&&!isFramebuffer(scopedFramebuffer));
   assert(glGetError() == GL_NO_ERROR);
   if (argc > 1 && std::strcmp(argv[1], "--bench") == 0) {
     std::cout << "postprocess_mode,width,height,median_frame_ms\n";

@@ -31,19 +31,18 @@ static void StartSimulation() {
 }
 static void StopSimulation() {
   StopManagedScripts();
+  UnloadAllStudioSounds();
   if (g_PhysicsRunning) {
-    for (const auto &sound : g_Sounds)
-      studio_audio_unload(sound.Id);
-    g_Objects = g_PlaySnapshot;
-    g_Sounds = g_PlaySoundSnapshot;
+    g_Objects = std::move(g_PlaySnapshot);
+    g_Sounds = std::move(g_PlaySoundSnapshot);
     std::copy(g_PlayTop, g_PlayTop + 3, g_SkyTop);
     std::copy(g_PlayBottom, g_PlayBottom + 3, g_SkyBottom);
     g_SkyPreset = g_PlaySky;
     g_Physics = g_PlayPhysics;
-    g_Game = g_PlayGame;
+    g_Game = std::move(g_PlayGame);
   }
+  g_PlaySnapshot.clear();g_PlaySoundSnapshot.clear();g_PlayGame=StudioGameSettings();
   ResetAnimationPlayers();g_ActorSpawns.clear();g_TriggerOverlaps.clear();g_TriggerEvents.clear();g_GuiClicks.clear();g_GuiPressed.clear();g_DebugPaused=g_DebugStep=false;
-  studio_audio_stop_all();
   g_PhysicsRunning = false;
   g_SimulationRunning = false;
   g_Physics.Accumulator = 0;

@@ -23,6 +23,13 @@ static std::map<std::string, CachedStudioTexture> g_TextureCache;
 static uint32_t g_TextureGeneration = 1;
 static size_t g_TextureCacheBytes=0;static uint64_t g_TextureClock=0;
 static const size_t kTextureBudget=128*1024*1024;
+static void EvictOldestStudioTexture() {
+  auto oldest=std::min_element(g_TextureCache.begin(),g_TextureCache.end(),[](const std::pair<const std::string,CachedStudioTexture>& a,const std::pair<const std::string,CachedStudioTexture>& b){return a.second.LastUse<b.second.LastUse;});
+  if(oldest==g_TextureCache.end())return;
+  if(oldest->second.Id)glDeleteTextures(1,&oldest->second.Id);
+  g_TextureCacheBytes-=std::min(g_TextureCacheBytes,oldest->second.Bytes);
+  g_TextureCache.erase(oldest);++g_TextureGeneration;
+}
 static std::string StudioTextureKey(const StudioMaterial &m) {
   try {
   if (m.Image.empty()) {
@@ -62,10 +69,18 @@ static GLuint StudioTexture(const StudioMaterial &material) {
     return found->second.Id;
   }
   CachedStudioTexture value;
+  struct UploadGuard {
+    CachedStudioTexture &Value;
+    ~UploadGuard(){if(Value.Id)glDeleteTextures(1,&Value.Id);}
+  } guard{value};
   try {
     auto image = DecodeMaterialImage(material);
     value.Bytes=size_t(image.width)*image.height*4*4/3+16;
-    while(!g_TextureCache.empty()&&(g_TextureCacheBytes+value.Bytes>kTextureBudget||g_TextureCache.size()>=256)){auto oldest=std::min_element(g_TextureCache.begin(),g_TextureCache.end(),[](const std::pair<const std::string,CachedStudioTexture>& a,const std::pair<const std::string,CachedStudioTexture>& b){return a.second.LastUse<b.second.LastUse;});if(oldest->second.Id)glDeleteTextures(1,&oldest->second.Id);g_TextureCacheBytes-=oldest->second.Bytes;g_TextureCache.erase(oldest);++g_TextureGeneration;}
+    std::vector<unsigned char> previous=std::move(image.image),next;
+    // Both alternating mip buffers have their maximum capacity before any GL
+    // allocation. Swapping and shrinking them never allocates during upload.
+    next.reserve(size_t(std::max(1,image.width/2))*std::max(1,image.height/2)*4);
+    while(!g_TextureCache.empty()&&(g_TextureCacheBytes+value.Bytes>kTextureBudget||g_TextureCache.size()>=256))EvictOldestStudioTexture();
     glGenTextures(1, &value.Id);
     glBindTexture(GL_TEXTURE_2D, value.Id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -74,12 +89,11 @@ static GLuint StudioTexture(const StudioMaterial &material) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, image.image.data());
+                 GL_RGBA, GL_UNSIGNED_BYTE, previous.data());
     // Build every mip level, including NPOT images, on OpenGL 2.1 drivers.
     int width=image.width,height=image.height,level=0;
-    std::vector<unsigned char> previous=image.image;
     while(width>1||height>1){
-      int w=std::max(1,width/2),h=std::max(1,height/2);std::vector<unsigned char> next(size_t(w)*h*4);
+      int w=std::max(1,width/2),h=std::max(1,height/2);next.resize(size_t(w)*h*4);
       for(int y=0;y<h;++y)for(int x=0;x<w;++x)for(int c=0;c<4;++c){
         unsigned sum=0,count=0;
         int x0=x*width/w,x1=(x+1)*width/w,y0=y*height/h,y1=(y+1)*height/h;
@@ -90,17 +104,21 @@ static GLuint StudioTexture(const StudioMaterial &material) {
     }
     glBindTexture(GL_TEXTURE_2D, 0);
   } catch (const std::exception &e) {
+    if(value.Id)glDeleteTextures(1,&value.Id);
+    value.Id=0;value.Bytes=0;
     value.Error = e.what();
     AppendConsole(value.Error + "\n");
   }
   // Failed/missing images also occupy entries; bound those before caching.
-  while(g_TextureCache.size()>=256){auto oldest=std::min_element(g_TextureCache.begin(),g_TextureCache.end(),[](const std::pair<const std::string,CachedStudioTexture>& a,const std::pair<const std::string,CachedStudioTexture>& b){return a.second.LastUse<b.second.LastUse;});if(oldest->second.Id)glDeleteTextures(1,&oldest->second.Id);g_TextureCacheBytes-=oldest->second.Bytes;g_TextureCache.erase(oldest);++g_TextureGeneration;}
+  while(g_TextureCache.size()>=256)EvictOldestStudioTexture();
+  value.LastUse=++g_TextureClock;
+  g_TextureCache.emplace(key,value); // guard also owns the ID if insertion throws
+  g_TextureCacheBytes+=value.Bytes;
   material.CachedTexture = value.Id;
   material.TextureGeneration = g_TextureGeneration;
-  value.LastUse=++g_TextureClock;g_TextureCacheBytes+=value.Bytes;
   ++g_TextureGeneration;material.TextureGeneration=g_TextureGeneration;
-  g_TextureCache[key] = value;
-  return value.Id;
+  GLuint uploaded=value.Id;value.Id=0;
+  return uploaded;
 }
 static void ClearStudioTextures() {
   ClearStudioGeometry();

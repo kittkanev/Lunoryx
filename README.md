@@ -14,6 +14,8 @@
 
 Version 1.3 adds project folders, C# and the Luaryx API. See the published release report for the verified platform list and remaining limits. Platform marks identify the operating systems; [artwork credits](assets/platforms/README.md).
 
+1.3.1 fixes audio and GPU cleanup, invalid bounds, signed-zero dirty tracking, large-file offsets, Lua sound strings, and manual/macOS packaging validation. [Fix report](docs/validation/v1.3.1-fixes.md).
+
 ## Projects and scripts
 
 The project home opens at startup. Choose a name and folder, create a project or reopen a recent one. A folder stores `project.lunoryx`, `scripts/`, `assets/` and recovery snapshots. Save with **Ctrl+S**. Existing version 1/2 project files are supported; the first schema migration keeps a `.pre-1.3.bak` copy.

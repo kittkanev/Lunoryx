@@ -21,6 +21,7 @@ static void CheckLua(const char* script) {
 #include "game_features_tests.h"
 #include "audit_regressions.h"
 #include "v13_regressions.h"
+#include "v131_regressions.h"
 static int ThrowingBinding(lua_State*) { throw std::runtime_error("test exception"); }
 int main() {
     InitLuaState();
@@ -227,5 +228,6 @@ int main() {
     ShutdownLuaState();
     CheckAuditRegressions();
     CheckV13Regressions();
+    CheckV131Regressions();
     std::cout << "PASS: Lua bounds, stack recovery, hostile metamethods, GLB buffer round trip\n";
 }

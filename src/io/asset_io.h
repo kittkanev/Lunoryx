@@ -204,8 +204,12 @@ inline void RemoveAssetFile(const std::string& path) {
 #endif
 }
 // Reject network/device paths before performing any filesystem operation.
+inline bool HasEmbeddedNullOrControl(const std::string& value) {
+  for(unsigned char byte:value)if(byte<32||byte==127)return true;
+  return false;
+}
 inline void CheckLocalAssetPath(const std::string& path) {
-  if(path.empty()||path.find('\0')!=std::string::npos)throw std::runtime_error("Invalid local path");
+  if(path.empty()||HasEmbeddedNullOrControl(path))throw std::runtime_error("Invalid local path");
   if(path.size()>1&&path[1]==':'&&(path.size()<3||(path[2]!='/'&&path[2]!='\\')))throw std::runtime_error("Drive-relative path");
   std::string p=path;std::replace(p.begin(),p.end(),'\\','/');
   if(p.compare(0,2,"//")==0)throw std::runtime_error("Network and device paths are not allowed");

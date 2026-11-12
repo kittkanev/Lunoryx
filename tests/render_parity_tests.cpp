@@ -31,7 +31,18 @@ struct ShadowStub {
 };
 static ShadowStub g_SceneShadows;
 #define LUNORYX_RENDER_PARITY_TEST
+static bool FailTextureUpload=false;
+static GLuint LastTexture=0;
+static void TestGenTextures(GLsizei count,GLuint* textures){glGenTextures(count,textures);if(count)LastTexture=textures[0];}
+static void TestTexImage2D(GLenum target,GLint level,GLint internal,GLsizei width,GLsizei height,GLint border,GLenum format,GLenum type,const void* data){
+  if(FailTextureUpload){FailTextureUpload=false;throw std::bad_alloc();}
+  glTexImage2D(target,level,internal,width,height,border,format,type,data);
+}
+#define glGenTextures TestGenTextures
+#define glTexImage2D TestTexImage2D
 #include "src/render/material_render.h"
+#undef glGenTextures
+#undef glTexImage2D
 #include "render_cache_regressions.h"
 
 static void Draw(const GameObject &object, bool cached) {
@@ -78,6 +89,15 @@ static void ForceClientArrays() {
   EndStudioRenderFrame();
 }
 static void ParityTests() {
+  {
+    StudioMaterial failing;failing.Texture="failed-upload";FailTextureUpload=true;
+    assert(StudioTexture(failing)==0&&!glIsTexture(LastTexture)&&g_TextureCacheBytes==0);
+    ClearStudioTextures();
+    StudioMaterial valid;valid.Texture="valid-upload";GLuint id=StudioTexture(valid);assert(id&&glIsTexture(id));
+    // Saturated accounting must recover without wrapping size_t during eviction.
+    g_TextureCacheBytes=0;while(!g_TextureCache.empty())EvictOldestStudioTexture();
+    assert(g_TextureCacheBytes==0&&!glIsTexture(id));
+  }
   StudioMaterial mip;mip.Texture="mip-test";GLuint texture=StudioTexture(mip);assert(texture);glBindTexture(GL_TEXTURE_2D,texture);
   GLint filter=0,width=0;glGetTexParameteriv(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,&filter);glGetTexLevelParameteriv(GL_TEXTURE_2D,1,GL_TEXTURE_WIDTH,&width);
   assert(filter==GL_LINEAR_MIPMAP_LINEAR&&width==1);glBindTexture(GL_TEXTURE_2D,0);

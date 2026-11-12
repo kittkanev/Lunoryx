@@ -36,7 +36,9 @@ inline void ObjectMesh(const GameObject& o, std::vector<float>& vertices, std::v
 // Geometry is scanned once; transforms can then be refreshed without touching
 // a large mesh again when AABB contact resolution only moves the object.
 inline void LocalBounds(const GameObject &o, Vec3 &lo, Vec3 &hi) {
-  if (o.Vertices.size() % 3 || o.Vertices.size() / 3 > MAX_EDIT_VERTICES) {
+  if (o.Vertices.size() % 3 || o.Vertices.size() / 3 > MAX_EDIT_VERTICES ||
+      !std::all_of(o.Vertices.begin(), o.Vertices.end(),
+                   [](float v) { return std::isfinite(v); })) {
     const float invalid = std::numeric_limits<float>::quiet_NaN();
     lo = hi = {invalid, invalid, invalid};
     return;

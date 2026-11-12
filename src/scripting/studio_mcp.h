@@ -143,8 +143,8 @@ static nlohmann::json StudioMcpCall(const std::string &tool,
       sound.Name = args.value("name", std::string("Sound"));
       if (sound.Path.empty() || sound.Path.size() > 511 ||
           sound.Name.size() > 255 ||
-          sound.Path.find('\0') != std::string::npos ||
-          sound.Name.find('\0') != std::string::npos || g_Sounds.size() >= 64)
+          HasEmbeddedNullOrControl(sound.Path) ||
+          HasEmbeddedNullOrControl(sound.Name) || g_Sounds.size() >= 64)
         throw std::runtime_error("Invalid sound reference");
       g_Sounds.push_back(sound);
       g_ObjectHistory.Capture(g_Objects);

@@ -191,12 +191,23 @@ void studio_audio_stop_all(void) {
     if (voices[i].id)
       studio_audio_stop(voices[i].id);
 }
+void studio_audio_unload_all(void) {
+  for (int i = 0; i < 64; ++i)
+    if (voices[i].id)
+      studio_audio_unload(voices[i].id);
+}
+#ifdef LUNORYX_TESTING
+size_t studio_audio_loaded_count(void) {
+  size_t count = 0;
+  for (int i = 0; i < 64; ++i)
+    count += voices[i].id != 0;
+  return count;
+}
+#endif
 void studio_audio_shutdown(void) {
   if (!initialized)
     return;
-  for (int i = 0; i < 64; i++)
-    if (voices[i].id)
-      studio_audio_unload(voices[i].id);
+  studio_audio_unload_all();
   ma_engine_uninit(&engine);
   initialized = 0;
 }
