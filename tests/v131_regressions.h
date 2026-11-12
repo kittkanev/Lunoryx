@@ -41,9 +41,12 @@ static void CheckV131Regressions() {
   assert(studio_audio_loaded_count()==1);StopSimulation();assert(studio_audio_loaded_count()==0);
   studio_audio_shutdown();g_Sounds.clear();ShutdownLuaState();
 
-  const std::string small="tests/v131-small.lnx",large="tests/v131-sparse.lnx";
+  const std::string small="tests/v131-small.lnx",large="tests/v131-sparse.lnx",runtime="tests/v131-runtime.bin";
   std::map<std::string,std::vector<unsigned char>> assets={{"project.lunoryx",{'{','}'}},{"assets/data",{1,2,3}}},read;
-  GamePackage::Write(GamePackage::ExecutablePath(),small,assets,{},true);
+  // A raw container does not execute the template. Keep the fixture independent
+  // of sanitizer/debug instrumentation, whose executable can exceed 128 MiB.
+  WriteAssetFile(runtime,"template",8);
+  GamePackage::Write(runtime,small,assets,{},true);
   assert(GamePackage::Read(small,read)&&read.size()==assets.size());
   auto bytes=ReadAssetFile(small);const uint64_t offset=(uint64_t(3)<<30)+123;
   for(int i=0;i<8;++i)bytes[bytes.size()-24+size_t(i)]=static_cast<unsigned char>(offset>>(i*8));
@@ -67,6 +70,6 @@ static void CheckV131Regressions() {
     assert(std::fwrite(invalid,1,8,file.get())==8);
   }
   auto retained=read;rejected=false;try{GamePackage::Read(large,read);}catch(const std::runtime_error&){rejected=true;}assert(rejected&&read==retained);
-  std::remove(small.c_str());std::remove(large.c_str());
+  std::remove(small.c_str());std::remove(large.c_str());std::remove(runtime.c_str());
   std::cerr<<"PASS: 1.3.1 Lua bytes, signed-zero dirty state, audio Stop cleanup, sparse >3 GiB package and invalid offset\n";
 }
