@@ -81,6 +81,11 @@ class MacDependencies(unittest.TestCase):
         validate_dependencies(worker,self.app,libraries,'',executable_path=worker)
         with self.assertRaises(ValueError):validate_dependencies(worker,self.app,libraries,'')
 
+    def test_later_safe_rpath_cannot_hide_earlier_external_candidate(self):
+        (self.app/'escape.dylib').touch()
+        commands='cmd LC_RPATH\n path @loader_path/../.. (offset 12)\ncmd LC_RPATH\n path @loader_path/../Frameworks (offset 12)'
+        with self.assertRaises(ValueError):self.check('@rpath/../../escape.dylib',commands)
+
     def test_version_errors_are_explicit(self):
         self.assertEqual(read_version('#define LUNORYX_VERSION "1.3.1"\n'),'1.3.1')
         for text in ('','#define OTHER "1.3.1"','#define LUNORYX_VERSION "bad"'):

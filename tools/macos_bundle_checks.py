@@ -59,6 +59,10 @@ def validate_dependencies(native, app, libraries, commands, executable_commands=
     for value in dependencies:
         if value.startswith('@rpath/'):
             candidates = [(base / value[len('@rpath/'):]).resolve() for base in search]
+            # dyld tries candidates in order. A later in-bundle file must not
+            # authorize an earlier candidate that escapes through '..'/symlinks.
+            if any(not allowed(p) for p in candidates):
+                raise ValueError(f'External expanded dependency: {value} in {native}')
             if not any(allowed(p) and (is_system(p) or p.is_file()) for p in candidates):
                 raise ValueError(f'Unresolved bundled dependency: {value} in {native}')
         else:
