@@ -1,6 +1,6 @@
 # Lunoryx — Stage 0: major offline update register
 
-Baseline: **1.3.1**, commit `2212256ec5537f1fb850a1bb8298c8d323f0820b`. This is an inventory and plan; listed new features are not implemented by this document.
+Baseline: **1.3.1**, commit `2212256ec5537f1fb850a1bb8298c8d323f0820b`. This register distinguishes implemented development slices from planned features; readiness and evidence are recorded per item.
 
 Sources: [machine-readable register](../validation/major-update-register.json), [original audit](../audit-v1.3.0.json), [1.3.1 fixes](../validation/v1.3.1-fixes.md), [Stage 0 local checks](../validation/major-update-baseline.md).
 
@@ -12,12 +12,16 @@ Sources: [machine-readable register](../validation/major-update-register.json), 
 3. P2: audio/GUI/script/asset/UX and experimental stabilization over working P1.
 4. Do not start P3 before agreed P1/P2 completion. Publish a major release only after the agreed scope and full gate.
 
+`tools/check_major_release.py` rejects 1.4.0 publication while any P1/P2 feature is unfinished or lacks local test/validation references. It supplements the exact-commit native/graphics/sanitizer/video gate. Current development is intentionally incomplete.
+
 ## Owner decisions — confirmed
 
 - Target version: **1.4.0**. Readiness depends on implementation and validation, not the version string.
 - A new project format is **approved**, with migration and a separate backup before first write; preserve original projects and .pre-1.3.bak.
 - HMAC is a symmetric MAC, not a public digital signature. A secret embedded in a distributed EXE does not prevent forgery. An external local secret authenticates for key holders; verification by players without a secret requires a different signature model. The owner chose an **external local HMAC key**; new packages require authentication and legacy must not be silently accepted.
 - Application/game: no accounts, servers, telemetry, remote asset fetch or new network dependencies. MCP stays local stdio. GitHub CI is allowed; prepare signing/notarization only in CI. New vendored dependencies require separate approval and compatible licensing.
+
+Pending: [Jolt Physics / ozz-animation proposal](PHYSICS-ANIMATION-PROPOSAL.md), pinned MIT sources for local physics/animation. No new library has been downloaded or added; explicit dependency approval is still required.
 
 ## F0 — Current limits and required guardrails
 

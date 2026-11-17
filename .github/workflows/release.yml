@@ -30,6 +30,8 @@ jobs:
       SIGNING_RUN: ${{ inputs.signing_run }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Reject unfinished major-update scope
+        run: python tools/check_major_release.py
       - name: Require the successful immutable main build
         run: |
           mkdir -p build/release

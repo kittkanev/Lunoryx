@@ -9,7 +9,9 @@
     "local_validation": "docs/validation/major-update-baseline.md",
     "local_graphics_qualification": "Persisted Mesa shader cache caused SIGILL; identical fresh binary passed UI and relocated managed gameplay with MESA_SHADER_CACHE_DISABLE=true. Driver root cause remains unproven."
   },
-  "pending_decisions": [],
+  "pending_decisions": [
+    "Explicit approval for Jolt Physics 5.7.0 and/or ozz-animation 0.17.0; proposal in docs/en/PHYSICS-ANIMATION-PROPOSAL.md. No new library downloaded or vendored."
+  ],
   "source_audit": {
     "path": "docs/audit-v1.3.0.json",
     "sha256": "08481bda664bf1e254bb6426ea849d0b100913e842adeec4e4afa7e6b44f140e",
