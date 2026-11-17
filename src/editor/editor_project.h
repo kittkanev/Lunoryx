@@ -210,10 +210,16 @@ static bool SaveStudioProject(const std::string& path){
         CheckAssetWriteTarget(path);
         if(ProjectMigration::IsBackupPath(path))throw std::runtime_error("Migration backups are read-only; use Save Project As with another filename");
         StopAnimationPreview();
+        ProjectMigration::EnsureBackup(path);
+        // Every save entry point (including Save As / MCP) must synchronize
+        // the authoritative scripts when writing the current folder manifest.
+        if(!g_ProjectDirectory.empty()){
+          auto manifest=ConfinedAssetPath("project.lunoryx",g_ProjectDirectory);
+          if((SameAssetFile(path,manifest)||CanonicalAssetPath(path)==CanonicalAssetPath(manifest))&&!SyncProjectFiles())throw std::runtime_error("Cannot synchronize project files");
+        }
         auto root=StudioProjectJson(path);
         const std::string document=root.dump();
         if(document.size()>32*1024*1024)throw std::runtime_error("Project exceeds 32 MiB limit");
-        ProjectMigration::EnsureBackup(path);
         WriteAssetFileAtomic(path,document.data(),document.size());
         g_OpenedProject=AbsoluteAssetPath(path);g_SavedDocumentHash=CompleteDocumentHash();
         AppendConsole("Saved project: "+path+"\n");return true;
@@ -311,7 +317,7 @@ static std::string g_PendingProjectPath;
 static bool g_ExitRequested=false,g_OpenSaveAs=false;
 static void PerformProjectAction(){int action=g_PendingProjectAction;g_PendingProjectAction=0;if(action==1)g_ExitRequested=true;else if(action==2)LoadStudioProject(g_PendingProjectPath);else if(action==3){g_Objects.clear();g_SelectedObjectIndex=-1;}else if(action==4)CreateSampleGame();else if(action==5)g_ShowProjectPicker=true;}
 static void RequestProjectAction(int action,const std::string& path=""){if(g_PhysicsRunning)StopSimulation();g_PendingProjectAction=action;g_PendingProjectPath=path;if(!ProjectDirty())PerformProjectAction();}
-static bool SaveCurrentProject(){auto path=g_OpenedProject.empty()?std::string(g_ProjectPath):g_OpenedProject;if(g_PhysicsRunning)return SaveStudioProject(path);if(!SyncProjectFiles())return false;return SaveStudioProject(path);}
+static bool SaveCurrentProject(){return SaveStudioProject(g_OpenedProject.empty()?std::string(g_ProjectPath):g_OpenedProject);}
 static void RenderProjectDialogs(){
     if(g_PendingProjectAction)ImGui::OpenPopup("Unsaved project");
     if(ImGui::BeginPopupModal("Unsaved project",nullptr,ImGuiWindowFlags_AlwaysAutoResize)){

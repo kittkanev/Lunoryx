@@ -21,6 +21,8 @@ static void CheckProjectMigration(){
   assert(ReadAssetFile(recovery)==recoverBytes&&ReadAssetFile(source)==writtenSource);
   assert(LoadStudioProject(manifest));assert(std::string(StudioScripts()[0].Code)=="-- current unsaved replacement\n");
   std::strcpy(StudioScripts()[0].Code,"-- next edit\n");assert(SaveCurrentProject());
+  std::strcpy(StudioScripts()[0].Code,"-- direct Save As / MCP entry\n");assert(SaveStudioProject(manifest));
+  auto direct=ReadAssetFile(source);assert(std::string(direct.begin(),direct.end())==StudioScripts()[0].Code);
   assert(ReadAssetFile(raw)==backup&&ReadAssetFile(recovery)==recoverBytes);
   auto stableSource=ReadAssetFile(source),stableManifest=ReadAssetFile(manifest);
   StartSimulation();assert(g_PhysicsRunning);std::strcpy(StudioScripts()[0].Code,"-- Play edit must not be saved\n");
