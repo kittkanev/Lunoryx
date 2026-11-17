@@ -185,7 +185,7 @@ inline void WriteAssetFile(const std::string &path, const void *data,
   FILE *f = AssetOpen(path, "wb");
   if (!f)
     throw std::runtime_error("Cannot write file: " + path);
-  bool ok = std::fwrite(data, 1, n, f) == n;
+  bool ok = !n || std::fwrite(data, 1, n, f) == n;
   if (std::fclose(f) != 0)
     ok = false;
   if (!ok)
@@ -292,13 +292,13 @@ inline FILE* OpenTemporaryAsset(const std::string& destination,std::string& temp
 inline void WriteAssetFileAtomic(const std::string& destination,const void* data,size_t size) {
   std::string temporary;FILE* file=OpenTemporaryAsset(destination,temporary);
   if(!file)throw std::runtime_error("Cannot open temporary output");
-  bool ok=std::fwrite(data,1,size,file)==size;if(std::fclose(file))ok=false;
+  bool ok=!size||std::fwrite(data,1,size,file)==size;if(std::fclose(file))ok=false;
   try{if(!ok)throw std::runtime_error("Cannot finish output");ReplaceAssetFile(temporary,destination);}catch(...){RemoveAssetFile(temporary);throw;}
 }
 inline void WriteNewAssetFileAtomic(const std::string& destination,const void* data,size_t size) {
   std::string temporary;FILE* file=OpenTemporaryAsset(destination,temporary);
   if(!file)throw std::runtime_error("Cannot open new output staging file");
-  bool ok=std::fwrite(data,1,size,file)==size;if(std::fclose(file))ok=false;
+  bool ok=!size||std::fwrite(data,1,size,file)==size;if(std::fclose(file))ok=false;
   try{
     if(!ok)throw std::runtime_error("Cannot finish new output");
     std::lock_guard<std::recursive_mutex> lock(AssetPolicyMutex());CheckAssetWriteTarget(destination);
