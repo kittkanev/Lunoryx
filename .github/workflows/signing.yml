@@ -1,0 +1,115 @@
+name: Prepare optional platform signatures
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Successful Build and tests run for this exact main commit
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.checked.outputs.sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: ${{ inputs.source_run }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - id: checked
+        name: Require successful exact main source
+        run: |
+          python - <<'PY'
+          import json,os,re,subprocess
+          run_id=os.environ['SOURCE_RUN'];assert re.fullmatch(r'[0-9]+',run_id)
+          repo=os.environ['GITHUB_REPOSITORY']
+          get=lambda path:json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/{path}'],text=True))
+          run=get(f'actions/runs/{run_id}');jobs=get(f'actions/runs/{run_id}/jobs?per_page=100')['jobs']
+          assert os.environ['GITHUB_REF']=='refs/heads/main'
+          assert run['name']=='Build and tests' and run['head_branch']=='main'
+          assert run['head_sha']==os.environ['GITHUB_SHA'] and run['conclusion']=='success' and run['status']=='completed'
+          assert jobs and all(j['conclusion']=='success' for j in jobs)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('sha='+run['head_sha']+'\n')
+          PY
+  windows:
+    needs: source
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: lunoryx-windows-x64
+          path: build/signed-windows
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - name: Optional Authenticode and actual publisher verification
+        shell: pwsh
+        env:
+          LUNORYX_WINDOWS_PFX_BASE64: ${{ secrets.LUNORYX_WINDOWS_PFX_BASE64 }}
+          LUNORYX_WINDOWS_PFX_PASSWORD: ${{ secrets.LUNORYX_WINDOWS_PFX_PASSWORD }}
+          LUNORYX_WINDOWS_TIMESTAMP_URL: ${{ secrets.LUNORYX_WINDOWS_TIMESTAMP_URL }}
+        run: ./tools/sign_release_windows.ps1 -ArtifactRoot build/signed-windows
+      - name: Bind artifact to the tested source run
+        shell: pwsh
+        env:
+          SOURCE_RUN: ${{ inputs.source_run }}
+        run: |
+          python -c "import json,os; from pathlib import Path; Path('build/signed-windows/SIGNING-PROVENANCE.json').write_text(json.dumps(dict(source_run=int(os.environ['SOURCE_RUN']),source_sha=os.environ['GITHUB_SHA'],signing_run=int(os.environ['GITHUB_RUN_ID']))))"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lunoryx-windows-x64-signed
+          path: build/signed-windows/
+  macos:
+    needs: source
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: lunoryx-macos-universal
+          path: build/input
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - run: ditto -x -k build/input/Lunoryx-macos-universal.zip build/mac-signing
+      - name: Optional Developer ID, notarization and actual verification
+        env:
+          LUNORYX_MACOS_P12_BASE64: ${{ secrets.LUNORYX_MACOS_P12_BASE64 }}
+          LUNORYX_MACOS_P12_PASSWORD: ${{ secrets.LUNORYX_MACOS_P12_PASSWORD }}
+          LUNORYX_MACOS_SIGN_IDENTITY: ${{ secrets.LUNORYX_MACOS_SIGN_IDENTITY }}
+          LUNORYX_NOTARY_KEY_BASE64: ${{ secrets.LUNORYX_NOTARY_KEY_BASE64 }}
+          LUNORYX_NOTARY_KEY_ID: ${{ secrets.LUNORYX_NOTARY_KEY_ID }}
+          LUNORYX_NOTARY_ISSUER_ID: ${{ secrets.LUNORYX_NOTARY_ISSUER_ID }}
+        run: python3 tools/sign_release_macos.py build/mac-signing/universal/Lunoryx.app --report build/mac-signing/universal/BUILD-SIGNING.json
+      - name: Refresh inventory and hashes after signing and stapling
+        env:
+          SOURCE_RUN: ${{ inputs.source_run }}
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path('build/mac-signing/universal')
+          (root/'SHA256SUMS.txt').unlink(missing_ok=True)
+          (root/'SIGNING-PROVENANCE.json').write_text(json.dumps(dict(source_run=int(os.environ['SOURCE_RUN']),source_sha=os.environ['GITHUB_SHA'],signing_run=int(os.environ['GITHUB_RUN_ID']))))
+          PY
+          python3 tools/generate_sbom.py --root build/mac-signing/universal --output build/mac-signing/universal/SBOM.cdx.json
+          python3 - <<'PY'
+          import hashlib,shutil
+          from pathlib import Path
+          root=Path('build/mac-signing/universal');out=Path('build/signed-macos');out.mkdir()
+          (root/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(root).as_posix()+'\n' for p in sorted(root.rglob('*')) if p.is_file()))
+          for name in ['BUILD-SIGNING.json','SIGNING-PROVENANCE.json']:shutil.copy2(root/name,out/name)
+          PY
+          ditto -c -k --keepParent build/mac-signing/universal build/signed-macos/Lunoryx-macos-universal.zip
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lunoryx-macos-universal-signed
+          path: build/signed-macos/

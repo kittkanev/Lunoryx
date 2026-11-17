@@ -55,6 +55,8 @@ Plan: Prepare opt-in CI signing after native tests, before final hashes/attestat
 
 Test: Absent/partial secret branches; Get-AuthenticodeSignature/signtool and codesign/spctl/stapler with real credentials; signed footer compatibility.
 
+Preparation: [optional signing CI](RELEASE-SIGNING.md); policy tests passed locally. Real certificate-backed signing/notarization is not verified.
+
 ### LIMIT-04 — C# runs with user OS permissions
 
 Status: Explicit retained contract.

@@ -7,17 +7,24 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from signing_policy import artifact_status
 
 p=argparse.ArgumentParser()
 p.add_argument('--run',required=True)
 p.add_argument('--jobs',required=True)
 p.add_argument('--evidence',required=True)
 p.add_argument('--release-dir',required=True)
+p.add_argument('--windows-signing')
+p.add_argument('--macos-signing')
 a=p.parse_args();run=json.loads(Path(a.run).read_text());jobs=json.loads(Path(a.jobs).read_text())['jobs']
 commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
 version=re.search(r'LUNORYX_VERSION "([^"]+)"',Path('engine_version.h').read_text())[1]
 assert run['head_sha']==commit and run['conclusion']=='success'
 assert jobs and all(j['conclusion']=='success' for j in jobs)
+windows_signing=artifact_status('windows',a.windows_signing,commit)
+macos_signing=artifact_status('macos',a.macos_signing,commit)
+signing_note=('Windows: Authenticode и timestamp проверены. ' if windows_signing['publisher_verified'] else 'Windows без подтверждённой подписи издателя. ')+('macOS: Developer ID, notarization и stapled ticket проверены.' if macos_signing['publisher_verified'] else 'macOS подписан ad-hoc, без Developer ID/notarization.')
+auth_note=('Игровые паки используют HMAC-SHA-256 с внешним локальным ключом. Это симметричный MAC, не публичная подпись издателя; runtime/anti-rollback/confidentiality не заявляются.' if tuple(map(int,version.split('.'))) >= (1,4,0) else 'CRC32 игровых пакетов проверяет повреждения и не подтверждает происхождение.')
 evidence=Path(a.evidence);video=json.loads((evidence/'video-evidence.json').read_text());soak=json.loads((evidence/'parser-soak.json').read_text())
 assert video['passed'] and soak['passed'] and soak['cycles']>=1000
 matrix=json.loads(Path('docs/audit-v1.3.0.json').read_text());assert len(matrix)==40
@@ -49,7 +56,7 @@ body{{font:16px/1.6 system-ui,sans-serif;margin:0;background:#10151e;color:#e4ec
 <h2>Стресс и память</h2><p>{soak['cycles']} циклов мутаций и загрузки проекта, Undo/Redo: {soak['accepted']} принято, {soak['rejected']} отклонено. Время: {soak['seconds']} с. {esc(memory)} Это проверка CPU-парсера и состояния документа, не доказательство отсутствия утечек GPU за несколько часов.</p>
 <p>Дополнительно проверяются 10 000 одновременных пересечений триггеров, тонкая стена при высокой скорости, стабильные ID, модули, восстановление во время Play, таймаут C# и передача 32 MiB через нативный worker. В CI включены AddressSanitizer/UndefinedBehaviorSanitizer и графические сравнения.</p>
 {fix_section}<h2>Все 40 пунктов исходного аудита</h2><p>{esc(', '.join(labels[k]+': '+str(v) for k,v in counts.items()))}.</p><div class="scroll"><table><thead><tr><th>ID</th><th>Статус</th><th>Результат и пределы</th><th>Доказательства / исходник</th></tr></thead><tbody>{rows}</tbody></table></div>
-<h2>Подписи и доверие</h2><p>Сертификаты Authenticode и Apple Developer ID не предоставлены. Windows не подписан издателем; macOS подписан ad-hoc и не нотарифицирован Apple. Не выдавайте эти подписи за подтверждение издателя. CRC32 игровых пакетов проверяет повреждения и не подтверждает происхождение. Для загрузок доступны происхождение сборки GitHub и хеши архивов.</p>
+<h2>Подписи и доверие</h2><p>{esc(signing_note)} {esc(auth_note)} Для загрузок доступны происхождение сборки GitHub и хеши архивов. Отсутствующие credentials не заменяются заявлением об успешной подписи.</p>
 <h2>Ровно четыре вложения релиза</h2><p>Два ZIP, Verification.mp4 и этот Audit-report.html. Лицензии, инвентаризация, документация и контрольные суммы находятся внутри архивов. Автоматические архивы исходников GitHub не являются загруженными assets.</p><div class="scroll"><table><tr><th>Файл</th><th>SHA-256</th></tr>{hashrows}</table></div>
 <details><summary>Исходные результаты видео</summary><pre>{esc(json.dumps(video,ensure_ascii=False,indent=2))}</pre></details>
 <details><summary>Исходные результаты стресс-проверки</summary><pre>{esc(json.dumps(soak,ensure_ascii=False,indent=2))}</pre></details>

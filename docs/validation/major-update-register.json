@@ -404,7 +404,12 @@
       },
       "origin_ids": [
         "SEC-04"
-      ]
+      ],
+      "evidence": {
+        "preparation": "docs/en/RELEASE-SIGNING.md",
+        "policy_tests": "tools/test_signing_policy.py",
+        "real_certificates": "not run; not supplied"
+      }
     },
     {
       "id": "LIMIT-04",

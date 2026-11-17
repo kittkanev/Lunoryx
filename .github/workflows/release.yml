@@ -5,6 +5,9 @@ on:
       source_run:
         description: Successful Build and tests run for the current main commit
         required: true
+      signing_run:
+        description: Optional successful signing.yml run bound to the same source_run and commit
+        required: false
 permissions:
   contents: read
   actions: read
@@ -24,6 +27,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       SOURCE_RUN: ${{ inputs.source_run }}
+      SIGNING_RUN: ${{ inputs.signing_run }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Require the successful immutable main build
@@ -41,8 +45,19 @@ jobs:
           assert run['repository']['full_name']==os.environ['GH_REPO']
           assert run['head_sha']==commit and run['status']=='completed' and run['conclusion']=='success'
           assert jobs and all(j['conclusion']=='success' for j in jobs)
+          signing=os.environ.get('SIGNING_RUN','')
+          download=os.environ['SOURCE_RUN'];windows='lunoryx-windows-x64';macos='lunoryx-macos-universal'
+          if signing:
+            assert re.fullmatch(r'[0-9]+',signing)
+            get=lambda suffix:json.loads(subprocess.check_output(['gh','api',f'repos/{os.environ["GH_REPO"]}/{suffix}'],text=True))
+            signed=get(f'actions/runs/{signing}');signed_jobs=get(f'actions/runs/{signing}/jobs?per_page=100')['jobs']
+            assert signed['name']=='Prepare optional platform signatures' and signed['path']=='.github/workflows/signing.yml'
+            assert signed['head_sha']==commit and signed['status']=='completed' and signed['conclusion']=='success'
+            assert signed_jobs and all(j['conclusion']=='success' for j in signed_jobs)
+            download=signing;windows+='-signed';macos+='-signed'
           version=re.search(r'LUNORYX_VERSION "([^"]+)"',Path('engine_version.h').read_text())[1]
           with open(os.environ['GITHUB_ENV'],'a') as f:f.write(f'RELEASE_SHA={commit}\nRELEASE_TAG=v{version}\n')
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write(f'ARTIFACT_RUN={download}\nWINDOWS_ARTIFACT={windows}\nMACOS_ARTIFACT={macos}\n')
           PYCHECK
       - name: Enforce immutable published tags
         id: state
@@ -56,13 +71,23 @@ jobs:
       - name: Download tested native artifacts and actual video evidence
         if: steps.state.outputs.published != 'true'
         run: |
-          gh run download "$SOURCE_RUN" --name lunoryx-windows-x64 --dir build/windows
-          gh run download "$SOURCE_RUN" --name lunoryx-macos-universal --dir build/macos
+          gh run download "$ARTIFACT_RUN" --name "$WINDOWS_ARTIFACT" --dir build/windows
+          gh run download "$ARTIFACT_RUN" --name "$MACOS_ARTIFACT" --dir build/macos
           gh run download "$SOURCE_RUN" --name lunoryx-verification --dir build/evidence
+          python - <<'PYORIGIN'
+          import json,os
+          from pathlib import Path
+          if os.environ.get('SIGNING_RUN'):
+              for root in ['build/windows','build/macos']:
+                  data=json.loads((Path(root)/'SIGNING-PROVENANCE.json').read_text(encoding='utf-8-sig'))
+                  assert data['source_run']==int(os.environ['SOURCE_RUN']) and data['source_sha']==os.environ['RELEASE_SHA'] and data['signing_run']==int(os.environ['SIGNING_RUN'])
+                  status=json.loads((Path(root)/'BUILD-SIGNING.json').read_text(encoding='utf-8-sig'))
+                  assert status['source_sha']==os.environ['RELEASE_SHA']
+          PYORIGIN
           python tools/package_release.py --artifact-dir build/windows --output-dir build/release
           cp build/macos/Lunoryx-macos-universal.zip build/release/
           cp build/evidence/Verification.mp4 build/release/
-          python tools/build_release_report.py --run build/source-run.json --jobs build/source-jobs.json --evidence build/evidence --release-dir build/release
+          python tools/build_release_report.py --run build/source-run.json --jobs build/source-jobs.json --evidence build/evidence --release-dir build/release --windows-signing build/windows/BUILD-SIGNING.json --macos-signing build/macos/BUILD-SIGNING.json
           python - <<'PYASSETS'
           from pathlib import Path
           expected={'Lunoryx-windows-x64.zip','Lunoryx-macos-universal.zip','Verification.mp4','Audit-report.html'}

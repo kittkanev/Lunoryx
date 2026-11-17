@@ -1,6 +1,7 @@
 """Package the tested Windows editor and its real managed runtime."""
 import argparse
 import hashlib
+import json
 import shutil
 import struct
 import subprocess
@@ -22,6 +23,10 @@ stage=output/'windows-stage/Lunoryx';stage.mkdir(parents=True,exist_ok=False)
 shutil.copy2(artifact/'engine.exe',stage/'Lunoryx.exe')
 for name in ['README.md','README.ru.md','LICENSE','NOTICE']:
     shutil.copy2(name,stage/name)
+signing=artifact/'BUILD-SIGNING.json'
+if signing.exists():shutil.copy2(signing,stage/signing.name)
+else:(stage/'BUILD-SIGNING.json').write_text(json.dumps(dict(status='unsigned',publisher_verified=False,reason='No publisher signing workflow selected'))+'\n')
+if (artifact/'SIGNING-PROVENANCE.json').exists():shutil.copy2(artifact/'SIGNING-PROVENANCE.json',stage/'SIGNING-PROVENANCE.json')
 for folder in ['Runtime','examples','docs','assets','licenses']:
     shutil.copytree(artifact/folder,stage/folder)
 commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
