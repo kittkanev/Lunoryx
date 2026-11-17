@@ -105,14 +105,14 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
         private=fake_runtime/'private.key'
         subprocess.run([engine,'--generate-package-key',private],check=True,timeout=30)
         invalid_env=dict(os.environ,LUNORYX_PACKAGE_KEY_FILE=str(private))
-        rejected=subprocess.run([fake_packer,'--build-game',project,game],env=invalid_env,capture_output=True,text=True,timeout=60)
+        rejected=subprocess.run([fake_packer,'--build-game',project,game],env=invalid_env,capture_output=True,text=True,encoding="utf-8",timeout=60)
         assert rejected.returncode!=0 and 'active package key' in rejected.stderr,rejected.stderr
         assert game.read_bytes()==payload
         # A copied key under a different inode/name must also be rejected.
         private.write_bytes(key)
         if os.name!='nt':private.chmod(0o600)
         invalid_env['LUNORYX_PACKAGE_KEY_FILE']=str(key_file)
-        rejected=subprocess.run([fake_packer,'--build-game',project,game],env=invalid_env,capture_output=True,text=True,timeout=60)
+        rejected=subprocess.run([fake_packer,'--build-game',project,game],env=invalid_env,capture_output=True,text=True,encoding="utf-8",timeout=60)
         assert rejected.returncode!=0 and 'active authentication key' in rejected.stderr,rejected.stderr
         assert game.read_bytes()==payload and key_file.read_bytes()==key
     # Invalid icons fail transactionally, without replacing a working output.
@@ -158,7 +158,7 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     legacy_body=payload[offset:-64]
     legacy=payload[:offset]+legacy_body+b'LNXPCK01'+struct.pack('<QQII',offset,len(legacy_body),zlib.crc32(legacy_body),1)
     damaged.write_bytes(legacy)
-    rejected=subprocess.run([damaged,'--verify-package'],capture_output=True,text=True,timeout=60)
+    rejected=subprocess.run([damaged,'--verify-package'],capture_output=True,text=True,encoding="utf-8",timeout=60)
     assert rejected.returncode==1 and 'legacy' in rejected.stderr
     content = payload[offset + 8 + metadata_size:-64]
 
@@ -170,7 +170,7 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
         malformed=payload[:offset]+invalid_payload+header+tag
         damaged.write_bytes(malformed)
         result = subprocess.run([damaged, '--verify-package'], capture_output=True,
-                                text=True, timeout=60)
+                                text=True,encoding="utf-8", timeout=60)
         if expected_error:
             assert result.returncode == 1, (result.returncode, result.stderr)
             assert expected_error in result.stderr, result.stderr
