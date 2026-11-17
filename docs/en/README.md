@@ -60,7 +60,7 @@ Open Window > Debugger. Start Play, then Pause to freeze Lua, animation and phys
 - Frame time, draw calls, triangles, culling and geometry cache counters help isolate slow scenes.
 - Last Lua traceback keeps the latest script error with stack frames. Output retains earlier messages. Clear errors clears the inspector entry.
 - Runtime callback errors pause Lua and Play; Stop or fix the script and Resume.
-Lua is trusted code with standard file/process libraries. Each call retains its instruction budget. Infinite loops stop with an error instead of hanging Studio.
+Lua has shared instruction/memory limits and restricted libraries. Arbitrary file/process libraries and native/external modules are unavailable; require resolves project script modules only. Infinite loops stop with a budget error. C# runs with user OS permissions and requires session trust; its worker has a deadline.
 
 ## 05 · Rendering and assets
 
@@ -138,7 +138,7 @@ Each returns true if the ID exists, otherwise false. Define on_gui_click(id) for
 ### Trigger building and events
 Tools > Build has Killzone, Checkpoint and Script trigger presets. Move/scale them like other objects. Properties > Trigger can change any object into a zone; Debugger > Collision / trigger bounds displays their volumes. Triggers are world-axis-aligned, non-solid boxes even if Solid is checked.
 set_trigger(objectIndex, kind): 0 none, 1 killzone, 2 checkpoint, 3 script trigger. Returns false for an invalid index/kind. A trigger is made static. Killzones respawn dynamic actors; checkpoints update character spawns; script triggers only emit events.
-Define on_trigger(event, zoneIndex, actorIndex). Events are enter, stay (once per runtime tick, not per physics substep), exit. Sensors track dynamic non-trigger actors, including characters; trigger_contains(zoneIndex, actorIndex) directly tests current overlap for any object. A thin zone crossed in one frame emits enter then exit. Kill/respawn is applied before callbacks. Overlap limits: 8192 active pairs, 4096 queued events per tick. Keep scenes within these limits.
+Define on_trigger(event, zoneIndex, actorIndex). Events are enter, stay (once per runtime tick, not per physics substep), exit. Sensors track dynamic non-trigger actors, including characters; trigger_contains(zoneIndex, actorIndex) directly tests current overlap for any object. A thin zone crossed in one frame emits enter then exit. Kill/respawn is applied before callbacks. The actor × trigger-zone pair budget is 32768. Play is rejected or paused when the budget is exceeded; events are not silently truncated.
 Lua indices are zero-based and shift after deletion; names need not be unique. Call find_object after scene membership changes. Events use stable IDs internally and resolve indices before each callback; events involving deleted objects are discarded. Callback errors include a traceback and pause the runtime in Debugger/Output.
 ```lua
 -- Tools > Build > Script trigger creates a non-solid zone.

@@ -1,0 +1,1744 @@
+{
+  "register_version": 1,
+  "baseline": {
+    "version": "1.3.1",
+    "commit": "2212256ec5537f1fb850a1bb8298c8d323f0820b",
+    "native_ci": "https://github.com/kittkanev/Lunoryx/actions/runs/43246269279",
+    "parser_endurance_ci": "https://github.com/kittkanev/Lunoryx/actions/runs/43703840148",
+    "claims": "Baseline native evidence only; not evidence for the planned major update.",
+    "local_validation": "docs/validation/major-update-baseline.md",
+    "local_graphics_qualification": "Persisted Mesa shader cache caused SIGILL; identical fresh binary passed UI and relocated managed gameplay with MESA_SHADER_CACHE_DISABLE=true. Driver root cause remains unproven."
+  },
+  "pending_decisions": [],
+  "source_audit": {
+    "path": "docs/audit-v1.3.0.json",
+    "sha256": "08481bda664bf1e254bb6426ea849d0b100913e842adeec4e4afa7e6b44f140e",
+    "items": [
+      {
+        "id": "SEC-01",
+        "status": "fixed",
+        "resolution": "Pinned directory handles and no-follow reads/atomic writes; Windows opens components relative to pinned directory handles with OBJ_DONT_REPARSE, including after a junction mutation. Audio decodes bytes read through the same boundary.",
+        "evidence": "tests/v13_regressions.h; tools/test_audit_security.py"
+      },
+      {
+        "id": "SEC-02",
+        "status": "fixed",
+        "resolution": "SAX preflight budgets before project, package-manifest and GLB DOM allocation; aggregate decoded-image budget. These are conservative estimates, not a custom allocator.",
+        "evidence": "tools/soak_project_parser.py; src/io/json_budget.h"
+      },
+      {
+        "id": "SEC-03",
+        "status": "fixed",
+        "resolution": "Uncooperative mesh and GLB export work runs in deadline-killed child processes with native CPU limits, Windows/Linux memory limits and a best-effort macOS data limit.",
+        "evidence": "tests/worker_process_tests.cpp; tools/test_audit_security.py"
+      },
+      {
+        "id": "GAME-01",
+        "status": "fixed",
+        "resolution": "No silent 4096-event truncation. Explicit 32768 actor/zone pair budget prevents Play or pauses a changed runtime.",
+        "evidence": "tests/v13_regressions.h"
+      },
+      {
+        "id": "GAME-02",
+        "status": "fixed",
+        "resolution": "Complete overlap state within the pair budget; tested with 10000 simultaneous overlaps and exits.",
+        "evidence": "tests/v13_regressions.h"
+      },
+      {
+        "id": "REL-01",
+        "status": "fixed",
+        "resolution": "Scene snapshots include script source, language, module metadata and open state; code editor also has bounded text undo.",
+        "evidence": "src/editor/editor_history.h; src/editor/code_editor.h"
+      },
+      {
+        "id": "REL-02",
+        "status": "fixed",
+        "resolution": "Oversized history states produce a visible warning; history is bounded to 128 MiB and 64 states.",
+        "evidence": "src/editor/editor_history.h; src/editor/editor_ui.h"
+      },
+      {
+        "id": "REL-03",
+        "status": "fixed",
+        "resolution": "Completed scene operations request a checkpoint; configurable 1–60-second recovery defaults to five seconds, including during Play.",
+        "evidence": "src/main.cpp; src/editor/editor_preferences.h"
+      },
+      {
+        "id": "MEM-01",
+        "status": "fixed",
+        "resolution": "Texture cache has a 128 MiB budget and a 256-entry LRU bound.",
+        "evidence": "src/render/material_render.h; native rendering tests"
+      },
+      {
+        "id": "MEM-02",
+        "status": "fixed",
+        "resolution": "Container writing and CRC validation stream bounded chunks; resource deduplication uses hashes plus byte comparison, without duplicate vector map keys.",
+        "evidence": "src/io/game_package.h; tools/test_game_package.py"
+      },
+      {
+        "id": "MEM-03",
+        "status": "fixed",
+        "resolution": "History accounts for game icon storage and script sources; oversized snapshots are reported.",
+        "evidence": "src/editor/editor_history.h"
+      },
+      {
+        "id": "PERF-01",
+        "status": "fixed",
+        "resolution": "A spatial grid replaces all-pairs candidate discovery; legacy collision-response differential fixtures remain covered. Dense overlapping worlds can still be costly.",
+        "evidence": "tests/physics_differential.cpp; src/core/spatial_index.h"
+      },
+      {
+        "id": "PERF-02",
+        "status": "fixed",
+        "resolution": "Swept static collision stops a fast mover at a thin wall. This is AABB physics, not a general rigid-body CCD solver.",
+        "evidence": "tests/v13_regressions.h"
+      },
+      {
+        "id": "SEC-04",
+        "status": "external_requirement",
+        "resolution": "No Authenticode publisher certificate is available. Windows is unsigned; macOS has an explicit ad-hoc signature, not Developer ID notarization.",
+        "evidence": "Release signing verification"
+      },
+      {
+        "id": "SEC-05",
+        "status": "partial",
+        "resolution": "Dependency inventory, binary hashes, pinned NuGet lock and current .NET security runtime are recorded. An inventory/advisory lookup cannot prove every vendored dependency vulnerability-free.",
+        "evidence": "SBOM.cdx.json; extensions/csharp/packages.lock.json"
+      },
+      {
+        "id": "SEC-06",
+        "status": "partial",
+        "resolution": "Deterministic mutation/load/undo soak and a scheduled one-hour project-parser endurance workflow are supplied. No claim of completed exhaustive or coverage-guided format fuzzing.",
+        "evidence": "tools/soak_project_parser.py; .github/workflows/endurance.yml"
+      },
+      {
+        "id": "SEC-07",
+        "status": "contract",
+        "resolution": "CRC32 detects accidental corruption only. Download authenticity relies on the release origin and build provenance; archives carry SHA-256 inventories. Local modified game containers are not authenticated.",
+        "evidence": "src/io/game_package.h; release provenance"
+      },
+      {
+        "id": "SEC-08",
+        "status": "fixed",
+        "resolution": "MCP defaults to read-only. Mutations require --allow-write; Lua additionally requires --allow-lua. Hidden calls are also denied and audited.",
+        "evidence": "tools/test_mcp_capabilities.py"
+      },
+      {
+        "id": "GAME-03",
+        "status": "contract",
+        "resolution": "A swept pass-through emits enter and exit during the same simulation tick. This deliberate edge contract is tested.",
+        "evidence": "tests/game_features_tests.h"
+      },
+      {
+        "id": "REL-04",
+        "status": "fixed",
+        "resolution": "Executable permission changes use the still-open output descriptor; failure removes the anchored temporary output. Rename failure also cleans up.",
+        "evidence": "src/io/game_package.h"
+      },
+      {
+        "id": "REL-05",
+        "status": "fixed",
+        "resolution": "Schema/format 3 explicitly reads schemas 1–3 and creates a pre-migration backup. Older engine versions cannot be expected to read schema 3.",
+        "evidence": "src/editor/editor_project.h"
+      },
+      {
+        "id": "REL-06",
+        "status": "fixed",
+        "resolution": "Luaryx entities and C# Entity objects retain stable IDs across removals. Legacy index APIs remain for compatibility.",
+        "evidence": "tests/v13_regressions.h; src/scripting/luaryx_runtime.h"
+      },
+      {
+        "id": "REL-07",
+        "status": "fixed",
+        "resolution": "Luaryx.find and C# Scene.Find reject duplicate names; use stable IDs. Legacy find_object still returns its historical first match.",
+        "evidence": "src/scripting/luaryx_runtime.h; extensions/csharp/Scene.cs"
+      },
+      {
+        "id": "REL-08",
+        "status": "fixed",
+        "resolution": "Join rejects animated, textured, procedural, controller or custom-property inputs instead of silently discarding their data. Character generation creates a new object.",
+        "evidence": "tests/engine_tests.cpp; src/core/scene_tools.h"
+      },
+      {
+        "id": "REL-09",
+        "status": "fixed",
+        "resolution": "Play recovery serializes the saved edit world with current script source, never the disposable simulated positions.",
+        "evidence": "tests/v13_regressions.h"
+      },
+      {
+        "id": "MEM-04",
+        "status": "fixed",
+        "resolution": "Texture keys include file identity, size and write timestamp (or embedded content hash), and texture generations invalidate cached bindings.",
+        "evidence": "src/render/material_render.h"
+      },
+      {
+        "id": "MEM-07",
+        "status": "fixed",
+        "resolution": "Cache admission preserves the active geometry working set; oversubscribed meshes use the immediate renderer rather than evicting and re-uploading visible entries every frame.",
+        "evidence": "src/render/render_geometry.h"
+      },
+      {
+        "id": "MEM-05",
+        "status": "fixed",
+        "resolution": "Audio uses bounded encoded-byte reads and streaming decoders; aggregate backend encoded data is limited to 64 MiB. Document/undo copies remain bounded by their own budgets.",
+        "evidence": "extensions/audio/audio_backend.c; native audio tests"
+      },
+      {
+        "id": "MEM-06",
+        "status": "limited_evidence",
+        "resolution": "Record observed RSS/descriptors during the 1000-cycle soak and sanitizer checks. These do not prove leak freedom for hour-long GPU sessions on every driver.",
+        "evidence": "parser-soak.json; sanitizer CI"
+      },
+      {
+        "id": "PERF-05",
+        "status": "fixed",
+        "resolution": "GLB JSON is preflighted before tinygltf DOM creation; decoded images have an aggregate budget in addition to dimension/file/scene limits.",
+        "evidence": "src/io/scene_assets.h"
+      },
+      {
+        "id": "PERF-04",
+        "status": "fixed",
+        "resolution": "Spatial queries find trigger candidates; kill/checkpoint processing reuses touched zone IDs instead of scanning all zones for each actor.",
+        "evidence": "src/runtime/gameplay_runtime.h"
+      },
+      {
+        "id": "PERF-03",
+        "status": "fixed",
+        "resolution": "Simulation keeps up to two seconds of backlog and exposes any further dropped time in the debugger. It does not silently throw away every heavy frame remainder.",
+        "evidence": "src/core/scene_tools.h; src/editor/editor_debug.h"
+      },
+      {
+        "id": "PERF-06",
+        "status": "fixed",
+        "resolution": "UI GLB export captures a scene snapshot and runs a bounded worker exchange asynchronously, with completion reported on the UI thread.",
+        "evidence": "src/scripting/export_worker.h"
+      },
+      {
+        "id": "COMP-01",
+        "status": "fixed",
+        "resolution": "Windows long-path-aware manifest and extended-length absolute Unicode file paths are enabled. Individual document/path field limits still apply.",
+        "evidence": "assets/windows.manifest; src/io/asset_io.h"
+      },
+      {
+        "id": "COMP-02",
+        "status": "contract",
+        "resolution": "Static GLB import/export is supported; ignored animation/skinning/extensions are reported. Full glTF animation/skinning interoperability is not advertised.",
+        "evidence": "src/io/scene_assets.h; docs/en/README.md"
+      },
+      {
+        "id": "COMP-03",
+        "status": "contract",
+        "resolution": "Container bounds are now 4096 entries and 1 GiB payload, including the required C# runtime; limits are explicit, not unlimited.",
+        "evidence": "src/io/game_package.h; tests/engine_tests.cpp"
+      },
+      {
+        "id": "QA-01",
+        "status": "limited_evidence",
+        "resolution": "Tests cover named regressions, native platforms, sanitizer checks, a mutation soak and actual UI input. Finite checks are not proof of all race conditions or leaks being absent.",
+        "evidence": "CI and Verification.mp4"
+      },
+      {
+        "id": "QA-02",
+        "status": "limited_evidence",
+        "resolution": "Native Windows/macOS and Linux software-OpenGL checks are required. No claim covers every GPU model, operating-system version or third-party driver.",
+        "evidence": "Native CI matrix"
+      },
+      {
+        "id": "COMP-04",
+        "status": "fixed",
+        "resolution": "Project owner selected GPL-3.0; LICENSE, NOTICE and contribution terms are present. Third-party licenses and platform trademarks retain their terms.",
+        "evidence": "LICENSE; NOTICE; CONTRIBUTING.md"
+      },
+      {
+        "id": "QA-03",
+        "status": "fixed",
+        "resolution": "Release publication consumes the successful immutable CI run, tested native artifacts, video evidence, hashes and provenance; exactly four uploaded release assets.",
+        "evidence": "tools/package_release.py; .github/workflows/release.yml"
+      }
+    ]
+  },
+  "regressions_131": [
+    {
+      "id": "R131-GPU",
+      "title": "GPU ownership/HDR fallback",
+      "source": "tests/viewport_postprocess_tests.cpp",
+      "required_case": "100 resize; 50 HDR/post switches; scoped GL deletion",
+      "status": "preserve"
+    },
+    {
+      "id": "R131-TEX",
+      "title": "Failed texture upload/cache eviction",
+      "source": "tests/render_parity_tests.cpp",
+      "required_case": "bad_alloc injection; deleted texture ID; zero accounting; successful retry",
+      "status": "preserve"
+    },
+    {
+      "id": "R131-AUDIO",
+      "title": "Audio cleanup and orphaned voices",
+      "source": "tests/v131_regressions.h",
+      "required_case": "10 WAV clips; preview Stop; repeated Play/Stop; orphan voice; zero live voices",
+      "status": "preserve"
+    },
+    {
+      "id": "R131-BOUNDS",
+      "title": "Non-finite local/world bounds",
+      "source": "tests/core_tests.cpp",
+      "required_case": "NaN/+Inf/-Inf in every coordinate; mirrored finite control",
+      "status": "preserve"
+    },
+    {
+      "id": "R131-DIRTY",
+      "title": "Signed-zero ProjectDirty",
+      "source": "tests/v131_regressions.h",
+      "required_case": "camera/widget/color -0 equals +0; real text edit changes hash",
+      "status": "preserve"
+    },
+    {
+      "id": "R131-OFFSETS",
+      "title": "64-bit package offsets",
+      "source": "tests/v131_regressions.h",
+      "required_case": "valid sparse >3 GiB; UINT64_MAX footer rejected transactionally; 128 MiB runtime cap",
+      "status": "preserve"
+    },
+    {
+      "id": "R131-LUA",
+      "title": "Full-byte Lua sound strings",
+      "source": "tests/v131_regressions.h",
+      "required_case": "embedded NUL/control/oversize suffix rejected; UTF-8/spaces/default/empty names retained",
+      "status": "preserve"
+    },
+    {
+      "id": "R131-GUIDE",
+      "title": "Manual generation boundary",
+      "source": "tools/test_release_safety.py",
+      "required_case": "GUIDE terminator and unclosed fences rejected before output; valid lists/Unicode",
+      "status": "preserve"
+    },
+    {
+      "id": "R131-MAC",
+      "title": "Mach-O paths/rpaths",
+      "source": "tools/test_release_safety.py",
+      "required_case": "external paths and earlier external rpath candidate rejected; worker-relative valid control",
+      "status": "preserve"
+    }
+  ],
+  "items": [
+    {
+      "id": "LIMIT-01",
+      "phase": "F0",
+      "status": "open",
+      "title": {
+        "ru": "Аутентификация игровых паков",
+        "en": "Game-package authentication"
+      },
+      "source": [
+        "src/io/game_package.h",
+        "src/io/sha256.h"
+      ],
+      "plan": {
+        "ru": "Согласовать доверие и хранение ключа; затем HMAC-SHA-256, аутентифицированный заголовок/манифест/данные, constant-time сравнение и явная политика старых неподписанных паков. Ключ не в EXE/паке/проекте.",
+        "en": "Agree key custody/trust first; then HMAC-SHA-256 over domain-separated header, manifest and payload, constant-time verification and explicit legacy unsigned policy. Never embed the secret in EXE/package/project."
+      },
+      "test": {
+        "ru": "RFC 4231; побитовые изменения заголовка/данных/тега; неверный/отсутствующий ключ; запрет downgrade; корректная игра после перемещения; ключ не попадает в архив/логи.",
+        "en": "RFC 4231; header/payload/tag bit flips; wrong/missing keys; downgrade rejection; relocated valid game; no secret in archives/logs."
+      },
+      "origin_ids": [
+        "SEC-07"
+      ]
+    },
+    {
+      "id": "LIMIT-02",
+      "phase": "F0",
+      "status": "partial",
+      "title": {
+        "ru": "Бюджеты пака 1 GiB / runtime 128 MiB / 4096 записей",
+        "en": "Package 1 GiB, runtime 128 MiB, 4096-entry budgets"
+      },
+      "source": [
+        "src/io/game_package.h",
+        "tests/v131_regressions.h"
+      ],
+      "plan": {
+        "ru": "Сохранить бюджеты, вынести общие проверяемые расчёты, добавить быстрые границы и отдельный потоковый стресс. Не увеличивать лимиты молча.",
+        "en": "Retain budgets, centralize checked arithmetic and add fast boundary cases plus a separate streaming stress job. Do not silently raise limits."
+      },
+      "test": {
+        "ru": "N−1/N/N+1, UINT64_MAX, сумма размеров, большой манифест, пустые/дублирующиеся/перекрывающиеся ranges; отсутствие частичного результата; sparse >3 GiB остаётся.",
+        "en": "N−1/N/N+1, UINT64_MAX, accumulated sizes, large manifests, empty/duplicate/overlapping ranges; transactional failure; retain sparse >3 GiB case."
+      },
+      "origin_ids": [
+        "COMP-03",
+        "MEM-02"
+      ]
+    },
+    {
+      "id": "LIMIT-03",
+      "phase": "F0",
+      "status": "external",
+      "title": {
+        "ru": "Windows без подписи; macOS ad-hoc без notarization",
+        "en": "Unsigned Windows; ad-hoc macOS, no notarization"
+      },
+      "source": [
+        ".github/workflows/tests.yml",
+        ".github/workflows/release.yml",
+        "tools/package_macos.py",
+        "tools/merge_macos.py"
+      ],
+      "plan": {
+        "ru": "Подготовить opt-in CI signing после нативных тестов, до финальных хешей/аттестации. Секреты только GitHub Secrets; без сертификатов честный unsigned/ad-hoc статус. Apple notarization только в разрешённом CI, не в приложении.",
+        "en": "Prepare opt-in CI signing after native tests, before final hashes/attestation. Credentials only through GitHub Secrets; absent certificates retain truthful unsigned/ad-hoc status. Apple notarization is CI-only, never an application service."
+      },
+      "test": {
+        "ru": "Ветки CI без/с неполным набором secrets; Get-AuthenticodeSignature/signtool verify и codesign/spctl/stapler при настоящих сертификатах; подпись не ломает footer.",
+        "en": "Absent/partial secret branches; Get-AuthenticodeSignature/signtool and codesign/spctl/stapler with real credentials; signed footer compatibility."
+      },
+      "origin_ids": [
+        "SEC-04"
+      ]
+    },
+    {
+      "id": "LIMIT-04",
+      "phase": "F0",
+      "status": "contract",
+      "title": {
+        "ru": "C# с правами пользователя",
+        "en": "C# runs with user OS permissions"
+      },
+      "source": [
+        "src/scripting/csharp_bridge.h",
+        "src/editor/project_workspace.h",
+        "extensions/csharp/Program.cs"
+      ],
+      "plan": {
+        "ru": "Сохранить trust на сеанс и deadlines. Не называть worker песочницей. Новые API движка офлайн; произвольный доверенный C# сохраняет OS-доступ, включая потенциальную сеть.",
+        "en": "Preserve session trust and deadlines; do not describe the worker as an OS sandbox. New engine APIs remain offline; arbitrary trusted C# retains OS access, including possible network access."
+      },
+      "test": {
+        "ru": "Нет запуска до trust; новый проект/загрузка сбрасывает доверие по контракту; timeout, crash, kill/reap, повторный запуск; секреты пака не передавать скриптам.",
+        "en": "No execution before trust; project/load trust lifecycle; timeout/crash/kill/reap/restart; never expose package secrets to scripts."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "LIMIT-05",
+      "phase": "F0",
+      "status": "partial",
+      "title": {
+        "ru": "Нет полного аудита сторонних зависимостей",
+        "en": "Dependency inventory is not a full advisory audit"
+      },
+      "source": [
+        "docs/validation/dependency-runtime.json",
+        "NOTICE",
+        "extensions/csharp/packages.lock.json",
+        "tools/generate_sbom.py"
+      ],
+      "plan": {
+        "ru": "Сохранить pinned/locked зависимости и GPL/NOTICE. Снимок .NET от 2026-11-10 не считать свежим аудитом. Любую новую вендорную зависимость согласовать; не скачивать новые пакеты в этой части работы.",
+        "en": "Preserve pinned/locked dependencies and GPL/NOTICE. The 2026-11-10 .NET snapshot is not a fresh advisory audit. Obtain approval for new vendored dependencies; do not download new packages in this stage."
+      },
+      "test": {
+        "ru": "SBOM/хеши/лицензии/lockfile; повторяемая сборка из имеющегося кэша; обновление по конкретному подтверждённому advisory отдельно.",
+        "en": "SBOM/hashes/licenses/lockfile; cached offline build; handle any concrete validated advisory separately."
+      },
+      "origin_ids": [
+        "SEC-05"
+      ]
+    },
+    {
+      "id": "LIMIT-06",
+      "phase": "F0",
+      "status": "partial",
+      "title": {
+        "ru": "SAX-бюджеты — оценка, не жёсткий allocator",
+        "en": "SAX budgets are estimates, not a hard allocator"
+      },
+      "source": [
+        "src/io/json_budget.h",
+        "src/io/scene_assets.h"
+      ],
+      "plan": {
+        "ru": "Сохранить preflight до DOM; проверить memory amplification и общие бюджеты новых skins/каналов/карт до выделений.",
+        "en": "Keep preflight before DOM; budget new skins/channels/maps and memory amplification before allocation."
+      },
+      "test": {
+        "ru": "Глубина 95/96/97, число узлов, короткие поля, декодированные изображения 128 MiB ±1, ASan/UBSan и ограничение RSS в стрессе.",
+        "en": "Depth 95/96/97, node counts, many tiny fields, decoded-image 128 MiB ±1, ASan/UBSan and stress RSS bounds."
+      },
+      "origin_ids": [
+        "SEC-02"
+      ]
+    },
+    {
+      "id": "LIMIT-07",
+      "phase": "F0",
+      "status": "partial",
+      "title": {
+        "ru": "macOS memory limit воркеров best-effort",
+        "en": "macOS worker memory limit is best-effort"
+      },
+      "source": [
+        "src/scripting/worker_process.h",
+        "src/scripting/model_worker.h",
+        "src/scripting/export_worker.h"
+      ],
+      "plan": {
+        "ru": "Сохранить CPU/deadline и лимиты обмена; новые тяжёлые операции проводить через этот boundary. Не обещать жёсткий RLIMIT_DATA на macOS.",
+        "en": "Retain CPU/deadline/transfer limits and use the same boundary for new heavy work; do not claim hard macOS RLIMIT_DATA enforcement."
+      },
+      "test": {
+        "ru": "Незавершающийся worker, 32 MiB обмен, слишком длинный ответ, pipe close, crash; Windows Job/Linux limits и нативный Mac evidence.",
+        "en": "Nonterminating worker, 32 MiB exchange, oversized reply, pipe close/crash; native Windows Job/Linux limit and Mac evidence."
+      },
+      "origin_ids": [
+        "SEC-03"
+      ]
+    },
+    {
+      "id": "LIMIT-08",
+      "phase": "F0",
+      "status": "partial",
+      "title": {
+        "ru": "Fuzz/soak не покрывает все форматы и состояния",
+        "en": "Fuzz/soak does not cover every format or state"
+      },
+      "source": [
+        "tools/soak_project_parser.py",
+        ".github/workflows/endurance.yml"
+      ],
+      "plan": {
+        "ru": "Сохранить 1000-cycle gate; добавить кампании для паков/GLB/скриптов и новых схем. Часовой parser CI 43703840148 успешен, но это не coverage-guided fuzzing и не GPU-тест.",
+        "en": "Retain the 1000-cycle gate; add package/GLB/script/new-schema campaigns. One-hour parser CI 43703840148 succeeded; this is neither coverage-guided fuzzing nor a GPU test."
+      },
+      "test": {
+        "ru": "Фиксированные seed/corpus, минимизированные regressions, RSS/FD, timeout, transactional load; публиковать длительность и фактическое покрытие.",
+        "en": "Fixed seeds/corpus, minimized regressions, RSS/FD, deadlines, transactional loads; report duration and actual scope."
+      },
+      "origin_ids": [
+        "SEC-06",
+        "QA-01"
+      ]
+    },
+    {
+      "id": "LIMIT-09",
+      "phase": "F0",
+      "status": "limited_evidence",
+      "title": {
+        "ru": "Ресурсы GPU/аудио и драйверы",
+        "en": "GPU/audio resource and driver coverage"
+      },
+      "source": [
+        "tests/viewport_postprocess_tests.cpp",
+        "tests/render_parity_tests.cpp",
+        "tests/v131_regressions.h",
+        "docs/PERFORMANCE.md"
+      ],
+      "plan": {
+        "ru": "Не терять lifecycle 1.3.1; расширить длительную смену проектов/ассетов, счётчики живых ресурсов и аппаратную матрицу. Старые isolated benchmarks не считать FPS всей сцены.",
+        "en": "Preserve 1.3.1 lifecycle regressions; extend project/asset churn, live-resource counters and hardware coverage. Historical isolated benchmarks are not full-scene FPS."
+      },
+      "test": {
+        "ru": "100 resize, 50 HDR/post switches, failed upload cleanup, 10 WAV + orphan; длительный цикл на конкретных GPU/драйверах с замерами; не обещать zero leaks.",
+        "en": "100 resizes, 50 HDR/post switches, failed upload cleanup, 10 WAV + orphan; sustained named-GPU/driver runs with measurements; no zero-leak claim."
+      },
+      "origin_ids": [
+        "MEM-06",
+        "QA-02"
+      ]
+    },
+    {
+      "id": "LIMIT-10",
+      "phase": "F0",
+      "status": "open",
+      "title": {
+        "ru": "Проекты schema 3, чтение schemas 1–3",
+        "en": "Schema 3 projects, reads schemas 1–3"
+      },
+      "source": [
+        "src/editor/editor_project.h",
+        "src/editor/project_workspace.h"
+      ],
+      "plan": {
+        "ru": "До санкции владельца не менять формат. Новую схему проектировать для skeleton/collider/material и миграции с отдельным .bak; .pre-1.3.bak сохранять.",
+        "en": "Do not change format without owner approval. Design new skeleton/collider/material schema and migrations with a separate .bak; retain .pre-1.3.bak."
+      },
+      "test": {
+        "ru": "Golden проекты 1/2/3, идемпотентная миграция, byte-identical backup, отказ без изменения исходника, обратное открытие по явно объявленному контракту.",
+        "en": "Schema 1/2/3 goldens, idempotent migration, byte-identical backup, failed migration leaves source unchanged, explicit backward-reader contract."
+      },
+      "origin_ids": [
+        "REL-05"
+      ]
+    },
+    {
+      "id": "LIMIT-11",
+      "phase": "F0",
+      "status": "contract",
+      "title": {
+        "ru": "Ограничения документа, скриптов, undo и ресурсов",
+        "en": "Document, script, undo and resource bounds"
+      },
+      "source": [
+        "src/editor/script_document.h",
+        "src/editor/editor_history.h",
+        "src/editor/editor_project.h",
+        "src/io/scene_assets.h",
+        "src/render/material_render.h",
+        "extensions/audio/audio_backend.c"
+      ],
+      "plan": {
+        "ru": "Учесть 32 MiB проект, 32 слота × 65535 байт кода, 16 MiB encoded asset, 128 MiB/64 scene history, 128 MiB/256 textures, 64 голоса/64 MiB encoded audio; новые данные считать в общих бюджетах.",
+        "en": "Retain 32 MiB projects, 32 × 65535-byte scripts, 16 MiB encoded assets, 128 MiB/64 scene history, 128 MiB/256 textures, 64 voices/64 MiB encoded audio; account new data in shared budgets."
+      },
+      "test": {
+        "ru": "Границы UTF-8/CRLF, все слоты, превышение агрегата до копирования, warning undo, успешный повтор после отказа; отсутствие silent truncation.",
+        "en": "UTF-8/CRLF boundaries, all slots, reject aggregate overflow before copying, undo warning and recovery after rejection; no silent truncation."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "LIMIT-12",
+      "phase": "F0",
+      "status": "contract",
+      "title": {
+        "ru": "Триггеры и время симуляции имеют явные границы",
+        "en": "Trigger and simulation-time budgets are explicit"
+      },
+      "source": [
+        "src/runtime/gameplay_runtime.h",
+        "src/core/scene_tools.h"
+      ],
+      "plan": {
+        "ru": "Сохранить 32768 actor×zone pairs и pause/reject без потери событий; swept enter+exit в одном tick; backlog до 2 секунд с видимым DroppedTime.",
+        "en": "Preserve 32768 actor×zone pairs, pause/reject without event loss, swept enter+exit in one tick, and two-second backlog with visible DroppedTime."
+      },
+      "test": {
+        "ru": "10000 overlaps, граница 32768, превышение во время Play, enter/stay/exit и respawn order; длительный кадр/детерминированный replay.",
+        "en": "10000 overlaps, 32768 boundary, runtime overflow, enter/stay/exit/respawn ordering; heavy frame and deterministic replay."
+      },
+      "origin_ids": [
+        "GAME-01",
+        "GAME-02",
+        "GAME-03",
+        "PERF-03"
+      ]
+    },
+    {
+      "id": "LIMIT-13",
+      "phase": "P1",
+      "status": "contract",
+      "title": {
+        "ru": "Legacy индексы, одинаковые имена и Join",
+        "en": "Legacy indices, duplicate names and Join restrictions"
+      },
+      "source": [
+        "src/core/scene_tools.h",
+        "src/scripting/luaryx_runtime.h",
+        "extensions/csharp/Scene.cs"
+      ],
+      "plan": {
+        "ru": "Новые API только stable IDs; legacy find_object сохраняет первый результат, новые find отклоняют неоднозначность. Join пока отвергает данные, которые не умеет сохранять.",
+        "en": "Use stable IDs in new APIs; preserve legacy first-match find_object and ambiguity errors in new find. Join must keep rejecting data it cannot preserve."
+      },
+      "test": {
+        "ru": "Удаление/перестановка объектов, одинаковые имена, round-trip ID; Join не теряет материалы/анимацию/свойства при отказе.",
+        "en": "Object removal/reordering, duplicate names, stable-ID round trip; failed Join preserves materials/animation/properties."
+      },
+      "origin_ids": [
+        "REL-06",
+        "REL-07",
+        "REL-08"
+      ]
+    },
+    {
+      "id": "LIMIT-14",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Long-path support не снимает полевые лимиты",
+        "en": "Long-path support does not remove field caps"
+      },
+      "source": [
+        "src/io/asset_io.h",
+        "src/editor/editor_project.h",
+        "src/editor/script_document.h",
+        "assets/windows.manifest"
+      ],
+      "plan": {
+        "ru": "Сохранить wide/extended paths и anchored I/O; отдельно согласованно расширять поля UI/формата, а не отключать проверки длины.",
+        "en": "Preserve wide/extended paths and anchored I/O; widen UI/format fields deliberately instead of disabling length checks."
+      },
+      "test": {
+        "ru": "Нативные Unicode-пути >260, пределы 511/512/8192, case aliases, reparse race; отказ без усечения.",
+        "en": "Native Unicode >260 paths, 511/512/8192 field bounds, case aliases/reparse races; reject without truncation."
+      },
+      "origin_ids": [
+        "COMP-01"
+      ]
+    },
+    {
+      "id": "LIMIT-15",
+      "phase": "F0",
+      "status": "partial",
+      "title": {
+        "ru": "Нативные платформы, стандарты и MSVC",
+        "en": "Native platform, language-standard and MSVC scope"
+      },
+      "source": [
+        "Makefile",
+        "Makefile.win",
+        "Makefile.mac",
+        ".github/workflows/tests.yml"
+      ],
+      "plan": {
+        "ru": "Факт: C++17; C targets сейчас C11. Согласованно перевести production C на C17 с ABI-проверкой. Linux GCC, Windows MinGW, Apple Clang/macOS 15+; MSVC не заявлять без новой конфигурации.",
+        "en": "Current main build is C++17, C targets use C11. Move production C to C17 with ABI checks. Linux GCC, Windows MinGW, Apple Clang/macOS 15+; no MSVC claim without a supported build."
+      },
+      "test": {
+        "ru": "Нативный CI каждой платформы, C/C++ header ABI и строгие warnings; compile на C17; обновление матрицы только с реальным evidence.",
+        "en": "Native CI on each platform, C/C++ ABI/header checks, strict warnings and C17 compile; expand claims only with evidence."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "LIMIT-16",
+      "phase": "F0",
+      "status": "fixed_stage0",
+      "title": {
+        "ru": "Устаревшие справка и исторические отчёты",
+        "en": "Stale help and historical audit statements"
+      },
+      "source": [
+        "docs/manual/topics.json",
+        "docs/AUDIT-REMEDIATION.md",
+        "docs/work/1.3.0-plan.md"
+      ],
+      "plan": {
+        "ru": "Исправить утверждения о Lua file/process libraries и старых 8192/4096 trigger limits; пометить исторический отчёт как superseded. EN/RU и embedded help генерировать синхронно.",
+        "en": "Correct Lua file/process-library claims and obsolete 8192/4096 trigger limits; mark historical remediation as superseded. Regenerate EN/RU and embedded help together."
+      },
+      "test": {
+        "ru": "test_release_safety.py, build_manual.py, повторная генерация без diff; сверка утверждений с lua_sandbox/gameplay_runtime.",
+        "en": "test_release_safety.py, build_manual.py, idempotent regeneration; compare claims with lua_sandbox/gameplay_runtime."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "GUARD-01",
+      "phase": "F0",
+      "status": "guardrail",
+      "title": {
+        "ru": "Lua/MCP/anchored I/O не ослаблять",
+        "en": "Preserve Lua, MCP and anchored-I/O boundaries"
+      },
+      "source": [
+        "src/scripting/lua_sandbox.h",
+        "src/scripting/studio_mcp.h",
+        "src/io/secure_asset_io.h"
+      ],
+      "plan": {
+        "ru": "Lua 256 MiB/instructions и project-only require; локальный stdio MCP read-only + раздельные write/lua флаги; no-follow/handle-relative/atomic rename. Новые сервисы/аккаунты/телеметрия запрещены.",
+        "en": "Keep Lua 256 MiB/instruction/project-only-require limits; local stdio MCP read-only with separate write/lua grants; no-follow/handle-relative/atomic rename. No new services/accounts/telemetry."
+      },
+      "test": {
+        "ru": "test_audit_security.py, test_mcp_capabilities.py, v13 reparse/symlink tests и новые API через тот же boundary.",
+        "en": "test_audit_security.py, test_mcp_capabilities.py, v13 reparse/symlink regressions; route new APIs through the same boundary."
+      },
+      "origin_ids": [
+        "SEC-01",
+        "SEC-08"
+      ]
+    },
+    {
+      "id": "GUARD-02",
+      "phase": "F0",
+      "status": "guardrail",
+      "title": {
+        "ru": "Регрессии 1.3.1 и release gate",
+        "en": "1.3.1 regressions and release gate"
+      },
+      "source": [
+        "tests/v131_regressions.h",
+        "tests/core_tests.cpp",
+        "tests/viewport_postprocess_tests.cpp",
+        "tests/render_parity_tests.cpp",
+        "tools/test_release_safety.py",
+        ".github/workflows/release.yml"
+      ],
+      "plan": {
+        "ru": "Девять групп 1.3.1 сохранять обязательно. Публикация только exact-SHA native CI + sanitizers + graphics + packaged C# game + свежее UI-видео; четыре assets, SBOM/checksums в ZIP, теги immutable.",
+        "en": "Keep all nine 1.3.1 regression groups. Publish only exact-SHA native CI + sanitizers + graphics + packaged C# gameplay + fresh UI video; four assets, internal SBOM/checksums, immutable tags."
+      },
+      "test": {
+        "ru": "Полный gate; несовпадающий SHA/неуспешный job/старое видео/лишний asset отклоняются; no-credential signing не выдаётся за verified.",
+        "en": "Full gate; reject wrong SHA/failed job/stale video/extra asset; absent credentials must not yield verified-signing claims."
+      },
+      "origin_ids": [
+        "QA-03"
+      ]
+    },
+    {
+      "id": "P1-ANIM-01",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "Скелет и скиннинг",
+        "en": "Skeleton and skinning"
+      },
+      "source": [
+        "src/core/scene_core.h",
+        "src/core/studio_mesh_types.h",
+        "src/render/material_render.h"
+      ],
+      "plan": {
+        "ru": "Добавить rig/joints/inverse-bind/weights и skinning с бюджетами; CPU reference перед GPU path.",
+        "en": "Add rigs/joints/inverse-bind/weights and bounded skinning; CPU reference before GPU path."
+      },
+      "test": {
+        "ru": "Bind pose, 1–4 веса, индексы/NaN, transformed parents, CPU/GPU parity, save/undo/game.",
+        "en": "Bind pose, 1–4 weights, indices/NaN, transformed parents, CPU/GPU parity, save/undo/game."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-ANIM-02",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "IK",
+        "en": "Inverse kinematics"
+      },
+      "source": [
+        "src/core/scene_animation.h"
+      ],
+      "plan": {
+        "ru": "Детерминированный bounded двухкостный IK, затем цепочки с лимитами суставов.",
+        "en": "Deterministic bounded two-bone IK, then constrained chains."
+      },
+      "test": {
+        "ru": "Достижимая/недостижимая цель, zero-length, joint limits, no NaN, лимит итераций.",
+        "en": "Reachable/unreachable goals, zero-length bones, joint limits, no NaN, iteration cap."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-ANIM-03",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "Блендинг и state machine",
+        "en": "Blending and state machines"
+      },
+      "source": [
+        "src/core/scene_animation.h"
+      ],
+      "plan": {
+        "ru": "Клипы, параметры, переходы и blend masks; фиксировать семантику перехода/прерывания.",
+        "en": "Add clips/parameters/transitions/blend masks with explicit transition/interruption semantics."
+      },
+      "test": {
+        "ru": "Переходы по границам, blend endpoints, quaternion shortest-path, цикл, deterministic replay.",
+        "en": "Transition boundaries, blend endpoints, quaternion shortest path, looping/replay."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-ANIM-04",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Кривые easing",
+        "en": "Easing curves"
+      },
+      "source": [
+        "src/core/animation_core.h",
+        "tests/animation_tests.c"
+      ],
+      "plan": {
+        "ru": "Сейчас linear/smoothstep/step; добавить bounded curve evaluator без потери legacy keys.",
+        "en": "Currently linear/smoothstep/step; add bounded curves while preserving legacy keys."
+      },
+      "test": {
+        "ru": "Точки 0/1, монотонность выбранных кривых, NaN, zero span, legacy golden samples.",
+        "en": "0/1 endpoints, expected monotonicity, NaN/zero span, legacy goldens."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-ANIM-05",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "Shape keys",
+        "en": "Shape keys"
+      },
+      "source": [
+        "src/core/studio_mesh_types.h",
+        "src/core/scene_animation.h"
+      ],
+      "plan": {
+        "ru": "Ограниченные mesh deltas/веса, нормали и комбинация со skinning.",
+        "en": "Bounded mesh deltas/weights, normals and composition with skinning."
+      },
+      "test": {
+        "ru": "Топология/размеры, смешивание весов, negative/excessive values, round-trip и GL parity.",
+        "en": "Topology/size validation, weight blends, negative/excessive values, round trip/GL parity."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-ANIM-06",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "События анимации и root motion",
+        "en": "Animation events and root motion"
+      },
+      "source": [
+        "src/core/scene_animation.h",
+        "src/runtime/game_runtime.h"
+      ],
+      "plan": {
+        "ru": "События на пересечениях timeline, loop/wrap и root delta через character/physics.",
+        "en": "Timeline-crossing events with loop/wrap semantics and root deltas through physics/controller."
+      },
+      "test": {
+        "ru": "Exactly-once events, большой dt, reverse/loop, Stop/restart, столкновение root motion.",
+        "en": "Exactly-once events, large dt, reverse/loop, Stop/restart, colliding root motion."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-PHYS-01",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Динамические rigid bodies и импульсы",
+        "en": "Dynamic rigid bodies and impulses"
+      },
+      "source": [
+        "src/core/scene_tools.h",
+        "src/core/scene_core.h"
+      ],
+      "plan": {
+        "ru": "Есть Dynamic/Mass/Velocity и AABB response; добавить rotation/inertia/angular velocity/contact impulses, сохраняя legacy поведение по явно выбранному backend.",
+        "en": "Dynamic/Mass/Velocity and AABB response exist; add rotation/inertia/angular velocity/contact impulses with explicit legacy-backend compatibility."
+      },
+      "test": {
+        "ru": "Conservation fixtures, stacking/resting/friction, fixed-step replay, старые 3840 steps/2000 bounds.",
+        "en": "Conservation, stacking/resting/friction, fixed-step replay, legacy 3840-step/2000-bound fixtures."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-PHYS-02",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "Констрейнты",
+        "en": "Constraints"
+      },
+      "source": [
+        "src/core/scene_tools.h"
+      ],
+      "plan": {
+        "ru": "Distance/hinge constraints с stable IDs, итерационным бюджетом и корректным удалением body.",
+        "en": "Stable-ID distance/hinge constraints, bounded solver iterations and body-removal semantics."
+      },
+      "test": {
+        "ru": "Drift, limits, inactive/deleted body, closed loops, serialization/undo.",
+        "en": "Drift/limits, inactive/deleted bodies, closed loops, serialization/undo."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-PHYS-03",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "Sphere/capsule/convex коллайдеры",
+        "en": "Sphere/capsule/convex colliders"
+      },
+      "source": [
+        "src/core/scene_tools.h",
+        "src/core/spatial_index.h"
+      ],
+      "plan": {
+        "ru": "Отдельная validated collider shape и narrow phase; AABB остаётся broad-phase bound.",
+        "en": "Validated collider shapes and narrow phase; AABBs remain broad-phase bounds."
+      },
+      "test": {
+        "ru": "Analytic contacts, rotated/degenerate convex, negative scales, swept/overlap consistency.",
+        "en": "Analytic contacts, rotated/degenerate convex, negative scales, swept/overlap consistency."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-PHYS-04",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Raycast/overlap API, слои и маски",
+        "en": "Raycast/overlap APIs and collision layers/masks"
+      },
+      "source": [
+        "src/scripting/game_bindings.h",
+        "src/runtime/gameplay_runtime.h"
+      ],
+      "plan": {
+        "ru": "Есть trigger_contains; добавить общие query результаты со stable IDs, normals/distance и filtering в Lua/C#.",
+        "en": "trigger_contains exists; add shared stable-ID/normal/distance queries and Lua/C# filtering."
+      },
+      "test": {
+        "ru": "Closest/all hits, inside/zero ray, нормализация, mask symmetry, deleted entities, API parity.",
+        "en": "Closest/all hits, inside/zero rays, normalization, mask symmetry, deleted entities, API parity."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-PHYS-05",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Character controller: склоны и ступени",
+        "en": "Character slopes and steps"
+      },
+      "source": [
+        "src/core/scene_tools.h",
+        "src/runtime/gameplay_runtime.h"
+      ],
+      "plan": {
+        "ru": "Есть WASD/jump/grounded AABB; добавить capsule sweeps, slope limit, step-up/down и контактные нормали.",
+        "en": "WASD/jump/grounded AABB exists; add capsule sweeps, slope limits, step-up/down/contact normals."
+      },
+      "test": {
+        "ru": "Склон выше/ниже limit, step ±epsilon, потолок, moving platform, root motion, tunnelling.",
+        "en": "Slopes around limit, step ±epsilon, ceilings, moving platforms, root motion/tunnelling."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-PHYS-06",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "BVH broad phase",
+        "en": "BVH broad phase"
+      },
+      "source": [
+        "src/core/spatial_index.h"
+      ],
+      "plan": {
+        "ru": "Сейчас spatial grid с large-object fallback; добавить измеряемый BVH/refit, grid оставить reference/fallback.",
+        "en": "Current spatial grid has large-object fallback; add measured BVH/refit while keeping grid as reference/fallback."
+      },
+      "test": {
+        "ru": "Query differential против brute force, dense/large worlds, refit/removal, deterministic perf/memory.",
+        "en": "Query differential vs brute force, dense/large worlds, refit/removal, measured perf/memory."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-RENDER-01",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "PBR texture maps",
+        "en": "PBR texture maps"
+      },
+      "source": [
+        "src/core/studio_mesh_types.h",
+        "src/render/scene_shadows.h",
+        "src/render/material_render.h",
+        "src/io/scene_assets.h"
+      ],
+      "plan": {
+        "ru": "Есть base texture и scalar metallic/roughness; добавить normal/roughness/metallic/AO/emissive, tangents и общие import/cache budgets.",
+        "en": "Base texture and scalar metallic/roughness exist; add normal/roughness/metallic/AO/emissive, tangents and shared import/cache budgets."
+      },
+      "test": {
+        "ru": "Каналы glTF, sRGB/linear, missing/invalid maps, tangent orientation, GL fallback, round-trip/undo.",
+        "en": "glTF channels, sRGB/linear, missing/invalid maps, tangent orientation, GL fallback, round-trip/undo."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-RENDER-02",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Точечный/прожекторный свет с тенями",
+        "en": "Point/spot lights and shadows"
+      },
+      "source": [
+        "src/render/scene_shadows.h"
+      ],
+      "plan": {
+        "ru": "Есть sun PCF shadows; добавить bounded point/spot lights, light culling и shadow atlas/cubemap с capability fallback.",
+        "en": "Sun PCF shadows exist; add bounded point/spot lights, culling and shadow atlas/cubemaps with capability fallback."
+      },
+      "test": {
+        "ru": "Occlusion, spot cone, shadow bias, light limit, unsupported GL capabilities и lifecycle cleanup.",
+        "en": "Occlusion, spot cones/bias, light caps, unsupported capabilities and resource cleanup."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-RENDER-03",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "Прозрачность с сортировкой",
+        "en": "Sorted transparency"
+      },
+      "source": [
+        "src/render/material_render.h",
+        "src/render/render_geometry.h"
+      ],
+      "plan": {
+        "ru": "Разделить opaque/masked/blended queues, depth-write и stable back-to-front sort.",
+        "en": "Separate opaque/masked/blended queues with correct depth writes and stable back-to-front sorting."
+      },
+      "test": {
+        "ru": "Overlapping alpha meshes, equal depth, camera rotation, cached/legacy image parity.",
+        "en": "Overlapping alpha meshes, equal depth, camera rotation, cached/legacy image parity."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-RENDER-04",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Скайбокс и туман",
+        "en": "Skybox and fog"
+      },
+      "source": [
+        "src/render/render_showcase.h",
+        "src/editor/editor_ui.h"
+      ],
+      "plan": {
+        "ru": "Есть градиентные sky presets; добавить локальные cubemap assets и fog с linear HDR pipeline.",
+        "en": "Gradient sky presets exist; add local cubemap assets and fog in the linear HDR pipeline."
+      },
+      "test": {
+        "ru": "Cube faces/orientation, missing resources, fog distances, HDR/Office fallback и package relocation.",
+        "en": "Cube faces/orientation, missing assets, fog distances, HDR/Office fallback and relocated package."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-RENDER-05",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Инстансинг/батчинг",
+        "en": "Instancing and batching"
+      },
+      "source": [
+        "src/render/render_geometry.h",
+        "src/render/material_render.h"
+      ],
+      "plan": {
+        "ru": "Есть VBO/material batches; добавить instance groups и extension-gated instancing, сохранив OpenGL 2.1 fallback.",
+        "en": "VBO/material batches exist; add instance groups and extension-gated instancing with GL2.1 fallback."
+      },
+      "test": {
+        "ru": "Image parity, changing transforms/materials, capability on/off, draw calls и cache budget under churn.",
+        "en": "Image parity, changing transforms/materials, capability on/off, draw calls/cache churn."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-RENDER-06",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "LOD",
+        "en": "Level of detail"
+      },
+      "source": [
+        "src/render/render_geometry.h",
+        "src/core/studio_mesh_types.h"
+      ],
+      "plan": {
+        "ru": "Явные mesh LOD levels, distance/error policy и hysteresis; generation только локально.",
+        "en": "Explicit mesh LOD levels, distance/error policy and hysteresis; generation stays local."
+      },
+      "test": {
+        "ru": "Threshold ±epsilon, no flicker, bounds/culling, invalid levels, memory and standalone parity.",
+        "en": "Threshold ±epsilon, no flicker, bounds/culling, invalid levels, memory/standalone parity."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-MODEL-01",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Extrude/inset/bevel",
+        "en": "Extrude/inset/bevel"
+      },
+      "source": [
+        "src/core/mesh_modeling.h",
+        "src/editor/editor_modeling.h"
+      ],
+      "plan": {
+        "ru": "Extrude и bevel есть; bevel требует closed consistently-oriented mesh. Добавить inset, region/individual semantics и корректное сохранение attributes.",
+        "en": "Extrude/bevel exist; bevel requires a closed consistently oriented mesh. Add inset, region/individual semantics and attribute preservation."
+      },
+      "test": {
+        "ru": "Manifold/boundary/concave faces, UV/normals/colors, invalid selection, budgets и atomic undo.",
+        "en": "Manifold/boundary/concave faces, UV/normals/colors, invalid selections, budgets/atomic undo."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-MODEL-02",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "Loop cut и knife",
+        "en": "Loop cut and knife"
+      },
+      "source": [
+        "src/core/mesh_modeling.h",
+        "src/editor/editor_modeling.h"
+      ],
+      "plan": {
+        "ru": "Топологические операции с preview/commit, валидацией и переносом UV/color/seam.",
+        "en": "Topology operations with preview/commit, validation and UV/color/seam propagation."
+      },
+      "test": {
+        "ru": "Closed/open/non-manifold topology, vertex/edge hits, canceled preview, triangulation и undo.",
+        "en": "Closed/open/nonmanifold topology, vertex/edge hits, canceled preview, triangulation/undo."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-MODEL-03",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Subdivision, mirror и array",
+        "en": "Subdivision, mirror and array"
+      },
+      "source": [
+        "src/core/mesh_modeling.h",
+        "src/core/studio_mesh_types.h"
+      ],
+      "plan": {
+        "ru": "Уже есть; сохранить бюджеты levels 1–4/array 2–64, проверить border/UV/seam contracts и устранить конкретные дефекты вместо дублирования.",
+        "en": "Already present; retain levels 1–4/array 2–64 caps, verify boundary/UV/seam contracts and fix concrete issues instead of reimplementation."
+      },
+      "test": {
+        "ru": "Существующие modeling tests + golden boundary meshes, mirror winding, array normals и apply/undo.",
+        "en": "Existing modeling tests plus boundary goldens, mirrored winding, array normals, apply/undo."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-MODEL-04",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Snapping и proportional editing",
+        "en": "Snapping and proportional editing"
+      },
+      "source": [
+        "src/editor/editor_transform.h",
+        "src/editor/editor_gizmo.h",
+        "src/editor/editor_modeling.h"
+      ],
+      "plan": {
+        "ru": "Есть grid snap; добавить vertex/edge snap с visual target и bounded falloff для proportional editing.",
+        "en": "Grid snapping exists; add vertex/edge snapping with visible targets and bounded proportional falloff."
+      },
+      "test": {
+        "ru": "Local/world, hidden geometry, large coordinates, precision, radius/falloff endpoints и undo.",
+        "en": "Local/world, hidden geometry, large coordinates, precision, radius/falloff endpoints and undo."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-MODEL-05",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Редактирование вершинных цветов",
+        "en": "Vertex-color editing"
+      },
+      "source": [
+        "src/core/studio_mesh_types.h",
+        "src/core/mesh_modeling.h",
+        "src/editor/editor_modeling.h"
+      ],
+      "plan": {
+        "ru": "Хранение/рендер/GLB vertex colors есть; добавить явные paint/fill/edit controls и перенос при новых операциях.",
+        "en": "Vertex-color storage/render/GLB support exists; add explicit paint/fill/edit controls and propagation through new operations."
+      },
+      "test": {
+        "ru": "RGB color-space contract, selected vertices, interpolation после topology edits, round-trip и undo.",
+        "en": "RGB/color-space contract, selected vertices, topology interpolation, round-trip and undo."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-SAVE-01",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "Слоты и версионирование игровых сохранений",
+        "en": "Versioned game-save slots"
+      },
+      "source": [
+        "src/runtime/game_project.h",
+        "src/io/secure_asset_io.h"
+      ],
+      "plan": {
+        "ru": "Отдельный per-game local save root и bounded versioned slots; атомарные writes, миграции и recovery; scene editing recovery не выдавать за game saves.",
+        "en": "Dedicated per-game local save root and bounded versioned slots; atomic writes, migrations and recovery; editor recovery is not game saves."
+      },
+      "test": {
+        "ru": "Traversal/NUL/symlink/reparse, interrupted writes, old/new version, malformed state, слот после relocation; Lua/C# parity.",
+        "en": "Traversal/NUL/symlink/reparse, interrupted writes, old/new versions, malformed state, relocated game; Lua/C# parity."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-INPUT-01",
+      "phase": "P1",
+      "status": "partial",
+      "title": {
+        "ru": "Ребинд ввода",
+        "en": "Input rebinding"
+      },
+      "source": [
+        "src/scripting/game_bindings.h",
+        "src/editor/editor_preferences.h"
+      ],
+      "plan": {
+        "ru": "Есть input_key/scancodes; добавить action map, press/release/held, persisted per-user overrides и editor conflicts.",
+        "en": "input_key/scancodes exist; add action maps, press/release/held, per-user overrides and editor conflict handling."
+      },
+      "test": {
+        "ru": "Duplicate/unbound bindings, modifiers, focus/text capture, UTF-8 names, local save и old API compatibility.",
+        "en": "Duplicate/unbound bindings, modifiers, focus/text capture, UTF-8 names, local persistence/legacy compatibility."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-INPUT-02",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "SDL GameController",
+        "en": "SDL GameController input"
+      },
+      "source": [
+        "src/main.cpp",
+        "src/scripting/game_bindings.h"
+      ],
+      "plan": {
+        "ru": "Использовать уже имеющийся SDL2: hotplug, оси/deadzones, player assignment и offline controller mappings.",
+        "en": "Use existing SDL2 for hotplug, axes/deadzones, player assignment and offline mappings."
+      },
+      "test": {
+        "ru": "Virtual controller fixtures, hotplug/unplug, axis extremes, focus, multiple devices, keyboard coexistence.",
+        "en": "Virtual-controller fixtures, hotplug/unplug, axis extremes, focus, multiple devices/keyboard coexistence."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P1-INPUT-03",
+      "phase": "P1",
+      "status": "open",
+      "title": {
+        "ru": "Локальный сплит-скрин",
+        "en": "Local split screen"
+      },
+      "source": [
+        "src/main.cpp",
+        "src/runtime/game_gui.h",
+        "src/render/viewport_target.h"
+      ],
+      "plan": {
+        "ru": "Несколько local players/cameras/viewports/input contexts, independent GUI и shared simulation без networking.",
+        "en": "Multiple local players/cameras/viewports/input contexts, independent GUI and shared simulation without networking."
+      },
+      "test": {
+        "ru": "2/4 views, resize/HDR, GUI clipping, input isolation, camera aspect и resource cleanup.",
+        "en": "2/4 views, resize/HDR, GUI clipping, input isolation, camera aspects and cleanup."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-AUDIO-01",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "3D-аудио, затухание и микшер",
+        "en": "3D audio, attenuation and mixer"
+      },
+      "source": [
+        "extensions/audio/audio_backend.c",
+        "src/runtime/studio_sounds.h",
+        "src/editor/editor_audio.h"
+      ],
+      "plan": {
+        "ru": "Spatial position/listener/loop уже есть; добавить exposed attenuation/cones и bounded buses/groups с gain/mute/ducking.",
+        "en": "Spatial position/listener/loop already exist; expose attenuation/cones and bounded buses/groups with gain/mute/ducking."
+      },
+      "test": {
+        "ru": "Null-device PCM, distance/pan/cones, bus hierarchy cycles/clipping, Stop/orphan cleanup и saved settings.",
+        "en": "Null-device PCM, distance/pan/cones, bus cycles/clipping, Stop/orphan cleanup and saved settings."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-AUDIO-02",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Музыка с дисковым стримингом и loop points",
+        "en": "Disk-streamed music and loop points"
+      },
+      "source": [
+        "extensions/audio/audio_backend.c",
+        "src/io/secure_asset_io.h"
+      ],
+      "plan": {
+        "ru": "Сейчас decoder стримит из удерживаемых encoded bytes; добавить bounded ring/file streaming из pinned handles и loop points, не re-open небезопасный путь.",
+        "en": "Current decoder streams from retained encoded bytes; add bounded ring/file streaming from pinned handles and loop points, not unsafe path reopens."
+      },
+      "test": {
+        "ru": "Длинный файл при постоянном RAM, underrun/seek/loop/end, corrupt input, file swap и shutdown.",
+        "en": "Long files with bounded RAM, underrun/seek/loop/end, corrupt input/file swaps and shutdown."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-GUI-01",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Якоря, layout и новые виджеты",
+        "en": "Anchors, layout and widgets"
+      },
+      "source": [
+        "src/runtime/game_gui.h",
+        "src/runtime/game_state.h",
+        "src/editor/editor_gui.h"
+      ],
+      "plan": {
+        "ru": "Есть 128 flat label/button/panel/progress; добавить tree layout, anchors, slider/dropdown/scroll-view и bounded input handling.",
+        "en": "128 flat label/button/panel/progress widgets exist; add tree layout, anchors, slider/dropdown/scroll views and bounded input handling."
+      },
+      "test": {
+        "ru": "DPI/aspect resize, nesting/cycle caps, clipping/hit order, keyboard/controller focus, serialization/undo.",
+        "en": "DPI/aspect resize, nesting/cycle caps, clipping/hit order, keyboard/controller focus, serialization/undo."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-GUI-02",
+      "phase": "P2",
+      "status": "open",
+      "title": {
+        "ru": "Темы, локализация и controller navigation",
+        "en": "Themes, localization and controller navigation"
+      },
+      "source": [
+        "src/runtime/game_gui.h",
+        "src/editor/editor_gui.h"
+      ],
+      "plan": {
+        "ru": "Локальные таблицы string IDs/fallback, theme resources и focus navigation; docs EN/RU не считать локализацией игры.",
+        "en": "Local string-ID/fallback tables, theme resources and focus navigation; EN/RU docs are not game localization."
+      },
+      "test": {
+        "ru": "Missing keys, UTF-8 text/font coverage, focus disabled/hidden widgets, no external font/service lookup.",
+        "en": "Missing keys, UTF-8/font coverage, disabled/hidden focus, no remote font/service lookup."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-SCRIPT-01",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Hot reload Lua/C#",
+        "en": "Lua/C# hot reload"
+      },
+      "source": [
+        "src/editor/code_editor.h",
+        "src/scripting/csharp_bridge.h",
+        "src/scripting/luaryx_runtime.h"
+      ],
+      "plan": {
+        "ru": "Есть явный Run/reinit; добавить validated compile-then-swap, state transfer contract и rollback, сохраняя trust/deadline/module confinement.",
+        "en": "Explicit Run/reinit exists; add validated compile-then-swap, state-transfer contract and rollback while preserving trust/deadline/confinement."
+      },
+      "test": {
+        "ru": "Syntax/type error сохраняет рабочий runtime; on_stop/on_start ровно раз, module cycles, trust на изменённый код.",
+        "en": "Syntax/type errors keep working runtime; on_stop/on_start exactly once, module cycles, changed-code trust."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-SCRIPT-02",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Luaryx input/timers/tweens/raycast/save API",
+        "en": "Luaryx input/timer/tween/raycast/save APIs"
+      },
+      "source": [
+        "src/scripting/luaryx_runtime.h",
+        "src/scripting/game_bindings.h",
+        "extensions/csharp/Scene.cs"
+      ],
+      "plan": {
+        "ru": "Связать новые input/physics/save services через stable IDs; timer/tween работают по simulation clock и очищаются при Stop/load.",
+        "en": "Expose new input/physics/save services through stable IDs; timers/tweens use simulation time and clear on Stop/load."
+      },
+      "test": {
+        "ru": "Pause/step/restart, canceled callback, cap/recursion, destroyed entity, Lua/C# parity и sandbox enforcement.",
+        "en": "Pause/step/restart, canceled callbacks, caps/recursion, destroyed entities, Lua/C# parity/sandbox enforcement."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-SCRIPT-03",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Автодополнение, шаблоны и профайлер",
+        "en": "Completion, templates and script profiler"
+      },
+      "source": [
+        "src/editor/code_editor.h",
+        "src/editor/script_document.h",
+        "src/editor/editor_debug.h"
+      ],
+      "plan": {
+        "ru": "Есть базовые templates/highlighting/diagnostics; добавить offline API completion и bounded per-script timings/allocations без telemetry.",
+        "en": "Basic templates/highlighting/diagnostics exist; add offline API completion and bounded per-script timing/allocation measurements without telemetry."
+      },
+      "test": {
+        "ru": "Unicode cursor ranges, cancel/no network, stale diagnostics, per-script budget, profiler disabled overhead.",
+        "en": "Unicode cursor ranges, cancellation/no network, stale diagnostics, per-script budgets/profiler-off overhead."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-ASSET-01",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "GLB/GLTF анимации и скины",
+        "en": "Animated/skinned GLB/GLTF"
+      },
+      "source": [
+        "src/io/scene_assets.h",
+        "src/core/studio_mesh_types.h"
+      ],
+      "plan": {
+        "ru": "Сейчас static GLB; animation/skin unsupported reported. Добавить .gltf + external buffers/images только в import root, joints/channels/weights и export contracts.",
+        "en": "Current import is static GLB with unsupported animation/skin notices. Add .gltf/external buffers/images confined to import root, joints/channels/weights and export contracts."
+      },
+      "test": {
+        "ru": "glTF fixtures/validator, path/URI/data bounds, sparse accessors, hierarchy cycles, key interpolation, round-trip и budget failure.",
+        "en": "glTF fixtures/validator, path/URI/data bounds, sparse accessors, hierarchy cycles, key interpolation, round-trip/budget failures."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-ASSET-02",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Браузер ассетов, hot reload и зависимости",
+        "en": "Asset browser, hot reload and dependencies"
+      },
+      "source": [
+        "src/editor/project_workspace.h",
+        "src/io/scene_assets.h",
+        "src/render/material_render.h"
+      ],
+      "plan": {
+        "ru": "Есть drop GLB/audio и texture mtime keys; добавить локальный asset index, preview cache, dependency graph и debounced invalidation.",
+        "en": "GLB/audio drop and texture mtime keys exist; add a local asset index, preview cache, dependency graph and debounced invalidation."
+      },
+      "test": {
+        "ru": "Rename/delete/change, dependency cycles, stale preview jobs, failed reload rollback, same-name different files, confined handles.",
+        "en": "Rename/delete/change, dependency cycles, stale preview jobs, failed reload rollback, same-name files/confined handles."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-UX-01",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Outliner, parenting, selection и gizmo",
+        "en": "Outliner, parenting, selection and gizmos"
+      },
+      "source": [
+        "src/editor/editor_ui.h",
+        "src/editor/editor_selection.h",
+        "src/editor/editor_gizmo.h"
+      ],
+      "plan": {
+        "ru": "Search/multiselect/local-world gizmo уже есть. Добавить parenting с stable IDs, keep-world/reparent semantics и защиты от циклов.",
+        "en": "Search/multiselect/local-world gizmos already exist. Add stable-ID parenting, keep-world/reparent semantics and cycle prevention."
+      },
+      "test": {
+        "ru": "Reparent mirrored/nonuniform transforms, recursive deletion/undo, filtered multiselect и local/world gizmo compatibility.",
+        "en": "Reparent mirrored/nonuniform transforms, recursive deletion/undo, filtered multiselect/local-world compatibility."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-UX-02",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Ортографические виды, view cube, камеры и измеритель",
+        "en": "Orthographic views, view cube, bookmarks and measuring"
+      },
+      "source": [
+        "src/editor/editor_camera_math.h",
+        "src/editor/editor_gizmo.h",
+        "src/editor/editor_transform.h"
+      ],
+      "plan": {
+        "ru": "Есть perspective/free camera; добавить orthographic projection/picking, cube navigation, local bookmarks и measurement overlay.",
+        "en": "Perspective/free camera exists; add orthographic projection/picking, cube navigation, local bookmarks and measuring."
+      },
+      "test": {
+        "ru": "Ortho/perspective picking, aspect/zoom extremes, matching gizmo matrices, bookmark round-trip, units/large coordinates.",
+        "en": "Ortho/perspective picking, aspect/zoom extremes, gizmo matrices, bookmark round-trip, units/large coordinates."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-UX-03",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Profiler overlay, консоль и hotkey editor",
+        "en": "Profiler overlay, console and hotkey editor"
+      },
+      "source": [
+        "src/editor/editor_debug.h",
+        "src/editor/editor_preferences.h",
+        "src/editor/editor_ui.h"
+      ],
+      "plan": {
+        "ru": "FPS/render counters/console уже есть; добавить bounded overlay памяти/таймингов и редактор конфликтов shortcut с local prefs.",
+        "en": "FPS/render counters/console exist; add bounded memory/timing overlay and shortcut-conflict editor with local preferences."
+      },
+      "test": {
+        "ru": "Counters reconcile, disabled overhead, bounded log, focus-aware shortcuts, restore defaults и no telemetry.",
+        "en": "Counter reconciliation, profiler-off overhead, bounded logs, focus-aware shortcuts/defaults, no telemetry."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-UX-04",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Шаблоны проектов и tutorial-сцены",
+        "en": "Project templates and tutorial scenes"
+      },
+      "source": [
+        "src/examples/example_game.h",
+        "src/editor/project_workspace.h"
+      ],
+      "plan": {
+        "ru": "Есть sample Gem Trail; добавить shipped offline templates и пошаговые scenes с актуальными EN/RU инструкциями.",
+        "en": "Gem Trail sample exists; add shipped offline templates/tutorial scenes with current EN/RU instructions."
+      },
+      "test": {
+        "ru": "Каждый template открывается/сохраняется, script compile, packaged gameplay, нет missing/network assets.",
+        "en": "Every template opens/saves/compiles/packages successfully, no missing/network assets."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-NODES-01",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Стабилизация geometry nodes",
+        "en": "Geometry-node stabilization"
+      },
+      "source": [
+        "src/core/geometry_nodes.h",
+        "src/editor/editor_nodes.h"
+      ],
+      "plan": {
+        "ru": "Есть 8 типов, один input/geometry node, 32 nodes и preview/commit. Добавить typed sockets/nodes/undo и удобный editor без silent data loss.",
+        "en": "Eight types, one geometry input/node, 32-node cap and preview/commit exist. Add typed sockets/nodes/undo and usable editing without silent data loss."
+      },
+      "test": {
+        "ru": "Cycles, disconnected/invalid types, graph budgets, preview cancellation/stale workers, save/undo/bake parity.",
+        "en": "Cycles, disconnected/invalid types, graph budgets, preview cancellation/stale workers, save/undo/bake parity."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P2-CACHE-01",
+      "phase": "P2",
+      "status": "partial",
+      "title": {
+        "ru": "Cached rendering и presets",
+        "en": "Cached rendering and quality presets"
+      },
+      "source": [
+        "src/render/render_geometry.h",
+        "src/render/material_render.h",
+        "src/editor/editor_preferences.h"
+      ],
+      "plan": {
+        "ru": "Есть cache/presets и oversubscription fallback; расширить invalidation на новые maps/skins/instances, сделать capability/result видимыми.",
+        "en": "Caches/presets and oversubscription fallback exist; extend invalidation to maps/skins/instances and expose capability/results."
+      },
+      "test": {
+        "ru": "Cached/reference image parity, undo/skin/material edits, active-set overflow, driver fallback и resource counters.",
+        "en": "Cached/reference image parity, undo/skin/material edits, active-set overflow, driver fallbacks/resource counters."
+      },
+      "origin_ids": []
+    },
+    {
+      "id": "P3-STRETCH-01",
+      "phase": "P3",
+      "status": "deferred",
+      "title": {
+        "ru": "Terrain / particles / decals / A* / 2D",
+        "en": "Terrain / particles / decals / A* / 2D"
+      },
+      "source": [
+        "src/core/scene_core.h"
+      ],
+      "plan": {
+        "ru": "Не начинать до завершения согласованных P1/P2. После этого отдельные offline slices, бюджеты и format/API контракты.",
+        "en": "Do not start before agreed P1/P2 completion; later use separate offline slices with budgets and format/API contracts."
+      },
+      "test": {
+        "ru": "Отдельный acceptance corpus и native gates для каждой подсистемы; сейчас не реализовано и не проверено.",
+        "en": "Separate acceptance corpus/native gates for each subsystem; not implemented or tested in this stage."
+      },
+      "origin_ids": []
+    }
+  ],
+  "target_version": "1.4.0",
+  "owner_decisions": {
+    "project_schema_change": "approved with migration and backup",
+    "package_authentication": "external local HMAC key; no embedded secret",
+    "target_version": "1.4.0"
+  }
+}

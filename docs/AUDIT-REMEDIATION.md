@@ -1,3 +1,5 @@
+> Historical 1.2.2 remediation record. Some limits below were superseded in 1.3.0/1.3.1: native deadline workers, spatial broad phase/static sweeps, five-second Play-safe recovery, handle-relative Windows I/O and long-path support. For current facts and planned work use [Stage 0 EN](en/MAJOR-UPDATE.md), [Этап 0 RU](ru/MAJOR-UPDATE.md), [1.3.1 fixes](validation/v1.3.1-fixes.md) and the linked native CI. Historical test results below describe their stated revision, not the new major update.
+
 # Audit remediation
 
 Source: user-supplied `Lunoryx-audit.md`, reviewing 1.2.1. The original audit was
