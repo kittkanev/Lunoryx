@@ -7,6 +7,9 @@
 #include <sddl.h>
 #else
 #include <unistd.h>
+#ifdef __APPLE__
+#include <sys/random.h>
+#endif
 #endif
 namespace PackageAuth {
 inline void RejectKeyPath(const std::string& path);
