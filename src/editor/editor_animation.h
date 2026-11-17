@@ -34,14 +34,14 @@ static void RenderAnimationEditor(float dt) {
       }
       ImGui::SameLine();ImGui::TextDisabled("Stop preview before editing keys.");
       ImGui::BeginDisabled(g_AnimationPreview);
-      static int easing=1;const char* curves[]={"Linear","Smooth","Step"};ImGui::Combo("Next segment",&easing,curves,3);
+      static int easing=1;const char* curves[LNX_EASE_COUNT]={"Linear","Smooth","Step","Quad in","Quad out","Quad in/out","Cubic in","Cubic out","Cubic in/out","Sine in/out"};ImGui::Combo("Next segment",&easing,curves,LNX_EASE_COUNT);
       if(ImGui::Button("Capture current pose")){g_ObjectHistory.Capture(g_Objects);if(!CaptureAnimationKey(o,g_TimelineTime,easing))AppendConsole("Cannot capture key: check pose ranges / 256-key limit.\n");g_ObjectHistory.Capture(g_Objects);}
       ImGui::EndDisabled();
       if(ImGui::BeginTable("Keyframes",3,ImGuiTableFlags_RowBg|ImGuiTableFlags_BordersInnerH)){
         ImGui::TableSetupColumn("Time");ImGui::TableSetupColumn("Interpolation");ImGui::TableSetupColumn("Actions");ImGui::TableHeadersRow();
         for(size_t i=0;i<o.AnimationKeys.size();){auto& key=o.AnimationKeys[i];ImGui::PushID(int(i));ImGui::TableNextRow();ImGui::TableNextColumn();
           if(ImGui::Selectable((std::to_string(key.Time)+" s").c_str()))g_TimelineTime=key.Time;
-          ImGui::TableNextColumn();ImGui::BeginDisabled(g_AnimationPreview);ImGui::SetNextItemWidth(100);ImGui::Combo("##curve",&key.Easing,curves,3);
+          ImGui::TableNextColumn();ImGui::BeginDisabled(g_AnimationPreview);ImGui::SetNextItemWidth(140);ImGui::Combo("##curve",&key.Easing,curves,LNX_EASE_COUNT);
           ImGui::TableNextColumn();bool remove=ImGui::SmallButton("Delete");ImGui::EndDisabled();ImGui::PopID();
           if(remove)o.AnimationKeys.erase(o.AnimationKeys.begin()+i);else ++i;
         }ImGui::EndTable();

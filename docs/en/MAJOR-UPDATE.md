@@ -240,9 +240,11 @@ Status: Partial.
 
 Source: [animation_core.h](../../src/core/animation_core.h), [animation_tests.c](../../tests/animation_tests.c).
 
-Plan: Currently linear/smoothstep/step; add bounded curves while preserving legacy keys.
+Plan: Ten bounded C17 curves are implemented in timeline/Lua/schema 4/history/packed runtime; preserve legacy IDs 0–2. Complete native CI and sanitizer validation.
 
 Test: 0/1 endpoints, expected monotonicity, NaN/zero span, legacy goldens.
+
+[Actual easing validation](../validation/v1.4.0-easing.md).
 
 ### P1-ANIM-05 — Shape keys
 

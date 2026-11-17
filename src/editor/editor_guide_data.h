@@ -22,7 +22,7 @@ Play Simulation / F6 запускает физику и стартовый Lua-�
 ### Author a clip
 - Set Duration, Loop and Speed. At time 0, edit the pose in Properties and press Capture current pose.
 - Move the Time slider, then Stop / restore pose to leave preview. Edit the new pose and capture it at that time. Existing timestamps are replaced.
-- Choose Linear, Smooth (ease in/out) or Step for the segment after each key. Rotation follows the shortest angular path; use intermediate keys for a full revolution.
+- Choose Linear, Smooth (smoothstep), Step, Quad in/out/in-out, Cubic in/out/in-out or Sine in-out for the segment after each key. All continuous curves stay within the two endpoint poses. Rotation follows the shortest angular path; use intermediate keys for a full revolution.
 - Preview plays the selected clip; scrubbing pauses playback. Stop / restore pose restores the initial editor pose.
 - Enable Autoplay in game for automatic runtime playback. Keep Dynamic off for animated props and platforms: animation writes absolute transforms.
 ### Lua example
@@ -36,11 +36,12 @@ animation_key(box, 2, 1)
 animation_play(box)
 -- animation_stop(box) freezes the current pose
 ```
+Easing IDs are stable: 0 Linear, 1 Smooth, 2 Step, 3 Quad in, 4 Quad out, 5 Quad in-out, 6 Cubic in, 7 Cubic out, 8 Cubic in-out, 9 Sine in-out. New curves require schema 4; legacy schemas retain IDs 0–2.
 Limits: 256 keys per object; duration 0.01..3600 seconds; speed 0.01..100. Clips are stored in .lunoryx and packed Game.exe. This release animates objects, not skeletal skinning; GLB export remains a static scene.)GUIDE",R"GUIDE(Откройте Window > Animation и выделите объект. У каждого объекта один клип с ключами положения, вращения, масштаба и цвета. Интерполяция написана на C17 и работает в редакторе и отдельной игре.
 ### Создание клипа
 - Задайте Duration, Loop и Speed. На времени 0 измените позу в Properties и нажмите Capture current pose.
 - Переместите Time, затем нажмите Stop / restore pose для выхода из предпросмотра. Измените позу и запишите ключ на выбранном времени. Ключ с тем же временем заменяется.
-- Linear — линейная интерполяция; Smooth — плавный разгон и торможение; Step — резкая смена. Тип относится к отрезку после ключа. Вращение идёт по кратчайшей дуге; для полного оборота нужны промежуточные ключи.
+- Linear — линейная интерполяция; Smooth — smoothstep; Step — резкая смена. Quad in/out/in-out, Cubic in/out/in-out и Sine in-out добавляют квадратичные, кубические и синусоидальную кривые. Непрерывные кривые не выходят за крайние позы. Тип относится к отрезку после ключа. Вращение идёт по кратчайшей дуге; для полного оборота нужны промежуточные ключи.
 - Preview воспроизводит клип, перемещение Time ставит предпросмотр на паузу. Stop / restore pose возвращает исходную позу.
 - Autoplay in game включает клип при запуске игры. Для анимированных объектов отключайте Dynamic: анимация записывает абсолютные трансформации.
 ### Пример Lua
@@ -54,6 +55,7 @@ animation_key(box, 2, 1)
 animation_play(box)
 -- animation_stop(box) останавливает в текущей позе
 ```
+ID кривых: 0 Linear, 1 Smooth, 2 Step, 3 Quad in, 4 Quad out, 5 Quad in-out, 6 Cubic in, 7 Cubic out, 8 Cubic in-out, 9 Sine in-out. Новые кривые требуют schema 4; прежние schemas сохраняют ID 0–2.
 Ограничения: 256 ключей на объект, длительность 0.01..3600 секунд, скорость 0.01..100. Клип сохраняется в .lunoryx и Game.exe. Это анимация объектов, без skeletal skinning; экспорт GLB пока содержит статичную сцену.)GUIDE"}},
 {{"03 · Killzones and checkpoints","03 · Киллзоны и контрольные точки"},{R"GUIDE(Properties > Physics / Character now includes Solid collider and Trigger. A trigger uses the object's world AABB, including its transform and mesh bounds. It never pushes an actor, even when Solid is checked. Visibility does not disable a trigger.
 - None: ordinary object, collision follows Solid.

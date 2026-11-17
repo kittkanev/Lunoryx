@@ -1,6 +1,6 @@
 #pragma once
 static int l_animation_key(lua_State* L) {
-  lua_Integer index=luaL_checkinteger(L,1);float time=CheckFiniteNumber(L,2);lua_Integer curve=luaL_optinteger(L,3,0);int easing=curve>=0&&curve<=2?int(curve):-1;
+  lua_Integer index=luaL_checkinteger(L,1);float time=CheckFiniteNumber(L,2);lua_Integer curve=luaL_optinteger(L,3,0);int easing=curve>=0&&curve<LNX_EASE_COUNT?int(curve):-1;
   bool ok=index>=0&&uint64_t(index)<g_Objects.size()&&CaptureAnimationKey(g_Objects[size_t(index)],time,easing);
   lua_pushboolean(L,ok);return 1;
 }

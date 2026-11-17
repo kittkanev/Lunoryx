@@ -876,17 +876,29 @@
       },
       "source": [
         "src/core/animation_core.h",
-        "tests/animation_tests.c"
+        "tests/animation_tests.c",
+        "src/editor/editor_animation.h",
+        "src/scripting/animation_bindings.h",
+        "tests/easing_integration_tests.h"
       ],
       "plan": {
-        "ru": "Сейчас linear/smoothstep/step; добавить bounded curve evaluator без потери legacy keys.",
-        "en": "Currently linear/smoothstep/step; add bounded curves while preserving legacy keys."
+        "en": "Ten bounded C17 curves are implemented in timeline/Lua/schema 4/history/packed runtime; preserve legacy IDs 0–2. Complete native CI and sanitizer validation.",
+        "ru": "Десять ограниченных C17-кривых реализованы в таймлайне/Lua/schema 4/Undo/отдельной игре; ID 0–2 сохранены. Завершить нативный CI и санитайзеры."
       },
       "test": {
         "ru": "Точки 0/1, монотонность выбранных кривых, NaN, zero span, legacy golden samples.",
         "en": "0/1 endpoints, expected monotonicity, NaN/zero span, legacy goldens."
       },
-      "origin_ids": []
+      "origin_ids": [],
+      "evidence": {
+        "tests": [
+          "tests/animation_tests.c",
+          "tests/easing_integration_tests.h",
+          "tools/test_game_package.py"
+        ],
+        "validation": "docs/validation/v1.4.0-easing.md",
+        "native_ci": "pending"
+      }
     },
     {
       "id": "P1-ANIM-05",

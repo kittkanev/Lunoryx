@@ -116,13 +116,13 @@ static void SaveModelFields(nlohmann::json& j,const GameObject& o,const std::str
     if(!o.Modifiers.empty())j["base_mesh"]=SaveModelMesh(o.BaseMesh);
     j["materials"]=nlohmann::json::array();for(const auto& m:o.Materials){auto image=forGame?std::vector<unsigned char>():m.Image;std::string texture=m.Texture.empty()?"":RelativeAssetPath(m.Texture,path);if(!forGame&&!texture.empty()){try{ProjectAssetPath(texture,path);}catch(const std::exception&){image=MaterialImageBytes(m);texture.clear();}}j["materials"].push_back({{"image",SaveBinary(image)},{"name",m.Name},{"texture",texture},{"color",SaveVector(m.Color)},{"metallic",m.Metallic},{"roughness",m.Roughness}});}
 }
-static void ReadModelFields(const nlohmann::json& j,GameObject& o,const std::string& path){
+static void ReadModelFields(const nlohmann::json& j,GameObject& o,const std::string& path,int schema=ProjectMigration::CurrentSchema){
     o.Solid=j.value("solid",true);if(j.contains("trigger"))o.Trigger=ReadInteger(j.at("trigger"),0,3);
     if(j.contains("animation")){
       const auto& a=j.at("animation");o.AnimationDuration=ReadRange(a.at("duration"),.01f,3600);o.AnimationSpeed=ReadRange(a.at("speed"),.01f,100);
       o.AnimationLoop=a.at("loop").get<bool>();o.AnimationAutoplay=a.at("autoplay").get<bool>();
       const auto& keys=a.at("keys");if(!keys.is_array()||keys.size()>256)throw std::runtime_error("Invalid animation key count");
-      for(const auto& v:keys){LnxAnimationKey key;key.Time=ReadRange(v.at("time"),0,o.AnimationDuration);key.Easing=ReadInteger(v.at("easing"),0,2);
+      for(const auto& v:keys){LnxAnimationKey key;key.Time=ReadRange(v.at("time"),0,o.AnimationDuration);key.Easing=ReadInteger(v.at("easing"),0,schema>=4?LNX_EASE_COUNT-1:2);
         ReadVector(v.at("position"),key.Pose.Position);ReadVector(v.at("rotation"),key.Pose.Rotation);ReadVector(v.at("scale"),key.Pose.Scale);ReadVector(v.at("color"),key.Pose.Color,true);o.AnimationKeys.push_back(key);}
       if(!ValidAnimation(o))throw std::runtime_error("Invalid animation track");
     }
@@ -258,7 +258,7 @@ static bool LoadStudioProject(const std::string& path) {
                 v.Type=ObjectProperty::Kind(kind);v.NumberValue=it.value().at("number").get<double>();v.BoolValue=it.value().at("boolean").get<bool>();v.TextValue=it.value().at("text").get<std::string>();
                 if(!SetProperty(o,it.key(),v))throw std::runtime_error("Invalid property value");
             }
-            if(schema>=2)ReadModelFields(j,o,path);
+            if(schema>=2)ReadModelFields(j,o,path,schema);
             totalVertices+=o.Vertices.size()/3;if(totalVertices>1000000)throw std::runtime_error("Project mesh budget exceeded");
             for(const auto& previous:objects)if(previous.Id==o.Id)throw std::runtime_error("Duplicate stable object ID");
             objects.push_back(std::move(o));

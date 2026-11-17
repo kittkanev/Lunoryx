@@ -18,7 +18,7 @@ Open Window > Animation and select an object. Each object has one clip with posi
 ### Author a clip
 - Set Duration, Loop and Speed. At time 0, edit the pose in Properties and press Capture current pose.
 - Move the Time slider, then Stop / restore pose to leave preview. Edit the new pose and capture it at that time. Existing timestamps are replaced.
-- Choose Linear, Smooth (ease in/out) or Step for the segment after each key. Rotation follows the shortest angular path; use intermediate keys for a full revolution.
+- Choose Linear, Smooth (smoothstep), Step, Quad in/out/in-out, Cubic in/out/in-out or Sine in-out for the segment after each key. All continuous curves stay within the two endpoint poses. Rotation follows the shortest angular path; use intermediate keys for a full revolution.
 - Preview plays the selected clip; scrubbing pauses playback. Stop / restore pose restores the initial editor pose.
 - Enable Autoplay in game for automatic runtime playback. Keep Dynamic off for animated props and platforms: animation writes absolute transforms.
 ### Lua example
@@ -32,6 +32,7 @@ animation_key(box, 2, 1)
 animation_play(box)
 -- animation_stop(box) freezes the current pose
 ```
+Easing IDs are stable: 0 Linear, 1 Smooth, 2 Step, 3 Quad in, 4 Quad out, 5 Quad in-out, 6 Cubic in, 7 Cubic out, 8 Cubic in-out, 9 Sine in-out. New curves require schema 4; legacy schemas retain IDs 0–2.
 Limits: 256 keys per object; duration 0.01..3600 seconds; speed 0.01..100. Clips are stored in .lunoryx and packed Game.exe. This release animates objects, not skeletal skinning; GLB export remains a static scene.
 
 ## 03 · Killzones and checkpoints

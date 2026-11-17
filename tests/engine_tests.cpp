@@ -25,6 +25,7 @@ static void CheckLua(const char* script) {
 #include "package_key_fixture.h"
 #include "v140_auth_regressions.h"
 #include "project_migration_tests.h"
+#include "easing_integration_tests.h"
 static int ThrowingBinding(lua_State*) { throw std::runtime_error("test exception"); }
 int main() {
     TestPackageKey packageKey;
@@ -235,5 +236,6 @@ int main() {
     CheckV131Regressions();
     CheckV140PackageAuthentication();
     CheckProjectMigration();
+    CheckEasingIntegration();
     std::cout << "PASS: Lua bounds, stack recovery, hostile metamethods, GLB buffer round trip\n";
 }

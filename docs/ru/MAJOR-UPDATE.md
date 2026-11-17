@@ -240,9 +240,11 @@
 
 Код: [animation_core.h](../../src/core/animation_core.h), [animation_tests.c](../../tests/animation_tests.c).
 
-План: Сейчас linear/smoothstep/step; добавить bounded curve evaluator без потери legacy keys.
+План: Десять ограниченных C17-кривых реализованы в таймлайне/Lua/schema 4/Undo/отдельной игре; ID 0–2 сохранены. Завершить нативный CI и санитайзеры.
 
 Тест: Точки 0/1, монотонность выбранных кривых, NaN, zero span, legacy golden samples.
+
+[Выполненные проверки easing](../validation/v1.4.0-easing.md).
 
 ### P1-ANIM-05 — Shape keys
 

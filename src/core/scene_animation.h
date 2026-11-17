@@ -14,7 +14,7 @@ inline bool ValidAnimation(const GameObject& o) {
      !std::isfinite(o.AnimationSpeed)||o.AnimationSpeed<.01f||o.AnimationSpeed>100||o.AnimationKeys.size()>256)return false;
   float previous=-1;
   for(const auto& key:o.AnimationKeys){
-    if(!std::isfinite(key.Time)||key.Time<0||key.Time>o.AnimationDuration||key.Time<=previous||key.Easing<0||key.Easing>2)return false;
+    if(!std::isfinite(key.Time)||key.Time<0||key.Time>o.AnimationDuration||key.Time<=previous||!lnx_animation_valid_easing(key.Easing))return false;
     previous=key.Time;
     for(int k=0;k<3;++k)if(!std::isfinite(key.Pose.Position[k])||std::abs(key.Pose.Position[k])>1000000||
       !std::isfinite(key.Pose.Rotation[k])||std::abs(key.Pose.Rotation[k])>36000||
@@ -23,7 +23,7 @@ inline bool ValidAnimation(const GameObject& o) {
   }return true;
 }
 inline bool CaptureAnimationKey(GameObject& o,float time,int easing) {
-  if(!std::isfinite(time)||time<0||time>o.AnimationDuration||easing<0||easing>2)return false;
+  if(!std::isfinite(time)||time<0||time>o.AnimationDuration||!lnx_animation_valid_easing(easing))return false;
   LnxAnimationKey key={time,ObjectPose(o),easing};
   auto it=std::lower_bound(o.AnimationKeys.begin(),o.AnimationKeys.end(),time,[](const LnxAnimationKey& k,float t){return k.Time<t;});
   auto copy=o.AnimationKeys;

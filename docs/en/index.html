@@ -13,7 +13,7 @@
 <ul>
 <li>Set Duration, Loop and Speed. At time 0, edit the pose in Properties and press Capture current pose.</li>
 <li>Move the Time slider, then Stop / restore pose to leave preview. Edit the new pose and capture it at that time. Existing timestamps are replaced.</li>
-<li>Choose Linear, Smooth (ease in/out) or Step for the segment after each key. Rotation follows the shortest angular path; use intermediate keys for a full revolution.</li>
+<li>Choose Linear, Smooth (smoothstep), Step, Quad in/out/in-out, Cubic in/out/in-out or Sine in-out for the segment after each key. All continuous curves stay within the two endpoint poses. Rotation follows the shortest angular path; use intermediate keys for a full revolution.</li>
 <li>Preview plays the selected clip; scrubbing pauses playback. Stop / restore pose restores the initial editor pose.</li>
 <li>Enable Autoplay in game for automatic runtime playback. Keep Dynamic off for animated props and platforms: animation writes absolute transforms.</li>
 </ul>
@@ -26,6 +26,7 @@ set_position(box, 4, 1, 0)
 animation_key(box, 2, 1)
 animation_play(box)
 -- animation_stop(box) freezes the current pose</code></pre>
+<p>Easing IDs are stable: 0 Linear, 1 Smooth, 2 Step, 3 Quad in, 4 Quad out, 5 Quad in-out, 6 Cubic in, 7 Cubic out, 8 Cubic in-out, 9 Sine in-out. New curves require schema 4; legacy schemas retain IDs 0–2.</p>
 <p>Limits: 256 keys per object; duration 0.01..3600 seconds; speed 0.01..100. Clips are stored in .lunoryx and packed Game.exe. This release animates objects, not skeletal skinning; GLB export remains a static scene.</p></section><section id="s2"><h2>03 · Killzones and checkpoints</h2><p>Properties &gt; Physics / Character now includes Solid collider and Trigger. A trigger uses the object&#x27;s world AABB, including its transform and mesh bounds. It never pushes an actor, even when Solid is checked. Visibility does not disable a trigger.</p>
 <ul>
 <li>None: ordinary object, collision follows Solid.</li>

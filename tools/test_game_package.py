@@ -29,6 +29,10 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     game = directory / ('GemTrail.exe' if os.name == 'nt' else 'GemTrail')
     subprocess.run([engine, '--create-example', project], check=True, timeout=60)
     document = json.loads(project.read_text(encoding='utf-8'))
+    # Run a schema-4-only curve in the authenticated game. Identical endpoint
+    # poses keep the level's floor stationary while the sampler advances.
+    animated=document['objects'][0];clip=animated['animation'];clip['autoplay']=True
+    clip['keys']=[dict(time=time,position=animated['position'],rotation=animated['rotation'],scale=animated['scale'],color=animated['color'],easing=curve) for time,curve in [(0,9),(clip['duration'],0)]]
     if managed:
         document['scripts'][0]['code'] += "\nlocal previous_update=on_update\nlocal managed_ready=false\nfunction on_message(name,value)\n if name=='packaged_csharp' and tonumber(value)==42 then managed_ready=true end\nend\nfunction on_update(dt)\n assert(managed_ready,'Packaged C# worker/message missing')\n if previous_update then previous_update(dt) end\nend\n"
         document['scripts'].append(dict(name='Packaged.cs',code='using Luaryx; public class Packaged:Script { public override void OnStart(){Scene.Emit("packaged_csharp",42);} }',language=1,module=False,open=False))
