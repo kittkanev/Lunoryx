@@ -1,6 +1,8 @@
 """Exercise the native packer and a relocated, self-contained runtime."""
 import base64
 import json
+import hashlib
+import hmac
 import os
 from pathlib import Path
 import shutil
@@ -14,6 +16,13 @@ engine = Path(sys.argv[1]).resolve()
 managed = '--managed' in sys.argv[2:]
 Path("build").mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
+    key_file=Path(root)/'external-package.key'
+    subprocess.run([engine,'--generate-package-key',key_file],check=True,timeout=30)
+    os.environ['LUNORYX_PACKAGE_KEY_FILE']=str(key_file)
+    key=key_file.read_bytes();assert len(key)==32
+    original_key=key
+    assert subprocess.run([engine,'--generate-package-key',key_file],capture_output=True,timeout=30).returncode!=0
+    assert key_file.read_bytes()==original_key
     directory = Path(root) / 'Игра с пробелами'
     directory.mkdir()
     project = directory / 'example.lunoryx'
@@ -42,6 +51,10 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     document['game']['gui']=[dict(id='custom_label',text='Custom HUD',type=0,x=.1,y=.8,width=.4,height=.08,value=.5,visible=True,color=[.1,.2,.3,1],text_color=[1,1,1,1])]
     project.write_text(json.dumps(document),encoding='utf-8')
     original = project.read_bytes()
+    assert subprocess.run([engine,'--create-example',key_file],capture_output=True,timeout=60).returncode!=0
+    assert key_file.read_bytes()==key
+    assert subprocess.run([engine,'--build-game',project,key_file],capture_output=True,timeout=60).returncode!=0
+    assert key_file.read_bytes()==key
     subprocess.run([engine, '--build-game', project, game]+([os.environ['LUNORYX_TEST_RUNTIME']] if os.environ.get('LUNORYX_TEST_RUNTIME') else []), check=True, timeout=60)
     assert project.read_bytes() == original
     mesa = os.environ.get('LUNORYX_MESA_DIR')
@@ -76,14 +89,43 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
             assert ctypes.string_at(data,kernel.SizeofResource(module,resource))==png,'EXE still uses Studio icon'
         finally:kernel.FreeLibrary(module)
     payload = game.read_bytes()
+    if managed:
+        # Reproduce accidental private-key placement below the runtime tree.
+        fake_install=Path(root)/'fake-install';fake_install.mkdir()
+        fake_packer=fake_install/engine.name;shutil.copy2(engine,fake_packer)
+        if os.name=='nt':
+            for dll in engine.parent.glob('*.dll'):shutil.copy2(dll,fake_install/dll.name)
+        fake_runtime=fake_install/'Runtime';fake_runtime.mkdir()
+        fake_worker=fake_runtime/('Luaryx.Worker.exe' if os.name=='nt' else 'Luaryx.Worker')
+        fake_worker.write_bytes(b'never executed')
+        private=fake_runtime/'private.key'
+        subprocess.run([engine,'--generate-package-key',private],check=True,timeout=30)
+        invalid_env=dict(os.environ,LUNORYX_PACKAGE_KEY_FILE=str(private))
+        rejected=subprocess.run([fake_packer,'--build-game',project,game],env=invalid_env,capture_output=True,text=True,timeout=60)
+        assert rejected.returncode!=0 and 'active package key' in rejected.stderr,rejected.stderr
+        assert game.read_bytes()==payload
+        # A copied key under a different inode/name must also be rejected.
+        private.write_bytes(key)
+        if os.name!='nt':private.chmod(0o600)
+        invalid_env['LUNORYX_PACKAGE_KEY_FILE']=str(key_file)
+        rejected=subprocess.run([fake_packer,'--build-game',project,game],env=invalid_env,capture_output=True,text=True,timeout=60)
+        assert rejected.returncode!=0 and 'active authentication key' in rejected.stderr,rejected.stderr
+        assert game.read_bytes()==payload and key_file.read_bytes()==key
     # Invalid icons fail transactionally, without replacing a working output.
     icon.write_bytes(b'not a png')
     assert subprocess.run([engine,'--build-game',project,game],capture_output=True,timeout=60).returncode!=0
     assert game.read_bytes()==payload
     icon.write_bytes(png)
-    assert payload[-32:-24] == b'LNXPCK01'
-    offset, size, crc, version = struct.unpack('<QQII', payload[-24:])
-    assert version == 1 and offset + size + 32 == len(payload)
+    assert payload[-64:-56] == b'LNXPCK02'
+    offset,size,version,reserved=struct.unpack('<QQII',payload[-56:-32])
+    assert version==2 and reserved==0 and offset+size+64==len(payload)
+    domain=b'Lunoryx authenticated game package v2\0'
+    assert hmac.compare_digest(payload[-32:],hmac.new(key,domain+payload[-64:-32]+payload[offset:-64],hashlib.sha256).digest())
+    assert key not in payload,'External key was embedded in the game'
+    missing=dict(os.environ);missing.pop('LUNORYX_PACKAGE_KEY_FILE',None)
+    assert subprocess.run([game,'--verify-package'],env=missing,capture_output=True,timeout=60).returncode!=0
+    wrong=Path(root)/'wrong.key';subprocess.run([engine,'--generate-package-key',wrong],check=True,timeout=30)
+    assert subprocess.run([game,'--verify-package'],env=dict(os.environ,LUNORYX_PACKAGE_KEY_FILE=str(wrong)),capture_output=True,timeout=60).returncode!=0
     metadata_size = struct.unpack_from('<Q', payload, offset)[0]
     manifest = json.loads(payload[offset + 8:offset + 8 + metadata_size])
     assert any(entry['name'] == 'project.lunoryx' for entry in manifest)
@@ -109,13 +151,19 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     if os.name != 'nt':
         damaged.chmod(0o755)
     assert subprocess.run([damaged, '--verify-package'], timeout=60).returncode != 0
-    content = payload[offset + 8 + metadata_size:-32]
+    legacy_body=payload[offset:-64]
+    legacy=payload[:offset]+legacy_body+b'LNXPCK01'+struct.pack('<QQII',offset,len(legacy_body),zlib.crc32(legacy_body),1)
+    damaged.write_bytes(legacy)
+    rejected=subprocess.run([damaged,'--verify-package'],capture_output=True,text=True,timeout=60)
+    assert rejected.returncode==1 and 'legacy' in rejected.stderr
+    content = payload[offset + 8 + metadata_size:-64]
 
     def check_manifest(entries, expected_error=None):
         encoded = json.dumps(entries).encode() if not isinstance(entries, bytes) else entries
         invalid_payload = struct.pack('<Q', len(encoded)) + encoded + content
-        malformed = payload[:offset] + invalid_payload + b'LNXPCK01' + struct.pack(
-            '<QQII', offset, len(invalid_payload), zlib.crc32(invalid_payload), 1)
+        header=b'LNXPCK02'+struct.pack('<QQII',offset,len(invalid_payload),2,0)
+        tag=hmac.new(key,domain+header+invalid_payload,hashlib.sha256).digest()
+        malformed=payload[:offset]+invalid_payload+header+tag
         damaged.write_bytes(malformed)
         result = subprocess.run([damaged, '--verify-package'], capture_output=True,
                                 text=True, timeout=60)
@@ -128,7 +176,7 @@ with tempfile.TemporaryDirectory(prefix='Lunoryx ') as root:
     invalid_manifest = [dict(entry) for entry in manifest]
     invalid_manifest[0]['offset'] = 999999999
     check_manifest(invalid_manifest, 'exceeds payload')
-    # A correct CRC must not hide range aliasing and memory amplification.
+    # A correctly authenticated manifest must still reject aliasing/amplification.
     alias = dict(manifest[0], name='alias')
     check_manifest(manifest + [alias], 'Overlapping')
     partial = dict(alias, offset=alias['offset'] + 1, size=alias['size'] - 1)

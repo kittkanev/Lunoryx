@@ -975,12 +975,31 @@ int main(int argc, char* argv[]) {
 #endif
     g_ModelWorkerReady=true;if(argc>1&&std::strcmp(argv[1],"--export-worker")==0){SetNativeWorkerLimits();return RunNativeExportWorker();}
     if(argc>1&&std::strcmp(argv[1],"--model-worker")==0){SetNativeWorkerLimits();return RunNativeModelWorker();}
+    try {
+      (void)PackageAuth::KeyFile(); // Install active-key protection for every editor write path.
+      int output=1;
+      for(int input=1;input<argc;++input){
+        if(std::strcmp(argv[input],"--package-key-file")==0){
+          if(input+1>=argc)throw std::runtime_error("--package-key-file requires a local key path");
+          PackageAuth::Configure(argv[++input]);
+        }else argv[output++]=argv[input];
+      }
+      argc=output;argv[argc]=nullptr;
+      if(argc>1&&std::strcmp(argv[1],"--generate-package-key")==0){
+        if(argc!=3)throw std::runtime_error("Use --generate-package-key <new local file>");
+        PackageAuth::GenerateKeyFile(argv[2]);std::cout<<"Created an owner-only package key file; keep it outside projects and distributions\n";return 0;
+      }
+    }catch(const std::exception& error){std::cerr<<error.what()<<"\n";return 1;}
     try{std::map<std::string,std::vector<unsigned char>> assets;g_PlayerMode=GamePackage::Read(GamePackage::ExecutablePath(),assets);
 #ifdef __APPLE__
-    if(!g_PlayerMode){auto package=NormalizePath(PathDirectory(GamePackage::ExecutablePath())+"/../Resources/Game.lnx");if(AssetExists(package))g_PlayerMode=GamePackage::Read(package,assets);}
+    if(!g_PlayerMode){auto package=NormalizePath(PathDirectory(GamePackage::ExecutablePath())+"/../Resources/Game.lnx");if(AssetExists(package)){g_PlayerMode=GamePackage::Read(package,assets);if(!g_PlayerMode)throw std::runtime_error("Missing authenticated game package");}}
 #endif
     if(g_PlayerMode)VirtualAssets()=std::move(assets);}catch(const std::exception& e){if(argc>1&&std::strcmp(argv[1],"--verify-package")==0)std::cerr<<e.what()<<"\n";else SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Lunoryx - invalid game package",e.what(),nullptr);return 1;}
-    if(argc>1&&std::strcmp(argv[1],"--verify-package")==0){if(!g_PlayerMode)return 2;std::cout<<"PASS: embedded game checksum, manifest and resource ranges\n";return 0;}
+    if(argc>1&&std::strcmp(argv[1],"--verify-package")==0){
+      if(!g_PlayerMode&&argc==3){try{std::map<std::string,std::vector<unsigned char>> inspected;if(!GamePackage::Read(argv[2],inspected))return 2;}catch(const std::exception& error){std::cerr<<error.what()<<"\n";return 1;}}
+      else if(!g_PlayerMode)return 2;
+      std::cout<<"PASS: authenticated game package, manifest and resource ranges\n";return 0;
+    }
     if(!g_PlayerMode&&argc>=3&&std::strcmp(argv[1],"--create-example")==0){InitializeStudio();InitLuaState();CreateSampleGame();bool ok=SaveStudioProject(argv[2]);ShutdownLuaState();return ok?0:1;}
     if(!g_PlayerMode&&argc>=4&&std::strcmp(argv[1],"--build-game")==0){InitializeStudio();InitLuaState();bool ok=LoadStudioProject(argv[2])&&BuildStudioGame(argv[3],argc>4?argv[4]:"");if(!ok)std::cerr<<g_ConsoleOutput;ShutdownLuaState();return ok?0:1;}
 
@@ -1449,6 +1468,7 @@ int main(int argc, char* argv[]) {
     if(gameSmoke.Enabled&&!gameSmoke.Passed){std::cerr<<"score="<<g_GameScore<<" audio="<<gameSmoke.AudioEnergy<<"\n";for(const auto& o:g_Objects)if(o.Character)std::cerr<<"player="<<o.Position[0]<<","<<o.Position[1]<<","<<o.Position[2]<<" velocity="<<o.Velocity[0]<<","<<o.Velocity[1]<<","<<o.Velocity[2]<<" dynamic="<<o.Dynamic<<"\n";std::cerr<<"frames="<<gameSmoke.Frames<<" elapsed="<<(SDL_GetTicks()-start_time)<<" physics="<<g_PhysicsRunning<<" dtacc="<<g_Physics.Accumulator<<"\n";std::cerr<<"phase="<<gameSmoke.Phase<<"\n";for(const auto& o:g_Objects)if(o.Name.find("Gem ")==0)std::cerr<<o.Name<<" collected="<<o.Properties.at("Collected").BoolValue<<" position="<<o.Position[0]<<","<<o.Position[1]<<","<<o.Position[2]<<"\n";std::cerr<<g_ConsoleOutput;}
     SDL_SetRelativeMouseMode(SDL_FALSE);
     // Cleanup
+    FinishBackgroundAssetJobs();
     if(!g_PlayerMode)PersistStudioPreferences();
     StopManagedScripts();
     ShutdownLuaState();

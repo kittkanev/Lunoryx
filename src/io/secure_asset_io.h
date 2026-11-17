@@ -18,10 +18,11 @@
 #ifdef _WIN32
 // Resolve every untrusted component relative to the pinned directory object.
 // OBJ_DONT_REPARSE rejects a junction installed after its earlier validation.
-inline HANDLE RelativeWindowsOpen(HANDLE directory,const std::string& name,ACCESS_MASK access,ULONG disposition,ULONG options,ULONG share=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE){
+inline HANDLE RelativeWindowsOpen(HANDLE directory,const std::string& name,ACCESS_MASK access,ULONG disposition,ULONG options,ULONG share=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,PSECURITY_DESCRIPTOR security=nullptr){
   auto wide=WidePath(name);if(wide.size()>32767){SetLastError(ERROR_FILENAME_EXCED_RANGE);return INVALID_HANDLE_VALUE;}
   UNICODE_STRING text={USHORT(wide.size()*sizeof(wchar_t)),USHORT(wide.size()*sizeof(wchar_t)),const_cast<wchar_t*>(wide.data())};
   OBJECT_ATTRIBUTES attributes={};attributes.Length=sizeof(attributes);attributes.RootDirectory=directory;attributes.ObjectName=&text;attributes.Attributes=0x40|0x1000;
+  attributes.SecurityDescriptor=security;
   using Open=NTSTATUS(NTAPI*)(PHANDLE,ACCESS_MASK,POBJECT_ATTRIBUTES,PIO_STATUS_BLOCK,PLARGE_INTEGER,ULONG,ULONG,ULONG,ULONG,PVOID,ULONG);
   using Error=ULONG(WINAPI*)(NTSTATUS);Open open=nullptr;Error error=nullptr;auto module=GetModuleHandleW(L"ntdll.dll");auto address=GetProcAddress(module,"NtCreateFile");std::memcpy(&open,&address,sizeof(open));address=GetProcAddress(module,"RtlNtStatusToDosError");std::memcpy(&error,&address,sizeof(error));
   if(!open||!error){SetLastError(ERROR_NOT_SUPPORTED);return INVALID_HANDLE_VALUE;}

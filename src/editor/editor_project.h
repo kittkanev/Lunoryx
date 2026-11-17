@@ -206,6 +206,7 @@ static bool SaveStudioProject(const std::string& path){
     // Never persist the disposable Play world over the editor document.
     if(g_PhysicsRunning){AppendConsole("Project save failed: stop simulation before saving\n");return false;}
     try {
+        CheckAssetWriteTarget(path);
         StopAnimationPreview();
         auto root=StudioProjectJson(path);
         const std::string document=root.dump();

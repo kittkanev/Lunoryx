@@ -49,7 +49,8 @@ static void CheckV131Regressions() {
   GamePackage::Write(runtime,small,assets,{},true);
   assert(GamePackage::Read(small,read)&&read.size()==assets.size());
   auto bytes=ReadAssetFile(small);const uint64_t offset=(uint64_t(3)<<30)+123;
-  for(int i=0;i<8;++i)bytes[bytes.size()-24+size_t(i)]=static_cast<unsigned char>(offset>>(i*8));
+  for(int i=0;i<8;++i)bytes[bytes.size()-56+size_t(i)]=static_cast<unsigned char>(offset>>(i*8));
+  {auto key=PackageAuth::LoadKey();std::vector<unsigned char> header(bytes.end()-64,bytes.end()-32);auto tag=GamePackage::AuthenticationTag(key,header,bytes.data(),bytes.size()-64);std::copy(tag.begin(),tag.end(),bytes.end()-32);}
   {
     std::unique_ptr<FILE,int(*)(FILE*)> file(AssetOpen(large,"wb"),std::fclose);assert(file);
 #ifdef _WIN32
@@ -66,7 +67,7 @@ static void CheckV131Regressions() {
   {
     std::unique_ptr<FILE,int(*)(FILE*)> file(AssetOpen(large,"r+b"),std::fclose);assert(file);
     unsigned char invalid[8];std::fill(invalid,invalid+8,255);
-    assert(!GamePackage::SeekFile64(file.get(),int64_t(offset+bytes.size()-24),SEEK_SET));
+    assert(!GamePackage::SeekFile64(file.get(),int64_t(offset+bytes.size()-56),SEEK_SET));
     assert(std::fwrite(invalid,1,8,file.get())==8);
   }
   auto retained=read;rejected=false;try{GamePackage::Read(large,read);}catch(const std::runtime_error&){rejected=true;}assert(rejected&&read==retained);

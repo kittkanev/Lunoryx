@@ -325,7 +325,7 @@
     {
       "id": "LIMIT-01",
       "phase": "F0",
-      "status": "open",
+      "status": "partial",
       "title": {
         "ru": "Аутентификация игровых паков",
         "en": "Game-package authentication"
@@ -344,7 +344,11 @@
       },
       "origin_ids": [
         "SEC-07"
-      ]
+      ],
+      "evidence": {
+        "local": "docs/validation/v1.4.0-package-auth.md",
+        "native_ci": "pending"
+      }
     },
     {
       "id": "LIMIT-02",
@@ -369,7 +373,12 @@
       "origin_ids": [
         "COMP-03",
         "MEM-02"
-      ]
+      ],
+      "evidence": {
+        "local": "docs/validation/v1.4.0-package-auth.md",
+        "large_stress": "build/evidence/package-stress.json",
+        "native_ci": "pending"
+      }
     },
     {
       "id": "LIMIT-03",

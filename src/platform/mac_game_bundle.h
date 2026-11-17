@@ -9,6 +9,7 @@ static void RunMacTool(const std::vector<std::string>& arguments){
     if(!WIFEXITED(status)||WEXITSTATUS(status))throw std::runtime_error("macOS bundle signing failed");
 }
 static void WriteMacGameBundle(const std::string& requested,const std::string& runtime,const std::map<std::string,std::vector<unsigned char>>& assets,const std::vector<unsigned char>& icon){
+    PackageAuth::RejectKeyPath(runtime);PackageAuth::RejectKeyPath(requested);auto authenticationKey=PackageAuth::LoadKey();
     auto destination=AbsoluteAssetPath(requested);if(destination.size()<4||destination.substr(destination.size()-4)!=".app")destination+=".app";
     auto parent=PathDirectory(destination);auto base=destination.substr(destination.find_last_of('/')+1);
     AssetDirectoryAnchor pinned(CanonicalAssetPath(parent));
@@ -18,11 +19,11 @@ static void WriteMacGameBundle(const std::string& requested,const std::string& r
     auto stageName=".lunoryx-game-"+std::to_string(std::random_device{}())+".app";
     CreateAssetDirectories(parent,stageName+"/Contents/MacOS");CreateAssetDirectories(parent,stageName+"/Contents/Resources");CreateAssetDirectories(parent,stageName+"/Contents/Frameworks");
     auto stage=parent+"/"+stageName;
-    auto write=[&](const std::string& relative,const std::vector<unsigned char>& bytes){auto file=ConfinedAssetPath(relative,stage);WriteAssetFileAtomic(file,bytes.data(),bytes.size());};
+    auto write=[&](const std::string& relative,const std::vector<unsigned char>& bytes){PackageAuth::RejectEmbeddedKey scan(authenticationKey);scan.Add(bytes.data(),bytes.size());auto file=ConfinedAssetPath(relative,stage);WriteAssetFileAtomic(file,bytes.data(),bytes.size());};
     try{
         write("Contents/MacOS/Game",ReadAssetFile(runtime,128*1024*1024));
         {auto path=ConfinedAssetPath("Contents/MacOS/Game",stage);AssetParentAnchor anchor(path);int fd=openat(anchor.Descriptor,anchor.Name.c_str(),O_RDONLY|O_NOFOLLOW|O_CLOEXEC);if(fd<0)throw std::runtime_error("Cannot open game binary");int status=fchmod(fd,0755);close(fd);if(status)throw std::runtime_error("Cannot mark game binary executable");}
-        for(const auto& entry:ProjectFS::directory_iterator(ProjectNativePath(templateContents+"/Frameworks"))){if(entry.is_symlink())continue;if(entry.is_regular_file())write("Contents/Frameworks/"+entry.path().filename().u8string(),ReadAssetFile(entry.path().u8string(),128*1024*1024));}
+        for(const auto& entry:ProjectFS::directory_iterator(ProjectNativePath(templateContents+"/Frameworks"))){if(entry.is_symlink())continue;if(entry.is_regular_file()){PackageAuth::RejectKeyPath(entry.path().u8string());write("Contents/Frameworks/"+entry.path().filename().u8string(),ReadAssetFile(entry.path().u8string(),128*1024*1024));}}
         std::string plist;if(!LuaryxGamePlist(g_Game.Title.c_str(),"Game",!icon.empty(),&plist))throw std::runtime_error("Cannot create game Info.plist");
         write("Contents/Info.plist",std::vector<unsigned char>(plist.begin(),plist.end()));
         if(!icon.empty()){

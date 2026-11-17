@@ -51,6 +51,18 @@ static void RenderGameSettings() {
   ImGui::SliderFloat("Follow pitch", &g_Game.CameraPitch, -85, 85);
   ImGui::SliderFloat("Follow yaw", &g_Game.CameraYaw, -180, 180);
   ImGui::SeparatorText("Output");
+  ImGui::TextWrapped("Game packages require an external local HMAC key. Players need that key file; keep it outside projects and release archives.");
+  static std::string keyStatus;static bool keyEntryValid=true;
+  char keyPath[8192];std::snprintf(keyPath,sizeof(keyPath),"%s",PackageAuth::KeyFile().c_str());
+  if(ImGui::InputText("External package key file",keyPath,sizeof(keyPath))){
+    try{PackageAuth::Configure(keyPath);keyEntryValid=true;keyStatus.clear();}
+    catch(const std::exception& error){keyEntryValid=false;keyStatus=error.what();}
+  }
+  if(ImGui::Button("Create new key at this path")){
+    try{PackageAuth::GenerateKeyFile(PackageAuth::KeyFile());keyStatus="Key created. Store it securely; the game does not embed it.";}
+    catch(const std::exception& error){keyStatus=error.what();}
+  }
+  if(!keyStatus.empty())ImGui::TextWrapped("%s",keyStatus.c_str());
   #ifdef __APPLE__
   static char path[512] = "Game.app";
 #else
@@ -60,7 +72,7 @@ static void RenderGameSettings() {
 #if defined(_WIN32) || defined(__APPLE__)
   if(ImGui::Button("Choose output EXE...")){auto chosen=GameFileDialog(true);if(!chosen.empty())std::snprintf(path,sizeof(path),"%s",chosen.c_str());}
 #endif
-  ImGui::BeginDisabled(g_PhysicsRunning || g_ModelBusy);
+  ImGui::BeginDisabled(g_PhysicsRunning || g_ModelBusy || !keyEntryValid);
   static int result=0;
   if (ImGui::Button("Build standalone game"))result=BuildStudioGame(path)?1:-1;
   if(result)ImGui::TextColored(result>0?ImVec4(.3f,1,.7f,1):ImVec4(1,.4f,.3f,1),"%s",result>0?"Build complete. Your game is ready.":"Build failed. See Output for the exact error.");

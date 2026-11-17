@@ -34,6 +34,8 @@ jobs:
       - name: Test self-contained game and relocated resources
         run: |
           LUNORYX_TEST_RUNTIME="$PWD/engine-testing" LUNORYX_GAME_GUI=1 LUNORYX_GAME_SMOKE=1 SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 LUNORYX_CAPTURE_PATH="$PWD/build/game-linux.png" python3 tools/test_game_package.py ./engine --managed
+      - name: Stress authenticated package budget boundaries
+        run: python tools/test_package_stress.py ./engine --large
       - name: Measure portable kernels and physics against 1.0.1
         run: |
           make benchmark benchmark-physics benchmark-weld
@@ -169,6 +171,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ./core_tests.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./hmac_tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/test_csharp_worker.py ./Runtime/Luaryx.Worker.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ./asset_io_tests.exe
@@ -300,6 +304,8 @@ jobs:
           TEST_TIMEOUT=3 LUNORYX_UI_SMOKE=1 ./engine-testing
       - name: Package relocatable application and test the bundle
         run: |
+          ./engine --generate-package-key "$RUNNER_TEMP/lunoryx-package.key"
+          export LUNORYX_PACKAGE_KEY_FILE="$RUNNER_TEMP/lunoryx-package.key"
           python3 tools/package_macos.py --runtime Runtime
           build/macos/Lunoryx.app/Contents/MacOS/Lunoryx --mcp < /dev/null
           otool -L build/macos/Lunoryx.app/Contents/MacOS/Lunoryx

@@ -22,8 +22,11 @@ static void CheckLua(const char* script) {
 #include "audit_regressions.h"
 #include "v13_regressions.h"
 #include "v131_regressions.h"
+#include "package_key_fixture.h"
+#include "v140_auth_regressions.h"
 static int ThrowingBinding(lua_State*) { throw std::runtime_error("test exception"); }
 int main() {
+    TestPackageKey packageKey;
     InitLuaState();
     lua_register(g_LuaState, "throw_native", LuaBinding<ThrowingBinding>);
     CheckLua("local ok,e=pcall(throw_native); assert(not ok and e:find('test exception'))");
@@ -229,5 +232,6 @@ int main() {
     CheckAuditRegressions();
     CheckV13Regressions();
     CheckV131Regressions();
+    CheckV140PackageAuthentication();
     std::cout << "PASS: Lua bounds, stack recovery, hostile metamethods, GLB buffer round trip\n";
 }

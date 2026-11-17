@@ -53,7 +53,7 @@ static void PackManagedRuntime(std::map<std::string,std::vector<unsigned char>>&
   auto name=ProjectFS::path(root).filename().u8string();if(name=="arm64"||name=="x64")root=PathDirectory(root);
 #endif
   if(!AssetExists(ManagedWorkerPath()))throw std::runtime_error("The installed C# runtime is missing");
-  for(const auto& entry:ProjectFS::recursive_directory_iterator(ProjectNativePath(root))){if(entry.is_symlink())throw std::runtime_error("C# runtime must contain regular installed files");if(!entry.is_regular_file())continue;auto relative=entry.path().lexically_relative(ProjectNativePath(root)).generic_u8string();auto name="runtime/"+relative;GamePackage::CheckResourceName(name);auto data=ReadAssetFile(entry.path().u8string(),128*1024*1024);if(data.size()>GamePackage::MaxPayload-bytes||assets.size()>=4095)throw std::runtime_error("C# runtime exceeds game resource budget");bytes+=data.size();assets.emplace(name,std::move(data));}
+  for(const auto& entry:ProjectFS::recursive_directory_iterator(ProjectNativePath(root))){if(entry.is_symlink())throw std::runtime_error("C# runtime must contain regular installed files");if(!entry.is_regular_file())continue;auto relative=entry.path().lexically_relative(ProjectNativePath(root)).generic_u8string();auto name="runtime/"+relative;GamePackage::CheckResourceName(name);PackageAuth::RejectKeyPath(entry.path().u8string());auto data=ReadAssetFile(entry.path().u8string(),128*1024*1024);if(data.size()>GamePackage::MaxPayload-bytes||assets.size()>=4095)throw std::runtime_error("C# runtime exceeds game resource budget");bytes+=data.size();assets.emplace(name,std::move(data));}
   project["game"]["managed_runtime"]=true;
 }
 static void PrepareManagedRuntime(){

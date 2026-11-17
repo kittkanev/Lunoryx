@@ -9,6 +9,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <atomic>
+#include <mutex>
 #ifdef _WIN32
 #include <direct.h>
 #include <windows.h>
@@ -37,10 +39,16 @@ inline FILE* SecureOpenIfConfined(const std::string&,const char*,bool&);
 inline bool SecureRemoveAsset(const std::string&);
 inline bool SecureReplaceAsset(const std::string&,const std::string&);
 inline FILE* SecureTemporaryAsset(const std::string&,std::string&);
+using AssetWriteGuardFn=void(*)(const std::string&);
+inline std::recursive_mutex& AssetPolicyMutex();
+inline std::atomic<AssetWriteGuardFn>& AssetWriteGuard(){static std::atomic<AssetWriteGuardFn> guard{nullptr};return guard;}
+inline void CheckAssetWriteTarget(const std::string& path){if(auto guard=AssetWriteGuard().load())guard(path);}
 inline FILE *AssetOpen(const std::string &path, const char *mode) {
   if (path.empty() || path.find('\0') != std::string::npos)
     return nullptr;
   if(path.compare(0,sizeof("/__lunoryx_bundle__")-1,"/__lunoryx_bundle__")==0)return nullptr;
+  std::unique_lock<std::recursive_mutex> writeLock(AssetPolicyMutex(),std::defer_lock);
+  if(mode[0]!='r'||std::strchr(mode,'+')){writeLock.lock();CheckAssetWriteTarget(path);}
   bool confined=false;FILE* secured=SecureOpenIfConfined(path,mode,confined);if(confined)return secured;
 #ifdef _WIN32
   std::wstring m;
@@ -184,6 +192,8 @@ inline void WriteAssetFile(const std::string &path, const void *data,
     throw std::runtime_error("Cannot finish writing file: " + path);
 }
 inline void ReplaceAssetFile(const std::string &from, const std::string &to) {
+  std::lock_guard<std::recursive_mutex> lock(AssetPolicyMutex());
+  CheckAssetWriteTarget(to);
   if(SecureReplaceAsset(from,to))return;
 #ifdef _WIN32
   if (!MoveFileExW(WidePath(from).c_str(), WidePath(to).c_str(),
@@ -196,6 +206,8 @@ inline void ReplaceAssetFile(const std::string &from, const std::string &to) {
 }
 
 inline void RemoveAssetFile(const std::string& path) {
+  std::lock_guard<std::recursive_mutex> lock(AssetPolicyMutex());
+  CheckAssetWriteTarget(path);
   if(SecureRemoveAsset(path))return;
 #ifdef _WIN32
   _wremove(WidePath(path).c_str());
@@ -276,7 +288,7 @@ inline std::string ProjectAssetPath(const std::string& path,const std::string& p
 #include <sys/stat.h>
 #endif
 #include <random>
-inline FILE* OpenTemporaryAsset(const std::string& destination,std::string& temporary) {return SecureTemporaryAsset(destination,temporary);}
+inline FILE* OpenTemporaryAsset(const std::string& destination,std::string& temporary) {std::lock_guard<std::recursive_mutex> lock(AssetPolicyMutex());CheckAssetWriteTarget(destination);return SecureTemporaryAsset(destination,temporary);}
 inline void WriteAssetFileAtomic(const std::string& destination,const void* data,size_t size) {
   std::string temporary;FILE* file=OpenTemporaryAsset(destination,temporary);
   if(!file)throw std::runtime_error("Cannot open temporary output");

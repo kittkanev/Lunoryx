@@ -38,3 +38,9 @@ static void BeginExportGLB(const std::string& filename){
     AppendConsole("Exporting GLB in the background...\n");
 }
 static void PollExportGLB(){if(g_ExportJob.valid()&&g_ExportJob.wait_for(std::chrono::seconds(0))==std::future_status::ready){auto result=g_ExportJob.get();AppendConsole(result.Report);AppendConsole(result.Success?"GLB export complete.\n":"GLB export failed.\n");}}
+static void FinishBackgroundAssetJobs(){
+    // Workers may still use I/O policy/key configuration. Join before those
+    // function statics, scene state and graphics resources are destroyed.
+    auto discard=[](auto& job){if(job.valid()){try{job.get();}catch(const std::exception& error){AppendConsole(std::string("Closing background task: ")+error.what()+"\n");}}};
+    discard(g_ExportJob);discard(g_ModelJob);g_ModelBusy=false;
+}

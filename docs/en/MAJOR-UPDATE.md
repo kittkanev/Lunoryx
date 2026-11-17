@@ -25,13 +25,15 @@ Tests below are acceptance criteria unless an actual run is recorded in the vali
 
 ### LIMIT-01 — Game-package authentication
 
-Status: Not implemented; owner decision received.
+Status: Partial: implemented and verified locally; native CI pending.
 
 Source: [game_package.h](../../src/io/game_package.h), [sha256.h](../../src/io/sha256.h).
 
 Plan: Agree key custody/trust first; then HMAC-SHA-256 over domain-separated header, manifest and payload, constant-time verification and explicit legacy unsigned policy. Never embed the secret in EXE/package/project.
 
 Test: RFC 4231; header/payload/tag bit flips; wrong/missing keys; downgrade rejection; relocated valid game; no secret in archives/logs.
+
+Implementation and actual checks: [package authentication validation](../validation/v1.4.0-package-auth.md), [local key usage](PACKAGE-AUTH.md).
 
 ### LIMIT-02 — Package 1 GiB, runtime 128 MiB, 4096-entry budgets
 

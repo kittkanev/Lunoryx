@@ -50,3 +50,4 @@ __pycache__/
 /projects.json
 
 /tests/worker_process_tests
+/tests/hmac_tests

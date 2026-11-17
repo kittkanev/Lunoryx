@@ -35,12 +35,14 @@ engine: $(OBJS) $(RUST_LIB)
 -include $(DEPS)
 
 clean:
+	rm -f tests/hmac_tests tests/hmac_tests.d
 	rm -f engine engine-testing build/main-testing.o build/audio-testing.o $(OBJS) $(DEPS) tests/core_tests tests/engine_tests tests/rust_kernel_tests tests/physics_differential tests/viewport_postprocess_tests tests/render_parity_tests tests/scene_shadow_tests tests/modeling_tests tests/animation_tests tests/studio_audio_tests
 
 
 .PHONY: all clean test test-integration test-rust test-kernels benchmark
 
-test: tests/core_tests tests/modeling_tests tests/animation_tests
+test: tests/core_tests tests/modeling_tests tests/animation_tests tests/hmac_tests
+	./tests/hmac_tests
 	./tests/animation_tests
 	./tests/core_tests
 	./tests/modeling_tests
@@ -159,3 +161,6 @@ tests/worker_process_tests: tests/worker_process_tests.cpp src/scripting/worker_
 	$(CXX) $(CPPFLAGS) -std=c++17 -Wall -Wextra -Werror -O2 $< -lpthread -o $@
 test-workers: tests/worker_process_tests
 	./tests/worker_process_tests
+
+tests/hmac_tests: tests/hmac_tests.cpp src/io/hmac_sha256.h src/io/sha256.h
+	$(CXX) $(CPPFLAGS) -std=c++11 -Wall -Wextra -Werror -O2 $(EXTRA_CXXFLAGS) $< $(EXTRA_LDFLAGS) -o $@

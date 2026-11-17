@@ -154,3 +154,8 @@ $(BUILD_DIR)/asset_io_tests.exe: tests/asset_io_tests.cpp src/io/asset_io.h src/
 	mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LDFLAGS) -o $@
 tests: $(BUILD_DIR)/asset_io_tests.exe
+
+$(BUILD_DIR)/hmac_tests.exe: tests/hmac_tests.cpp src/io/hmac_sha256.h src/io/sha256.h
+	mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) -std=c++11 -Wall -Wextra -Werror -O2 $< $(LDFLAGS) -o $@
+tests: $(BUILD_DIR)/hmac_tests.exe
