@@ -11,5 +11,5 @@ int main(void){
   keys[0].Easing=1;lnx_animation_sample(keys,2,.5,&pose);assert(fabs(pose.Position[0]-1.5625)<.00001);
   lnx_animation_sample(keys,2,20,&pose);assert(pose.Position[0]==10);
   assert(lnx_animation_time(2,2,1)==0&&lnx_animation_time(-.5,2,1)==1.5&&lnx_animation_time(8,2,0)==2);
-  puts("PASS: C11 animation interpolation, shortest rotation, easing, loop and endpoint");
+  puts("PASS: C17 animation interpolation, shortest rotation, easing, loop and endpoint");
 }

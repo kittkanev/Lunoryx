@@ -24,4 +24,4 @@ tests/render_parity_tests: tests/render_parity_tests.cpp
 tests/scene_shadow_tests: tests/scene_shadow_tests.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(GRAPHICS_LIBS) $(EXTRA_LDFLAGS) -o $@
 tests/studio_audio_tests: tests/studio_audio_tests.c build/audio-testing.o
-	$(CC) $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -O2 $^ -framework CoreAudio -framework AudioToolbox -framework AudioUnit $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) -std=c17 -Wall -Wextra -Werror -O2 $^ -framework CoreAudio -framework AudioToolbox -framework AudioUnit $(EXTRA_LDFLAGS) -o $@

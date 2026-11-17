@@ -57,10 +57,10 @@ tests/engine_tests: tests/engine_tests.cpp src/main.cpp src/core/scene_core.h sr
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DLUNORYX_TESTING tests/engine_tests.cpp $(filter-out src/main.o extensions/audio/audio_backend.o,$(OBJS)) build/audio-testing.o -o $@ $(LDFLAGS)
 
 extensions/audio/audio_backend.o: extensions/audio/audio_backend.c extensions/audio/audio_backend.h extensions/audio/miniaudio.h extensions/audio/stb_vorbis.c
-	$(CC) $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -Wno-unused-function -O2 $(EXTRA_CXXFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -std=c17 -Wall -Wextra -Werror -Wno-unused-function -O2 $(EXTRA_CXXFLAGS) -c $< -o $@
 
 tests/studio_audio_tests: tests/studio_audio_tests.c build/audio-testing.o
-	$(CC) $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -O2 $^ -lm -ldl -lpthread $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) -std=c17 -Wall -Wextra -Werror -O2 $^ -lm -ldl -lpthread $(EXTRA_LDFLAGS) -o $@
 
 extensions/modeling/boolean_adapter.o: extensions/modeling/boolean_adapter.cpp extensions/modeling/boolean_adapter.h build/deps/manifold-linux/src/libmanifold.a
 	$(CXX) $(CPPFLAGS) -std=c++17 -O2 -Wall -Wextra -Werror -Ibuild/deps/manifold/include -Ibuild/deps/manifold-linux/include $(EXTRA_CXXFLAGS) -c $< -o $@
@@ -141,11 +141,11 @@ test-shadows: tests/scene_shadow_tests
 	SDL_VIDEODRIVER=offscreen LIBGL_ALWAYS_SOFTWARE=1 ./tests/scene_shadow_tests
 
 tests/animation_tests: tests/animation_tests.c src/core/animation_core.h
-	$(CC) $(CPPFLAGS) -std=c11 -Wall -Wextra -Werror -O2 $< -lm -o $@
+	$(CC) $(CPPFLAGS) -std=c17 -Wall -Wextra -Werror -O2 $< -lm -o $@
 
 build/audio-testing.o: extensions/audio/audio_backend.c extensions/audio/audio_backend.h extensions/audio/miniaudio.h extensions/audio/stb_vorbis.c
 	mkdir -p build
-	$(CC) $(CPPFLAGS) -DLUNORYX_TESTING -std=c11 -Wall -Wextra -Werror -Wno-unused-function -O2 $(EXTRA_CXXFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -DLUNORYX_TESTING -std=c17 -Wall -Wextra -Werror -Wno-unused-function -O2 $(EXTRA_CXXFLAGS) -c $< -o $@
 
 build/main-testing.o: src/main.cpp $(wildcard src/*/*.h)
 	mkdir -p build
