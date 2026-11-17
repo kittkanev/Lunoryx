@@ -564,18 +564,19 @@
     {
       "id": "LIMIT-10",
       "phase": "F0",
-      "status": "open",
+      "status": "partial",
       "title": {
-        "ru": "Проекты schema 3, чтение schemas 1–3",
-        "en": "Schema 3 projects, reads schemas 1–3"
+        "en": "Schema 4 with schemas 1–3 migration and backups",
+        "ru": "Schema 4 с миграцией schemas 1–3 и резервными копиями"
       },
       "source": [
         "src/editor/editor_project.h",
-        "src/editor/project_workspace.h"
+        "src/editor/project_workspace.h",
+        "src/io/project_migration.h"
       ],
       "plan": {
-        "ru": "До санкции владельца не менять формат. Новую схему проектировать для skeleton/collider/material и миграции с отдельным .bak; .pre-1.3.bak сохранять.",
-        "en": "Do not change format without owner approval. Design new skeleton/collider/material schema and migrations with a separate .bak; retain .pre-1.3.bak."
+        "en": "Approved schema 4 foundation; before the first manifest/tracked-script write, preserve exact old manifest and recoverable external script source. Keep prior backups, reject conflicts, recover read-only and extend new fields through validated round trips.",
+        "ru": "Согласованная основа schema 4; до первой записи манифеста/скрипта сохранять исходный манифест и восстанавливаемый текст внешних скриптов. Сохранять прежние копии, отклонять конфликты, открывать recovery для чтения и добавлять новые поля с валидацией."
       },
       "test": {
         "ru": "Golden проекты 1/2/3, идемпотентная миграция, byte-identical backup, отказ без изменения исходника, обратное открытие по явно объявленному контракту.",
@@ -583,7 +584,11 @@
       },
       "origin_ids": [
         "REL-05"
-      ]
+      ],
+      "evidence": {
+        "local": "tests/project_migration_tests.h",
+        "native_ci": "pending"
+      }
     },
     {
       "id": "LIMIT-11",
@@ -706,14 +711,18 @@
         ".github/workflows/tests.yml"
       ],
       "plan": {
-        "ru": "Факт: C++17; C targets сейчас C11. Согласованно перевести production C на C17 с ABI-проверкой. Linux GCC, Windows MinGW, Apple Clang/macOS 15+; MSVC не заявлять без новой конфигурации.",
-        "en": "Current main build is C++17, C targets use C11. Move production C to C17 with ABI checks. Linux GCC, Windows MinGW, Apple Clang/macOS 15+; no MSVC claim without a supported build."
+        "en": "Production C++17 and C17 build rules are set; retain ABI and compatibility fixtures. Verify Linux GCC, Windows MinGW and Apple Clang/macOS 15+ natively; no MSVC claim without a supported build.",
+        "ru": "Правила production C++17 и C17 настроены; сохранить ABI и compatibility fixtures. Проверить нативно Linux GCC, Windows MinGW и Apple Clang/macOS 15+; MSVC не заявлять без поддерживаемой сборки."
       },
       "test": {
         "ru": "Нативный CI каждой платформы, C/C++ header ABI и строгие warnings; compile на C17; обновление матрицы только с реальным evidence.",
         "en": "Native CI on each platform, C/C++ ABI/header checks, strict warnings and C17 compile; expand claims only with evidence."
       },
-      "origin_ids": []
+      "origin_ids": [],
+      "evidence": {
+        "local": "docs/validation/v1.4.0-c17.md",
+        "native_ci": "pending"
+      }
     },
     {
       "id": "LIMIT-16",

@@ -24,6 +24,7 @@ static void CheckLua(const char* script) {
 #include "v131_regressions.h"
 #include "package_key_fixture.h"
 #include "v140_auth_regressions.h"
+#include "project_migration_tests.h"
 static int ThrowingBinding(lua_State*) { throw std::runtime_error("test exception"); }
 int main() {
     TestPackageKey packageKey;
@@ -182,7 +183,7 @@ int main() {
     {std::ofstream broken("tests/broken-project.lunoryx");broken<<"{bad json";}
     assert(!LoadStudioProject("tests/broken-project.lunoryx")&&g_Objects[0].Name==savedName);
     nlohmann::json corrupt;{std::ifstream f("tests/test-project.lunoryx");f>>corrupt;}
-    auto legacy=corrupt;legacy["schema"]=1;legacy.erase("sounds");{std::ofstream f("tests/legacy-project.lunoryx");f<<legacy;}assert(LoadStudioProject("tests/legacy-project.lunoryx")&&g_Sounds.empty());std::remove("tests/legacy-project.lunoryx");
+    auto legacy=corrupt;legacy["schema"]=1;legacy.erase("format_version");legacy.erase("sounds");{std::ofstream f("tests/legacy-project.lunoryx");f<<legacy;}assert(LoadStudioProject("tests/legacy-project.lunoryx")&&g_Sounds.empty());std::remove("tests/legacy-project.lunoryx");
     corrupt["objects"].back()["indices"][0]=4294967295u;
     {std::ofstream broken("tests/broken-project.lunoryx");broken<<corrupt;}
     assert(!LoadStudioProject("tests/broken-project.lunoryx")&&g_Objects.size()==savedCount);
@@ -233,5 +234,6 @@ int main() {
     CheckV13Regressions();
     CheckV131Regressions();
     CheckV140PackageAuthentication();
+    CheckProjectMigration();
     std::cout << "PASS: Lua bounds, stack recovery, hostile metamethods, GLB buffer round trip\n";
 }

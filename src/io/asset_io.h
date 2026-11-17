@@ -295,6 +295,16 @@ inline void WriteAssetFileAtomic(const std::string& destination,const void* data
   bool ok=std::fwrite(data,1,size,file)==size;if(std::fclose(file))ok=false;
   try{if(!ok)throw std::runtime_error("Cannot finish output");ReplaceAssetFile(temporary,destination);}catch(...){RemoveAssetFile(temporary);throw;}
 }
+inline void WriteNewAssetFileAtomic(const std::string& destination,const void* data,size_t size) {
+  std::string temporary;FILE* file=OpenTemporaryAsset(destination,temporary);
+  if(!file)throw std::runtime_error("Cannot open new output staging file");
+  bool ok=std::fwrite(data,1,size,file)==size;if(std::fclose(file))ok=false;
+  try{
+    if(!ok)throw std::runtime_error("Cannot finish new output");
+    std::lock_guard<std::recursive_mutex> lock(AssetPolicyMutex());CheckAssetWriteTarget(destination);
+    if(!SecureReplaceAsset(temporary,destination,false))throw std::runtime_error("New output is not anchored");
+  }catch(...){RemoveAssetFile(temporary);throw;}
+}
 inline bool SameAssetFile(const std::string& a,const std::string& b) {
 #ifdef _WIN32
   HANDLE left=CreateFileW(WidePath(a).c_str(),FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,0,nullptr);

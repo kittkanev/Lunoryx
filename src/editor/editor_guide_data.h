@@ -18,7 +18,7 @@ Play Simulation / F6 starts the runtime and startup Lua script. Stop restores th
 - Edit > Undo/Redo отменяет завершённые изменения сцены. F11 разворачивает редактор кода, F5 запускает скрипт.
 ### Запуск игры
 Play Simulation / F6 запускает физику и стартовый Lua-скрипт. Stop возвращает сцену, ресурсы и окружение к состоянию до запуска. Сохраняйте и собирайте игру после остановки. Загруженные скрипты выполняются только по явному запуску или как назначенный стартовый скрипт.)GUIDE"}},
-{{"02 · Animation timeline","02 · Анимации"},{R"GUIDE(Open Window > Animation and select an object. Each object has one clip with position, rotation, scale and color keys. The sampler is written in C11 and runs in both Studio and standalone games.
+{{"02 · Animation timeline","02 · Анимации"},{R"GUIDE(Open Window > Animation and select an object. Each object has one clip with position, rotation, scale and color keys. The sampler is written in C17 and runs in both Studio and standalone games.
 ### Author a clip
 - Set Duration, Loop and Speed. At time 0, edit the pose in Properties and press Capture current pose.
 - Move the Time slider, then Stop / restore pose to leave preview. Edit the new pose and capture it at that time. Existing timestamps are replaced.
@@ -36,7 +36,7 @@ animation_key(box, 2, 1)
 animation_play(box)
 -- animation_stop(box) freezes the current pose
 ```
-Limits: 256 keys per object; duration 0.01..3600 seconds; speed 0.01..100. Clips are stored in .lunoryx and packed Game.exe. This release animates objects, not skeletal skinning; GLB export remains a static scene.)GUIDE",R"GUIDE(Откройте Window > Animation и выделите объект. У каждого объекта один клип с ключами положения, вращения, масштаба и цвета. Интерполяция написана на C11 и работает в редакторе и отдельной игре.
+Limits: 256 keys per object; duration 0.01..3600 seconds; speed 0.01..100. Clips are stored in .lunoryx and packed Game.exe. This release animates objects, not skeletal skinning; GLB export remains a static scene.)GUIDE",R"GUIDE(Откройте Window > Animation и выделите объект. У каждого объекта один клип с ключами положения, вращения, масштаба и цвета. Интерполяция написана на C17 и работает в редакторе и отдельной игре.
 ### Создание клипа
 - Задайте Duration, Loop и Speed. На времени 0 измените позу в Properties и нажмите Capture current pose.
 - Переместите Time, затем нажмите Stop / restore pose для выхода из предпросмотра. Измените позу и запишите ключ на выбранном времени. Ключ с тем же временем заменяется.
@@ -252,4 +252,21 @@ function on_gui_click(id)
 end
 ```
 )GUIDE"}},
+{{"10 · Projects and schema migration","10 · Проекты и миграция формата"},{R"GUIDE(The Projects launcher creates or opens a local folder containing project.lunoryx, scripts/, assets/ and recovery snapshots. Everything works offline.
+### Schema 4
+The 1.4.0 development branch writes schema/format 4 and reads schemas 1–4. Old engine versions may reject schema 4. Opening an old project is read-only until you edit/save its files.
+Before the first write to an old project or any tracked script, Studio creates two sibling backups:
+- .pre-1.4.bak keeps the original manifest bytes exactly.
+- .pre-1.4.recovery.lunoryx keeps the old project with tracked script text captured from disk, so later script writes do not change recovery source. Relative assets stay in the original folder; keep that folder and its assets.
+- Existing .pre-1.3.bak is preserved. Backups are never overwritten by migration. An existing conflicting or missing recovery stops the write; resolve the backup conflict or save under another filename.
+Use Open pre-1.4 recovery to inspect the saved scene/source. Backup projects are read-only: choose Save Project As with another filename to save recovered work. Opening a backup does not execute scripts. The backups are migration snapshots, not a history of external changes to assets or untracked files.
+Saving during Play is refused before writing project scripts; Stop first. New projects do not need a migration backup.)GUIDE",R"GUIDE(Стартовое окно Projects создаёт или открывает локальную папку с project.lunoryx, scripts/, assets/ и recovery-снимками. Всё работает офлайн.
+### Schema 4
+Ветка разработки 1.4.0 записывает schema/format 4 и читает schemas 1–4. Старые версии движка могут не открыть schema 4. Открытие старого проекта не записывает файлы до редактирования/сохранения.
+До первой записи старого проекта или отслеживаемого скрипта Studio создаёт рядом две резервные копии:
+- .pre-1.4.bak сохраняет исходные байты манифеста.
+- .pre-1.4.recovery.lunoryx сохраняет старую сцену с текстом отслеживаемых скриптов с диска: последующая запись скриптов не меняет их резервный текст. Относительные ассеты остаются в исходной папке; сохраняйте её вместе с assets.
+- Существующая .pre-1.3.bak сохраняется. Миграция не перезаписывает резервные копии. Конфликтующая копия или отсутствие recovery останавливает запись; разрешите конфликт либо сохраните под другим именем.
+Open pre-1.4 recovery открывает резервную сцену/код. Резервные проекты доступны для чтения: сохраняйте восстановленную работу через Save Project As под другим именем. При открытии скрипты не выполняются. Эти снимки не хранят историю внешних изменений ассетов и неотслеживаемых файлов.
+Сохранение во время Play отклоняется до записи скриптов; сначала нажмите Stop. Новым проектам резервирование миграции не нужно.)GUIDE"}},
 };

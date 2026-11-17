@@ -69,6 +69,7 @@ static std::vector<T> ReadUnsignedArray(const nlohmann::json &value,
   return result;
 }
 #include "src/io/binary_json.h"
+#include "src/io/project_migration.h"
 #include "src/runtime/game_project.h"
 static StudioMesh ReadModelMesh(const nlohmann::json &j) {
   StudioMesh m;
@@ -170,7 +171,7 @@ static nlohmann::json StudioProjectJson(const std::string& path,bool forGame=fal
         }
         for(int k=0;k<3;++k)if(!finiteRange(skyTop[k],0,1)||!finiteRange(skyBottom[k],0,1))throw std::runtime_error("Invalid sky color");
         if(skyPreset<0||skyPreset>2||!finiteRange(physics.Gravity,-30,0))throw std::runtime_error("Invalid environment settings");
-        nlohmann::json root={{"schema",3},{"objects",nlohmann::json::array()},{"scripts",nlohmann::json::array()},
+        nlohmann::json root={{"schema",ProjectMigration::CurrentSchema},{"objects",nlohmann::json::array()},{"scripts",nlohmann::json::array()},
             {"sky_top",SaveVector(skyTop)},{"sky_bottom",SaveVector(skyBottom)},{"sky_preset",skyPreset},{"gravity",physics.Gravity},{"ground",physics.Ground},{"continuous_collision",physics.Continuous}};
         for(const auto& o:sceneObjects) {
             nlohmann::json j={{"name",o.Name},{"type",int(o.Type)},{"position",SaveVector(o.Position)},{"rotation",SaveVector(o.Rotation)},{"scale",SaveVector(o.Scale)},
@@ -184,7 +185,7 @@ static nlohmann::json StudioProjectJson(const std::string& path,bool forGame=fal
             SaveModelFields(j,o,path,forGame);
             root["objects"].push_back(std::move(j));
         }
-        root["format_version"]=3;
+        root["format_version"]=ProjectMigration::CurrentSchema;
         if(!g_ProjectDirectory.empty())root["project"]={{"name",g_ProjectName},{"directory_format",1}};
         root["sounds"]=nlohmann::json::array();
         if(soundList.size()>64)throw std::runtime_error("At most 64 sounds per project");
@@ -207,11 +208,12 @@ static bool SaveStudioProject(const std::string& path){
     if(g_PhysicsRunning){AppendConsole("Project save failed: stop simulation before saving\n");return false;}
     try {
         CheckAssetWriteTarget(path);
+        if(ProjectMigration::IsBackupPath(path))throw std::runtime_error("Migration backups are read-only; use Save Project As with another filename");
         StopAnimationPreview();
         auto root=StudioProjectJson(path);
         const std::string document=root.dump();
         if(document.size()>32*1024*1024)throw std::runtime_error("Project exceeds 32 MiB limit");
-        if(AssetExists(path)){auto previous=ReadAssetFile(path,32*1024*1024);try{CheckJsonBudget(previous.begin(),previous.end());auto old=nlohmann::json::parse(previous.begin(),previous.end());if(old.value("schema",1)<3&&!AssetExists(SiblingAssetPath(path,".pre-1.3.bak")))WriteAssetFileAtomic(SiblingAssetPath(path,".pre-1.3.bak"),previous.data(),previous.size());}catch(const nlohmann::json::exception&){} }
+        ProjectMigration::EnsureBackup(path);
         WriteAssetFileAtomic(path,document.data(),document.size());
         g_OpenedProject=AbsoluteAssetPath(path);g_SavedDocumentHash=CompleteDocumentHash();
         AppendConsole("Saved project: "+path+"\n");return true;
@@ -231,7 +233,8 @@ static bool LoadStudioProject(const std::string& path) {
         CheckJsonBudget(data.begin(),data.end());
         size_t nodes=0;
         nlohmann::json root=nlohmann::json::parse(data.begin(),data.end(),[&](int depth,nlohmann::json::parse_event_t,nlohmann::json&){if(depth>128||++nodes>4000000)throw std::runtime_error("Project structure exceeds parsing budget");return true;});
-        const int schema=ReadInteger(root.at("schema"),1,3);
+        const int schema=ReadInteger(root.at("schema"),1,ProjectMigration::CurrentSchema);
+        if(root.contains("format_version")&&ReadInteger(root.at("format_version"),1,ProjectMigration::CurrentSchema)!=schema)throw std::runtime_error("Project schema and format version disagree");
         const auto& saved=root.at("objects");if(!saved.is_array()||saved.size()>10000)throw std::runtime_error("Invalid object count");
         std::vector<GameObject> objects;objects.reserve(saved.size());size_t totalVertices=0;
         for(const auto& j:saved) {
@@ -308,7 +311,7 @@ static std::string g_PendingProjectPath;
 static bool g_ExitRequested=false,g_OpenSaveAs=false;
 static void PerformProjectAction(){int action=g_PendingProjectAction;g_PendingProjectAction=0;if(action==1)g_ExitRequested=true;else if(action==2)LoadStudioProject(g_PendingProjectPath);else if(action==3){g_Objects.clear();g_SelectedObjectIndex=-1;}else if(action==4)CreateSampleGame();else if(action==5)g_ShowProjectPicker=true;}
 static void RequestProjectAction(int action,const std::string& path=""){if(g_PhysicsRunning)StopSimulation();g_PendingProjectAction=action;g_PendingProjectPath=path;if(!ProjectDirty())PerformProjectAction();}
-static bool SaveCurrentProject(){if(!SyncProjectFiles())return false;return SaveStudioProject(g_OpenedProject.empty()?std::string(g_ProjectPath):g_OpenedProject);}
+static bool SaveCurrentProject(){auto path=g_OpenedProject.empty()?std::string(g_ProjectPath):g_OpenedProject;if(g_PhysicsRunning)return SaveStudioProject(path);if(!SyncProjectFiles())return false;return SaveStudioProject(path);}
 static void RenderProjectDialogs(){
     if(g_PendingProjectAction)ImGui::OpenPopup("Unsaved project");
     if(ImGui::BeginPopupModal("Unsaved project",nullptr,ImGuiWindowFlags_AlwaysAutoResize)){

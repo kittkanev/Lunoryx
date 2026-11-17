@@ -51,3 +51,4 @@ __pycache__/
 
 /tests/worker_process_tests
 /tests/hmac_tests
+/tests/*.pre-1.4.bak

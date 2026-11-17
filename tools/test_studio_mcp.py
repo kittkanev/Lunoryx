@@ -29,7 +29,7 @@ with tempfile.TemporaryDirectory(dir=Path.cwd()) as tmp:
     project=str(Path(tmp)/'project.lunoryx')
     assert not call('add_sound',path=str(Path(tmp)/'sound.wav'),name='MCP sound')['isError']
     assert not call('project_save',path=project)['isError']
-    data=json.loads(Path(project).read_text());assert data['schema']==3 and data['sounds'][0]['name']=='MCP sound'
+    data=json.loads(Path(project).read_text());assert data['schema']==4 and data['sounds'][0]['name']=='MCP sound'
     assert not call('remove_object',id=obj)['isError']
     assert not call('project_load',path=project)['isError']
     assert len(json.loads(call('scene_list')['content'][0]['text']))==1

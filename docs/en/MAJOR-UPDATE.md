@@ -117,15 +117,17 @@ Plan: Preserve 1.3.1 lifecycle regressions; extend project/asset churn, live-res
 
 Test: 100 resizes, 50 HDR/post switches, failed upload cleanup, 10 WAV + orphan; sustained named-GPU/driver runs with measurements; no zero-leak claim.
 
-### LIMIT-10 — Schema 3 projects, reads schemas 1–3
+### LIMIT-10 — Schema 4 with schemas 1–3 migration and backups
 
-Status: Not implemented; owner decision received.
+Status: Partial; schema 4 migration implemented, native CI pending.
 
 Source: [editor_project.h](../../src/editor/editor_project.h), [project_workspace.h](../../src/editor/project_workspace.h).
 
-Plan: Do not change format without owner approval. Design new skeleton/collider/material schema and migrations with a separate .bak; retain .pre-1.3.bak.
+Plan: Approved schema 4 foundation; before the first manifest/tracked-script write, preserve exact old manifest and recoverable external script source. Keep prior backups, reject conflicts, recover read-only and extend new fields through validated round trips.
 
 Test: Schema 1/2/3 goldens, idempotent migration, byte-identical backup, failed migration leaves source unchanged, explicit backward-reader contract.
+
+Implementation: [project migration validation](../validation/v1.4.0-project-migration.md).
 
 ### LIMIT-11 — Document, script, undo and resource bounds
 
@@ -153,7 +155,7 @@ Status: Partial.
 
 Source: [Makefile](../../Makefile), [Makefile.win](../../Makefile.win), [Makefile.mac](../../Makefile.mac), [tests.yml](../../.github/workflows/tests.yml).
 
-Plan: Current main build is C++17, C targets use C11. Move production C to C17 with ABI checks. Linux GCC, Windows MinGW, Apple Clang/macOS 15+; no MSVC claim without a supported build.
+Plan: Production C++17 and C17 build rules are set; retain ABI and compatibility fixtures. Verify Linux GCC, Windows MinGW and Apple Clang/macOS 15+ natively; no MSVC claim without a supported build.
 
 Test: Native CI on each platform, C/C++ ABI/header checks, strict warnings and C17 compile; expand claims only with evidence.
 

@@ -117,15 +117,17 @@
 
 Тест: 100 resize, 50 HDR/post switches, failed upload cleanup, 10 WAV + orphan; длительный цикл на конкретных GPU/драйверах с замерами; не обещать zero leaks.
 
-### LIMIT-10 — Проекты schema 3, чтение schemas 1–3
+### LIMIT-10 — Schema 4 с миграцией schemas 1–3 и резервными копиями
 
-Статус: Не реализовано; решение владельца получено.
+Статус: Частично; миграция schema 4 реализована, нативный CI ожидается.
 
 Код: [editor_project.h](../../src/editor/editor_project.h), [project_workspace.h](../../src/editor/project_workspace.h).
 
-План: До санкции владельца не менять формат. Новую схему проектировать для skeleton/collider/material и миграции с отдельным .bak; .pre-1.3.bak сохранять.
+План: Согласованная основа schema 4; до первой записи манифеста/скрипта сохранять исходный манифест и восстанавливаемый текст внешних скриптов. Сохранять прежние копии, отклонять конфликты, открывать recovery для чтения и добавлять новые поля с валидацией.
 
 Тест: Golden проекты 1/2/3, идемпотентная миграция, byte-identical backup, отказ без изменения исходника, обратное открытие по явно объявленному контракту.
+
+Реализация: [проверка миграции проекта](../validation/v1.4.0-project-migration.md).
 
 ### LIMIT-11 — Ограничения документа, скриптов, undo и ресурсов
 
@@ -153,7 +155,7 @@
 
 Код: [Makefile](../../Makefile), [Makefile.win](../../Makefile.win), [Makefile.mac](../../Makefile.mac), [tests.yml](../../.github/workflows/tests.yml).
 
-План: Факт: C++17; C targets сейчас C11. Согласованно перевести production C на C17 с ABI-проверкой. Linux GCC, Windows MinGW, Apple Clang/macOS 15+; MSVC не заявлять без новой конфигурации.
+План: Правила production C++17 и C17 настроены; сохранить ABI и compatibility fixtures. Проверить нативно Linux GCC, Windows MinGW и Apple Clang/macOS 15+; MSVC не заявлять без поддерживаемой сборки.
 
 Тест: Нативный CI каждой платформы, C/C++ header ABI и строгие warnings; compile на C17; обновление матрицы только с реальным evidence.
 

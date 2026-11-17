@@ -14,7 +14,7 @@ Play Simulation / F6 starts the runtime and startup Lua script. Stop restores th
 
 ## 02 · Animation timeline
 
-Open Window > Animation and select an object. Each object has one clip with position, rotation, scale and color keys. The sampler is written in C11 and runs in both Studio and standalone games.
+Open Window > Animation and select an object. Each object has one clip with position, rotation, scale and color keys. The sampler is written in C17 and runs in both Studio and standalone games.
 ### Author a clip
 - Set Duration, Loop and Speed. At time 0, edit the pose in Properties and press Capture current pose.
 - Move the Time slider, then Stop / restore pose to leave preview. Edit the new pose and capture it at that time. Existing timestamps are replaced.
@@ -155,3 +155,16 @@ function on_gui_click(id)
     if id == 'restart' then restart_game() end
 end
 ```
+
+
+## 10 · Projects and schema migration
+
+The Projects launcher creates or opens a local folder containing project.lunoryx, scripts/, assets/ and recovery snapshots. Everything works offline.
+### Schema 4
+The 1.4.0 development branch writes schema/format 4 and reads schemas 1–4. Old engine versions may reject schema 4. Opening an old project is read-only until you edit/save its files.
+Before the first write to an old project or any tracked script, Studio creates two sibling backups:
+- .pre-1.4.bak keeps the original manifest bytes exactly.
+- .pre-1.4.recovery.lunoryx keeps the old project with tracked script text captured from disk, so later script writes do not change recovery source. Relative assets stay in the original folder; keep that folder and its assets.
+- Existing .pre-1.3.bak is preserved. Backups are never overwritten by migration. An existing conflicting or missing recovery stops the write; resolve the backup conflict or save under another filename.
+Use Open pre-1.4 recovery to inspect the saved scene/source. Backup projects are read-only: choose Save Project As with another filename to save recovered work. Opening a backup does not execute scripts. The backups are migration snapshots, not a history of external changes to assets or untracked files.
+Saving during Play is refused before writing project scripts; Stop first. New projects do not need a migration backup.

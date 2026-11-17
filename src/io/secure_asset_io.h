@@ -173,17 +173,24 @@ inline bool SecureRemoveAsset(const std::string& path){
 #endif
   values.erase(it);return true;
 }
-inline bool SecureReplaceAsset(const std::string& from,const std::string& to){
+inline bool SecureReplaceAsset(const std::string& from,const std::string& to,bool overwrite){
   std::lock_guard<std::recursive_mutex> lock(AssetPolicyMutex());auto& values=TemporaryAssetOperations();auto it=values.find(from);if(it==values.end())return false;auto& operation=it->second;if(AbsoluteAssetPath(to)!=operation.Destination)throw std::runtime_error("Temporary output destination changed");
 #ifdef _WIN32
-  auto name=WidePath(operation.Parent->Name);std::vector<unsigned char> bytes(offsetof(FILE_RENAME_INFO,FileName)+name.size()*sizeof(wchar_t));auto rename=reinterpret_cast<FILE_RENAME_INFO*>(bytes.data());rename->ReplaceIfExists=TRUE;rename->RootDirectory=operation.Parent->Directory();rename->FileNameLength=DWORD(name.size()*sizeof(wchar_t));std::memcpy(rename->FileName,name.data(),rename->FileNameLength);
+  auto name=WidePath(operation.Parent->Name);std::vector<unsigned char> bytes(offsetof(FILE_RENAME_INFO,FileName)+name.size()*sizeof(wchar_t));auto rename=reinterpret_cast<FILE_RENAME_INFO*>(bytes.data());rename->ReplaceIfExists=overwrite?TRUE:FALSE;rename->RootDirectory=operation.Parent->Directory();rename->FileNameLength=DWORD(name.size()*sizeof(wchar_t));std::memcpy(rename->FileName,name.data(),rename->FileNameLength);
   bool replaced=false;DWORD failure=0;for(int attempt=0;attempt<50;++attempt){if(RenameWindowsHandle(operation.File.get(),rename,DWORD(bytes.size()))){replaced=true;break;}failure=GetLastError();if(failure!=ERROR_SHARING_VIOLATION&&failure!=ERROR_LOCK_VIOLATION)break;Sleep(10);}
   if(!replaced)throw std::runtime_error("Cannot atomically replace output (Windows error "+std::to_string(failure)+")");
 #else
-  if(renameat(operation.Parent->Descriptor,operation.Temporary.c_str(),operation.Parent->Descriptor,operation.Parent->Name.c_str()))throw std::runtime_error("Cannot atomically replace output");
+  if(overwrite){if(renameat(operation.Parent->Descriptor,operation.Temporary.c_str(),operation.Parent->Descriptor,operation.Parent->Name.c_str()))throw std::runtime_error("Cannot atomically replace output");}
+  else {
+    // linkat publishes the complete regular file atomically without replacing
+    // an existing name. Both entries are relative to the same pinned parent.
+    if(linkat(operation.Parent->Descriptor,operation.Temporary.c_str(),operation.Parent->Descriptor,operation.Parent->Name.c_str(),0))throw std::runtime_error("Cannot publish output without replacing an existing file");
+    if(unlinkat(operation.Parent->Descriptor,operation.Temporary.c_str(),0))throw std::runtime_error("Cannot remove published output staging file");
+  }
 #endif
   values.erase(it);return true;
 }
+inline bool SecureReplaceAsset(const std::string& from,const std::string& to){return SecureReplaceAsset(from,to,true);}
 inline void MakeAssetExecutable(const std::string& path){
   std::lock_guard<std::recursive_mutex> lock(AssetPolicyMutex());
 #ifndef _WIN32

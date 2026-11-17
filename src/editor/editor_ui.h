@@ -85,6 +85,10 @@ static void StudioMenu() {
     if(ImGui::MenuItem("Save project","Ctrl+S"))SaveCurrentProject();
     if(ImGui::MenuItem("Build Game"))g_RequestBuild=true;
     if(ImGui::MenuItem("Open recovery"))RequestProjectAction(2,ProjectRecoveryPath());
+    if(!g_OpenedProject.empty()){
+        auto previous=SiblingAssetPath(g_OpenedProject,".pre-1.4.recovery.lunoryx");
+        if(ImGui::MenuItem("Open pre-1.4 recovery",nullptr,false,AssetExists(previous)))RequestProjectAction(2,previous);
+    }
     if(ImGui::BeginMenu("Edit")) {
         ImGui::BeginDisabled(g_PhysicsRunning);
         if(ImGui::MenuItem("Undo scene edit","Ctrl+Z")){if(g_ObjectHistory.Undo(g_Objects)){g_SelectedObjectIndex=-1;g_SimulationRunning=false;}}
