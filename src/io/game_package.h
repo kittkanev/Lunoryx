@@ -259,7 +259,8 @@ inline void Write(const std::string& runtime,const std::string& destination,cons
     if(SeekFile64(source.get(),0,SEEK_END))throw std::runtime_error("Cannot inspect runtime");
     int64_t sourceSize=TellFile64(source.get());if(sourceSize<0)throw std::runtime_error("Cannot inspect runtime size");
     if(sourceSize>128*1024*1024)throw std::runtime_error("Runtime executable exceeds 128 MiB budget");
-    auto inspect=[&](uint64_t at,size_t count){if(at>uint64_t(sourceSize)||count>uint64_t(sourceSize)-at||SeekFile64(source.get(),int64_t(at),SEEK_SET))throw std::runtime_error("Cannot inspect runtime footer");std::vector<unsigned char> bytes(count);if(std::fread(bytes.data(),1,count,source.get())!=count)throw std::runtime_error("Cannot inspect runtime footer");return bytes;};
+    FILE* input=source.get();
+    auto inspect=[input,sourceSize](uint64_t at,size_t count){if(at>uint64_t(sourceSize)||count>uint64_t(sourceSize)-at||SeekFile64(input,int64_t(at),SEEK_SET))throw std::runtime_error("Cannot inspect runtime footer");std::vector<unsigned char> bytes(count);if(std::fread(bytes.data(),1,count,input)!=count)throw std::runtime_error("Cannot inspect runtime footer");return bytes;};
     if(!LocateFooter(uint64_t(sourceSize),inspect).Bytes.empty())throw std::runtime_error("Choose the editor executable as runtime template");
     if(SeekFile64(source.get(),0,SEEK_SET))throw std::runtime_error("Cannot rewind runtime");
 #ifdef _WIN32
